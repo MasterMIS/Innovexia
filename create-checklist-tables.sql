@@ -10,12 +10,12 @@ CREATE TABLE IF NOT EXISTS checklists (
   verifier_name VARCHAR(255),
   attachment_required BOOLEAN DEFAULT false,
   frequency VARCHAR(50) NOT NULL, -- Daily, Weekly, Monthly, Quarterly, Yearly
-  from_date DATE NOT NULL,
-  due_date DATE NOT NULL,
+  from_date TIMESTAMPTZ NOT NULL,
+  due_date TIMESTAMPTZ NOT NULL,
   status VARCHAR(50) DEFAULT 'pending', -- pending, planned, overdue, completed
   created_by INTEGER REFERENCES users(id),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Create index for faster queries

@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import LayoutWrapper from '@/components/LayoutWrapper';
 import { ensureSessionId } from '@/utils/session';
+import { useToast } from '@/components/ToastProvider';
+import { useLoader } from '@/components/LoaderProvider';
 
 interface Checklist {
   id: number;
@@ -62,6 +64,12 @@ export default function ChecklistPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [editingChecklist, setEditingChecklist] = useState<Checklist | null>(null);
+  
+  // Sorting and pagination states
+  const [sortColumn, setSortColumn] = useState<string>('due_date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
   
   // Dropdown search states
   const [assigneeSearch, setAssigneeSearch] = useState('');
@@ -141,17 +149,29 @@ export default function ChecklistPage() {
   const formatDateToLocalTimezone = (isoString: string) => {
     if (!isoString) return '';
     const date = new Date(isoString);
-    // Format to Indian timezone explicitly
-    return date.toLocaleString('en-IN', {
-      timeZone: 'Asia/Kolkata',
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    });
+    // Database already has IST offset added, so just format without timezone conversion
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const year = date.getUTCFullYear();
+    const hours = String(date.getUTCHours()).padStart(2, '0');
+    const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+    const seconds = String(date.getUTCSeconds()).padStart(2, '0');
+    
+    return `${day}/${month}/${year}, ${hours}:${minutes}:${seconds}`;
+  };
+
+  // Format date for form input display (uses local time as selected by user)
+  const formatDateForInput = (isoString: string) => {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    
+    return `${day}/${month}/${year}, ${hours}:${minutes}:${seconds}`;
   };
 
   // Click outside handler to close dropdowns
@@ -222,9 +242,13 @@ export default function ChecklistPage() {
     }
   };
 
+  const toast = useToast();
+  const loader = useLoader();
+
   const handleAddChecklist = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      loader.showLoader();
       const response = await fetch('/api/checklists', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -235,12 +259,20 @@ export default function ChecklistPage() {
       });
 
       if (response.ok) {
+        const data = await response.json();
+        loader.hideLoader();
+        toast.success(`${data.count || 1} checklist task(s) created successfully!`);
         fetchChecklists();
         setShowAddModal(false);
         resetForm();
+      } else {
+        loader.hideLoader();
+        toast.error('Failed to create checklist');
       }
     } catch (error) {
       console.error('Error adding checklist:', error);
+      loader.hideLoader();
+      toast.error('Error creating checklist');
     }
   };
 
@@ -359,8 +391,18 @@ export default function ChecklistPage() {
     }
   };
 
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+    setCurrentPage(1);
+  };
+
   const filteredChecklists = useMemo(() => {
-    return checklists.filter(checklist => {
+    let filtered = checklists.filter(checklist => {
       const matchesSearch = searchTerm === '' || 
         checklist.question.toLowerCase().includes(searchTerm.toLowerCase()) ||
         checklist.assignee.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -369,7 +411,66 @@ export default function ChecklistPage() {
       
       return matchesSearch;
     });
-  }, [checklists, searchTerm]);
+
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let aVal: any = a[sortColumn as keyof Checklist];
+      let bVal: any = b[sortColumn as keyof Checklist];
+
+      // Handle null/undefined values
+      if (aVal === null || aVal === undefined) aVal = '';
+      if (bVal === null || bVal === undefined) bVal = '';
+
+      // Convert to comparable values
+      if (sortColumn === 'due_date' || sortColumn === 'created_at') {
+        aVal = new Date(aVal).getTime();
+        bVal = new Date(bVal).getTime();
+      } else if (typeof aVal === 'string') {
+        aVal = aVal.toLowerCase();
+        bVal = bVal.toLowerCase();
+      }
+
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return filtered;
+  }, [checklists, searchTerm, sortColumn, sortDirection]);
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredChecklists.length / itemsPerPage);
+  const paginatedChecklists = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredChecklists.slice(startIndex, endIndex);
+  }, [filteredChecklists, currentPage, itemsPerPage]);
+
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisible = 5;
+    
+    if (totalPages <= maxVisible) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      if (currentPage <= 3) {
+        for (let i = 1; i <= 4; i++) pages.push(i);
+        pages.push('...');
+        pages.push(totalPages);
+      } else if (currentPage >= totalPages - 2) {
+        pages.push(1);
+        pages.push('...');
+        for (let i = totalPages - 3; i <= totalPages; i++) pages.push(i);
+      } else {
+        pages.push(1);
+        pages.push('...');
+        for (let i = currentPage - 1; i <= currentPage + 1; i++) pages.push(i);
+        pages.push('...');
+        pages.push(totalPages);
+      }
+    }
+    return pages;
+  };
 
   if (loading) {
     return (
@@ -442,21 +543,84 @@ export default function ChecklistPage() {
               <table className="w-full">
                 <thead>
                   <tr className="bg-gradient-to-r from-[#f4d24a] to-[#e5c33a]">
-                    <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">ID</th>
-                    <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Question/Task</th>
-                    <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Assignee</th>
-                    <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Doer</th>
-                    <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Priority</th>
-                    <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Department</th>
-                    <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Frequency</th>
-                    <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Due Date</th>
-                    <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Status</th>
+                    <th onClick={() => handleSort('id')} className="px-6 py-4 text-left text-sm font-bold text-gray-900 cursor-pointer hover:bg-[#e5c33a] transition-colors">
+                      <div className="flex items-center gap-2">
+                        ID
+                        {sortColumn === 'id' && (
+                          <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                        )}
+                      </div>
+                    </th>
+                    <th onClick={() => handleSort('question')} className="px-6 py-4 text-left text-sm font-bold text-gray-900 cursor-pointer hover:bg-[#e5c33a] transition-colors">
+                      <div className="flex items-center gap-2">
+                        Question/Task
+                        {sortColumn === 'question' && (
+                          <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                        )}
+                      </div>
+                    </th>
+                    <th onClick={() => handleSort('assignee')} className="px-6 py-4 text-left text-sm font-bold text-gray-900 cursor-pointer hover:bg-[#e5c33a] transition-colors">
+                      <div className="flex items-center gap-2">
+                        Assignee
+                        {sortColumn === 'assignee' && (
+                          <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                        )}
+                      </div>
+                    </th>
+                    <th onClick={() => handleSort('doer_name')} className="px-6 py-4 text-left text-sm font-bold text-gray-900 cursor-pointer hover:bg-[#e5c33a] transition-colors">
+                      <div className="flex items-center gap-2">
+                        Doer
+                        {sortColumn === 'doer_name' && (
+                          <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                        )}
+                      </div>
+                    </th>
+                    <th onClick={() => handleSort('priority')} className="px-6 py-4 text-left text-sm font-bold text-gray-900 cursor-pointer hover:bg-[#e5c33a] transition-colors">
+                      <div className="flex items-center gap-2">
+                        Priority
+                        {sortColumn === 'priority' && (
+                          <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                        )}
+                      </div>
+                    </th>
+                    <th onClick={() => handleSort('department')} className="px-6 py-4 text-left text-sm font-bold text-gray-900 cursor-pointer hover:bg-[#e5c33a] transition-colors">
+                      <div className="flex items-center gap-2">
+                        Department
+                        {sortColumn === 'department' && (
+                          <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                        )}
+                      </div>
+                    </th>
+                    <th onClick={() => handleSort('frequency')} className="px-6 py-4 text-left text-sm font-bold text-gray-900 cursor-pointer hover:bg-[#e5c33a] transition-colors">
+                      <div className="flex items-center gap-2">
+                        Frequency
+                        {sortColumn === 'frequency' && (
+                          <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                        )}
+                      </div>
+                    </th>
+                    <th onClick={() => handleSort('due_date')} className="px-6 py-4 text-left text-sm font-bold text-gray-900 cursor-pointer hover:bg-[#e5c33a] transition-colors">
+                      <div className="flex items-center gap-2">
+                        Due Date
+                        {sortColumn === 'due_date' && (
+                          <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                        )}
+                      </div>
+                    </th>
+                    <th onClick={() => handleSort('status')} className="px-6 py-4 text-left text-sm font-bold text-gray-900 cursor-pointer hover:bg-[#e5c33a] transition-colors">
+                      <div className="flex items-center gap-2">
+                        Status
+                        {sortColumn === 'status' && (
+                          <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                        )}
+                      </div>
+                    </th>
                     <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Verification</th>
                     <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#f4d24a]/10 dark:divide-slate-700">
-                  {filteredChecklists.length === 0 ? (
+                  {paginatedChecklists.length === 0 ? (
                     <tr>
                       <td colSpan={11} className="px-6 py-12 text-center">
                         <div className="flex flex-col items-center justify-center">
@@ -469,7 +633,7 @@ export default function ChecklistPage() {
                       </td>
                     </tr>
                   ) : (
-                    filteredChecklists.map((checklist) => (
+                    paginatedChecklists.map((checklist) => (
                       <motion.tr
                         key={checklist.id}
                         initial={{ opacity: 0 }}
@@ -531,7 +695,7 @@ export default function ChecklistPage() {
                         <td className="px-6 py-4">
                           <div className="text-sm">
                             <p className="text-gray-900 dark:text-white font-medium">
-                              {new Date(checklist.due_date).toLocaleDateString()}
+                              {formatDateToLocalTimezone(checklist.due_date)}
                             </p>
                           </div>
                         </td>
@@ -588,6 +752,62 @@ export default function ChecklistPage() {
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination Controls */}
+            {filteredChecklists.length > 0 && (
+              <div className="px-6 py-4 border-t border-[#f4d24a]/20 bg-white/50 dark:bg-slate-800/50">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                    Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredChecklists.length)} of {filteredChecklists.length} checklists
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                      className="px-3 py-2 rounded-lg bg-white dark:bg-slate-700 border border-[#f4d24a]/30 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#f4d24a]/10 transition-colors"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                      </svg>
+                    </motion.button>
+                    
+                    {getPageNumbers().map((page, index) => (
+                      page === '...' ? (
+                        <span key={`ellipsis-${index}`} className="px-3 py-2 text-gray-500 dark:text-gray-400">...</span>
+                      ) : (
+                        <motion.button
+                          key={page}
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => setCurrentPage(page as number)}
+                          className={`px-4 py-2 rounded-lg border transition-colors ${
+                            currentPage === page
+                              ? 'bg-gradient-to-r from-[#f4d24a] to-[#e5c33a] text-gray-900 font-bold border-[#f4d24a]'
+                              : 'bg-white dark:bg-slate-700 border-[#f4d24a]/30 hover:bg-[#f4d24a]/10'
+                          }`}
+                        >
+                          {page}
+                        </motion.button>
+                      )
+                    ))}
+                    
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-2 rounded-lg bg-white dark:bg-slate-700 border border-[#f4d24a]/30 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#f4d24a]/10 transition-colors"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </motion.button>
+                  </div>
+                </div>
+              </div>
+            )}
           </motion.div>
         </motion.div>
 
@@ -853,7 +1073,7 @@ export default function ChecklistPage() {
                             ? (selectedMultipleDates.length > 0 
                                 ? `Selected dates: ${selectedMultipleDates.map(d => new Date(d).getDate()).join(', ')}`
                                 : 'Click to select dates')
-                            : (formData.fromDateTime ? formatDateToLocalTimezone(formData.fromDateTime) : 'Select date & time')
+                            : (formData.fromDateTime ? formatDateForInput(formData.fromDateTime) : 'Select date & time')
                           }
                         </span>
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

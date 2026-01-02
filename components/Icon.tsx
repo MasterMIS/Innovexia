@@ -20,6 +20,9 @@ import {
   XCircle,
   Loader2,
   ChevronDown,
+  ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   Menu,
   X,
   Sun,
@@ -51,6 +54,9 @@ export type IconName =
   | 'info'
   | 'loader'
   | 'chevron-down'
+  | 'chevron-up'
+  | 'chevron-left'
+  | 'chevron-right'
   | 'menu'
   | 'close'
   | 'sun'
@@ -113,6 +119,12 @@ export default function Icon({ name, className = 'ui-icon', size = 20 }: IconPro
       return <Loader2 {...iconProps} className={`${className} animate-spin`} />;
     case 'chevron-down':
       return <ChevronDown {...iconProps} />;
+    case 'chevron-up':
+      return <ChevronUp {...iconProps} />;
+    case 'chevron-left':
+      return <ChevronLeft {...iconProps} />;
+    case 'chevron-right':
+      return <ChevronRight {...iconProps} />;
     case 'menu':
       return <Menu {...iconProps} />;
     case 'close':

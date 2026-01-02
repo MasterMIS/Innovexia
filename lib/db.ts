@@ -13,6 +13,9 @@ const sql = postgres(connectionString, {
   ssl: 'require',
 });
 
+// Set timezone to IST for all queries
+sql`SET TIME ZONE 'Asia/Kolkata'`.catch(err => console.error('Failed to set timezone:', err));
+
 // Helper function to execute queries with retry logic
 export async function executeQuery<T = any>(
   queryFn: () => Promise<T>,

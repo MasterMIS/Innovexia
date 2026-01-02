@@ -1,6 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 
+// Helper function to get day of week in IST (0=Sunday, 1=Monday, etc.)
+function getISTDayOfWeek(date: Date): number {
+  const istDateStr = date.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });
+  const istDate = new Date(istDateStr);
+  return istDate.getDay();
+}
+
+// Helper function to add IST offset for database storage
+function addISTOffset(date: Date): Date {
+  const istOffset = 5.5 * 60 * 60 * 1000; // 5 hours 30 minutes in milliseconds
+  return new Date(date.getTime() + istOffset);
+}
+
 // Helper function to calculate status based on due date
 function calculateStatus(dueDate: string): string {
   if (!dueDate) return 'pending';
@@ -27,11 +40,20 @@ function generateDatesFromFrequency(
   selectedDates?: string[]
 ): Date[] {
   const dates: Date[] = [];
-  const currentYear = new Date().getFullYear();
-  const yearEnd = new Date(currentYear, 11, 31, 23, 59, 59); // December 31 of current year at end of day
+  
+  // Get the time components from the original fromDate
+  const originalTime = {
+    hours: fromDate.getHours(),
+    minutes: fromDate.getMinutes(),
+    seconds: fromDate.getSeconds(),
+    milliseconds: fromDate.getMilliseconds()
+  };
+  
+  const currentYear = fromDate.getFullYear();
+  const yearEnd = new Date(currentYear, 11, 31, 23, 59, 59);
   
   let currentDate = new Date(fromDate);
-  // Reset time to start of day for date comparisons
+  // Reset time to start of day for date iteration only
   currentDate.setHours(0, 0, 0, 0);
   
   switch (frequency.toLowerCase()) {
@@ -41,7 +63,14 @@ function generateDatesFromFrequency(
       endDate.setHours(0, 0, 0, 0);
       
       while (currentDate <= endDate) {
-        dates.push(new Date(currentDate));
+        // Skip Sunday dates for daily frequency (check in IST)
+        const dayOfWeek = getISTDayOfWeek(currentDate);
+        if (dayOfWeek !== 0) { // 0 = Sunday
+          // Create a new date with the original time from fromDate
+          const taskDate = new Date(currentDate);
+          taskDate.setHours(originalTime.hours, originalTime.minutes, originalTime.seconds, originalTime.milliseconds);
+          dates.push(taskDate);
+        }
         currentDate.setDate(currentDate.getDate() + 1);
       }
       break;
@@ -54,7 +83,9 @@ function generateDatesFromFrequency(
       if (!weeklyDays || weeklyDays.length === 0) {
         // If no days selected, default to weekly from start date
         while (currentDate <= weekEndDate) {
-          dates.push(new Date(currentDate));
+          const taskDate = new Date(currentDate);
+          taskDate.setHours(originalTime.hours, originalTime.minutes, originalTime.seconds, originalTime.milliseconds);
+          dates.push(taskDate);
           currentDate.setDate(currentDate.getDate() + 7);
         }
       } else {
@@ -71,7 +102,9 @@ function generateDatesFromFrequency(
           
           // Check if current day is in selected days (and it's not Sunday since we only go Mon-Sat)
           if (currentDayOfWeek !== 0 && weeklyDays.includes(ourDayIndex)) {
-            dates.push(new Date(currentDate));
+            const taskDate = new Date(currentDate);
+            taskDate.setHours(originalTime.hours, originalTime.minutes, originalTime.seconds, originalTime.milliseconds);
+            dates.push(taskDate);
           }
           
           currentDate.setDate(currentDate.getDate() + 1);
@@ -87,7 +120,14 @@ function generateDatesFromFrequency(
       if (!selectedDates || selectedDates.length === 0) {
         // If no dates selected, default to monthly from start date
         while (currentDate <= monthEndDate) {
-          dates.push(new Date(currentDate));
+          const taskDate = new Date(currentDate);
+          // If date falls on Sunday, shift to Saturday (check in IST)
+          const dayOfWeek = getISTDayOfWeek(taskDate);
+          if (dayOfWeek === 0) { // 0 = Sunday
+            taskDate.setDate(taskDate.getDate() - 1);
+          }
+          taskDate.setHours(originalTime.hours, originalTime.minutes, originalTime.seconds, originalTime.milliseconds);
+          dates.push(taskDate);
           currentDate.setMonth(currentDate.getMonth() + 1);
         }
       } else {
@@ -111,7 +151,13 @@ function generateDatesFromFrequency(
               taskDate >= fromDateOnly && 
               taskDate <= monthEndDate
             ) {
-              dates.push(new Date(taskDate));
+              // If date falls on Sunday, shift to Saturday (check in IST)
+              const dayOfWeek = getISTDayOfWeek(taskDate);
+              if (dayOfWeek === 0) { // 0 = Sunday
+                taskDate.setDate(taskDate.getDate() - 1);
+              }
+              taskDate.setHours(originalTime.hours, originalTime.minutes, originalTime.seconds, originalTime.milliseconds);
+              dates.push(taskDate);
             }
           }
           monthDate.setMonth(monthDate.getMonth() + 1);
@@ -127,7 +173,14 @@ function generateDatesFromFrequency(
       if (!selectedDates || selectedDates.length === 0) {
         // If no dates selected, default to quarterly from start date
         while (currentDate <= quarterEndDate) {
-          dates.push(new Date(currentDate));
+          const taskDate = new Date(currentDate);
+          // If date falls on Sunday, shift to Saturday (check in IST)
+          const dayOfWeek = getISTDayOfWeek(taskDate);
+          if (dayOfWeek === 0) { // 0 = Sunday
+            taskDate.setDate(taskDate.getDate() - 1);
+          }
+          taskDate.setHours(originalTime.hours, originalTime.minutes, originalTime.seconds, originalTime.milliseconds);
+          dates.push(taskDate);
           currentDate.setMonth(currentDate.getMonth() + 3);
         }
       } else {
@@ -151,7 +204,13 @@ function generateDatesFromFrequency(
               taskDate >= fromDateOnly && 
               taskDate <= quarterEndDate
             ) {
-              dates.push(new Date(taskDate));
+              // If date falls on Sunday, shift to Saturday (check in IST)
+              const dayOfWeek = getISTDayOfWeek(taskDate);
+              if (dayOfWeek === 0) { // 0 = Sunday
+                taskDate.setDate(taskDate.getDate() - 1);
+              }
+              taskDate.setHours(originalTime.hours, originalTime.minutes, originalTime.seconds, originalTime.milliseconds);
+              dates.push(taskDate);
             }
           }
           monthDate.setMonth(monthDate.getMonth() + 3);
@@ -167,7 +226,14 @@ function generateDatesFromFrequency(
       if (!selectedDates || selectedDates.length === 0) {
         // If no dates selected, default to yearly from start date
         if (currentDate <= yearEndDate) {
-          dates.push(new Date(currentDate));
+          const taskDate = new Date(currentDate);
+          // If date falls on Sunday, shift to Saturday (check in IST)
+          const dayOfWeek = getISTDayOfWeek(taskDate);
+          if (dayOfWeek === 0) { // 0 = Sunday
+            taskDate.setDate(taskDate.getDate() - 1);
+          }
+          taskDate.setHours(originalTime.hours, originalTime.minutes, originalTime.seconds, originalTime.milliseconds);
+          dates.push(taskDate);
         }
       } else {
         // Generate tasks for each selected date in the year
@@ -185,7 +251,13 @@ function generateDatesFromFrequency(
           
           // Only add if date is valid, within bounds, and >= fromDate
           if (taskDate >= fromDateOnly && taskDate <= yearEndDate) {
-            dates.push(new Date(taskDate));
+            // If date falls on Sunday, shift to Saturday (check in IST)
+            const dayOfWeek = getISTDayOfWeek(taskDate);
+            if (dayOfWeek === 0) { // 0 = Sunday
+              taskDate.setDate(taskDate.getDate() - 1);
+            }
+            taskDate.setHours(originalTime.hours, originalTime.minutes, originalTime.seconds, originalTime.milliseconds);
+            dates.push(taskDate);
           }
         }
       }
@@ -295,12 +367,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Insert multiple checklists based on generated dates
-    const insertedChecklists = [];
-    for (const dueDate of dates) {
-      const status = calculateStatus(dueDate.toISOString());
+    // Get from date and add IST offset for database storage
+    const fromDateObj = new Date(fromDateTime);
+    const adjustedFromDate = addISTOffset(fromDateObj);
+
+    // Insert multiple checklists using Promise.all for parallel execution
+    const insertPromises = dates.map(async (dueDate) => {
+      // Add IST offset to due date for database storage
+      const adjustedDueDate = addISTOffset(dueDate);
+      const status = calculateStatus(adjustedDueDate.toISOString());
       
-      const result = await sql`
+      // Add IST offset to created_at timestamp
+      const now = new Date();
+      const adjustedCreatedAt = addISTOffset(now);
+      
+      return sql`
         INSERT INTO checklists (
           question,
           assignee,
@@ -315,6 +396,7 @@ export async function POST(request: NextRequest) {
           due_date,
           status,
           created_by,
+          created_at,
           weekly_days,
           selected_dates
         ) VALUES (
@@ -327,18 +409,21 @@ export async function POST(request: NextRequest) {
           ${verifierName || null},
           ${attachmentRequired || false},
           ${frequency},
-          ${fromDateTime},
-          ${dueDate.toISOString().split('T')[0]},
+          ${adjustedFromDate.toISOString()},
+          ${adjustedDueDate.toISOString()},
           ${status},
           ${createdBy || null},
+          ${adjustedCreatedAt.toISOString()},
           ${weeklyDays ? JSON.stringify(weeklyDays) : null},
           ${selectedDates ? JSON.stringify(selectedDates) : null}
         )
         RETURNING *
       `;
-      
-      insertedChecklists.push(result[0]);
-    }
+    });
+
+    // Execute all inserts in parallel
+    const results = await Promise.all(insertPromises);
+    const insertedChecklists = results.map(r => r[0]);
 
     return NextResponse.json({ 
       checklists: insertedChecklists,
@@ -373,6 +458,10 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Checklist ID is required' }, { status: 400 });
     }
 
+    // Add IST offset to updated_at timestamp
+    const now = new Date();
+    const adjustedUpdatedAt = addISTOffset(now);
+
     const result = await sql`
       UPDATE checklists
       SET 
@@ -387,7 +476,7 @@ export async function PUT(request: NextRequest) {
         status = ${status || 'pending'},
         weekly_days = ${weeklyDays ? JSON.stringify(weeklyDays) : null},
         selected_dates = ${selectedDates ? JSON.stringify(selectedDates) : null},
-        updated_at = CURRENT_TIMESTAMP
+        updated_at = ${adjustedUpdatedAt.toISOString()}
       WHERE id = ${id}
       RETURNING *
     `;

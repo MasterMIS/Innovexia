@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 
+// Helper function to add IST offset for database storage
+function addISTOffset(date: Date): Date {
+  const istOffset = 5.5 * 60 * 60 * 1000; // 5 hours 30 minutes in milliseconds
+  return new Date(date.getTime() + istOffset);
+}
+
 // GET - Fetch all helpdesk tickets
 export async function GET(request: Request) {
   try {
@@ -81,6 +87,11 @@ export async function POST(request: Request) {
     const randomNum = Math.floor(1000 + Math.random() * 9000);
     const ticketNumber = `TKT-${dateStr}-${randomNum}`;
 
+    // Add IST offset to timestamps
+    const now = new Date();
+    const adjustedCreatedAt = addISTOffset(now);
+    const adjustedDesiredDate = desiredDate ? addISTOffset(new Date(desiredDate)).toISOString() : null;
+
     const result = await sql`
       INSERT INTO helpdesk_tickets (
         ticket_number,
@@ -96,7 +107,8 @@ export async function POST(request: Request) {
         accountable_person_name,
         desired_date,
         status,
-        attachments
+        attachments,
+        created_at
       )
       VALUES (
         ${ticketNumber},
@@ -110,9 +122,10 @@ export async function POST(request: Request) {
         ${assignedToName || null},
         ${accountablePerson || null},
         ${accountablePersonName || null},
-        ${desiredDate || null},
+        ${adjustedDesiredDate},
         'raised',
-        ${attachments ? JSON.stringify(attachments) : null}
+        ${attachments ? JSON.stringify(attachments) : null},
+        ${adjustedCreatedAt.toISOString()}
       )
       RETURNING *
     `;
@@ -140,7 +153,11 @@ export async function PUT(request: Request) {
       accountablePersonName,
       desiredDate,
       remarks,
-      resolvedAt
+      resolvedAt,
+      category,
+      priority,
+      subject,
+      description
     } = body;
 
     if (!id) {
@@ -150,59 +167,84 @@ export async function PUT(request: Request) {
       );
     }
 
-    // Build dynamic update query
-    const updates: string[] = [];
-    const values: any[] = [];
-    let paramIndex = 1;
-
-    if (status !== undefined) {
-      updates.push(`status = $${paramIndex++}`);
-      values.push(status);
-    }
-    if (assignedTo !== undefined) {
-      updates.push(`assigned_to = $${paramIndex++}`);
-      values.push(assignedTo);
-    }
-    if (assignedToName !== undefined) {
-      updates.push(`assigned_to_name = $${paramIndex++}`);
-      values.push(assignedToName);
-    }
-    if (accountablePerson !== undefined) {
-      updates.push(`accountable_person = $${paramIndex++}`);
-      values.push(accountablePerson);
-    }
-    if (accountablePersonName !== undefined) {
-      updates.push(`accountable_person_name = $${paramIndex++}`);
-      values.push(accountablePersonName);
-    }
+    // Build update object
+    const updateFields: any = {};
+    
+    if (status !== undefined) updateFields.status = status;
+    if (category !== undefined) updateFields.category = category;
+    if (priority !== undefined) updateFields.priority = priority;
+    if (subject !== undefined) updateFields.subject = subject;
+    if (description !== undefined) updateFields.description = description;
+    if (assignedTo !== undefined) updateFields.assigned_to = assignedTo;
+    if (assignedToName !== undefined) updateFields.assigned_to_name = assignedToName;
+    if (accountablePerson !== undefined) updateFields.accountable_person = accountablePerson;
+    if (accountablePersonName !== undefined) updateFields.accountable_person_name = accountablePersonName;
     if (desiredDate !== undefined) {
-      updates.push(`desired_date = $${paramIndex++}`);
-      values.push(desiredDate);
+      updateFields.desired_date = addISTOffset(new Date(desiredDate)).toISOString();
     }
-    if (remarks !== undefined) {
-      updates.push(`remarks = $${paramIndex++}`);
-      values.push(remarks);
-    }
+    if (remarks !== undefined) updateFields.remarks = remarks;
     if (resolvedAt !== undefined) {
-      updates.push(`resolved_at = $${paramIndex++}`);
-      values.push(resolvedAt);
+      updateFields.resolved_at = addISTOffset(new Date(resolvedAt)).toISOString();
     }
+    
+    // Add IST offset to updated_at
+    const now = new Date();
+    const adjustedUpdatedAt = addISTOffset(now);
+    updateFields.updated_at = adjustedUpdatedAt.toISOString();
 
-    updates.push(`updated_at = NOW()`);
+    // Build the SET clause and values array
+    const keys = Object.keys(updateFields);
+    const values: any[] = Object.values(updateFields);
+    
+    // Create SET clause with placeholders
+    const setClause = keys
+      .map((key, index) => `${key} = $${index + 1}`)
+      .join(', ');
+    
+    // Add id to values array for WHERE clause
     values.push(id);
+    const idPlaceholder = values.length;
 
-    const result = await sql`
-      UPDATE helpdesk_tickets
-      SET ${sql(updates.join(', '))}
-      WHERE id = ${id}
-      RETURNING *
-    `;
+    // Use sql.unsafe for dynamic query
+    const result = await sql.unsafe(
+      `UPDATE helpdesk_tickets SET ${setClause} WHERE id = $${idPlaceholder} RETURNING *`,
+      values
+    );
 
     return NextResponse.json(result[0], { status: 200 });
   } catch (error) {
     console.error('Error updating helpdesk ticket:', error);
     return NextResponse.json(
       { error: 'Failed to update helpdesk ticket' },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE - Delete a helpdesk ticket
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Ticket ID is required' },
+        { status: 400 }
+      );
+    }
+
+    // Delete associated remarks first
+    await sql`DELETE FROM helpdesk_remarks WHERE ticket_id = ${parseInt(id)}`;
+
+    // Delete the ticket
+    await sql`DELETE FROM helpdesk_tickets WHERE id = ${parseInt(id)}`;
+
+    return NextResponse.json({ success: true, message: 'Ticket deleted successfully' }, { status: 200 });
+  } catch (error) {
+    console.error('Error deleting helpdesk ticket:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete helpdesk ticket' },
       { status: 500 }
     );
   }

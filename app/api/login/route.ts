@@ -53,19 +53,22 @@ export async function POST(request: NextRequest) {
 
     const sessionId = createSessionId(request);
 
+    const userData = {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      full_name: user.full_name,
+    };
+
     // Create response with auth cookie keyed by sessionId so tabs are isolated
     const response = NextResponse.json({
       success: true,
       sessionId,
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-      },
+      user: userData,
     });
 
     // Set httpOnly cookie per session to avoid cross-tab logout
-    response.cookies.set(`auth-${sessionId}`, JSON.stringify({ id: user.id, username: user.username, email: user.email }), {
+    response.cookies.set(`auth-${sessionId}`, JSON.stringify(userData), {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',

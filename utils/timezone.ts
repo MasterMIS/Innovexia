@@ -1,21 +1,20 @@
 /**
  * Format a date string from the database to Indian Standard Time (IST)
+ * Database already stores with IST offset, so read UTC values directly
  */
 export function formatDateToLocalTimezone(dateString: string): string {
   try {
     const date = new Date(dateString);
     
-    // Use Asia/Kolkata timezone for proper IST display
-    return date.toLocaleString('en-IN', {
-      timeZone: 'Asia/Kolkata',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    });
+    // Database already has IST offset added, so just format without timezone conversion
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const year = date.getUTCFullYear();
+    const hours = String(date.getUTCHours()).padStart(2, '0');
+    const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+    const seconds = String(date.getUTCSeconds()).padStart(2, '0');
+    
+    return `${day}/${month}/${year}, ${hours}:${minutes}:${seconds}`;
   } catch (error) {
     console.error('Error formatting date:', error);
     return dateString;

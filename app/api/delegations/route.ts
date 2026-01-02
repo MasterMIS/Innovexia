@@ -1,6 +1,12 @@
 import { sql } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 
+// Helper function to add IST offset for database storage
+function addISTOffset(date: Date): Date {
+  const istOffset = 5.5 * 60 * 60 * 1000; // 5 hours 30 minutes in milliseconds
+  return new Date(date.getTime() + istOffset);
+}
+
 export async function GET(request: NextRequest) {
   try {
     const userId = request.nextUrl.searchParams.get('userId');
@@ -68,6 +74,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Add IST offset to timestamps
+    const now = new Date();
+    const adjustedCreatedAt = addISTOffset(now);
+    const adjustedDueDate = dueDate ? addISTOffset(new Date(dueDate)).toISOString() : null;
+
     const result = await sql`
       INSERT INTO delegations (
         user_id, 
@@ -81,7 +92,8 @@ export async function POST(request: NextRequest) {
         status,
         voice_note_url,
         reference_docs,
-        evidence_required
+        evidence_required,
+        created_at
       )
       VALUES (
         ${userId}, 
@@ -91,11 +103,12 @@ export async function POST(request: NextRequest) {
         ${doerName || null},
         ${department || null},
         ${priority || 'medium'},
-        ${dueDate || null}, 
+        ${adjustedDueDate}, 
         ${status},
         ${voiceNoteUrl || null},
         ${referenceDocs ? JSON.stringify(referenceDocs) : null},
-        ${evidenceRequired || false}
+        ${evidenceRequired || false},
+        ${adjustedCreatedAt.toISOString()}
       )
       RETURNING *
     `;
@@ -151,6 +164,11 @@ export async function PUT(request: NextRequest) {
       }
     }
 
+    // Add IST offset to timestamps
+    const now = new Date();
+    const adjustedUpdatedAt = addISTOffset(now);
+    const adjustedDueDate = dueDate ? addISTOffset(new Date(dueDate)).toISOString() : null;
+
     const result = await sql`
       UPDATE delegations
       SET delegation_name = ${delegationName},
@@ -160,11 +178,11 @@ export async function PUT(request: NextRequest) {
           department = ${department || null},
           priority = ${priority || 'medium'},
           status = ${status},
-          due_date = ${dueDate || null},
+          due_date = ${adjustedDueDate},
           voice_note_url = ${voiceNoteUrl || null},
           reference_docs = ${referenceDocs ? JSON.stringify(referenceDocs) : null},
           evidence_required = ${evidenceRequired || false},
-          updated_at = CURRENT_TIMESTAMP
+          updated_at = ${adjustedUpdatedAt.toISOString()}
       WHERE id = ${id}
       RETURNING *
     `;
