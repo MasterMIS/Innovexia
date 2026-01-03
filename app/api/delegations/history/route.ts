@@ -1,5 +1,5 @@
-import { sql, executeQuery } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
+import { getDelegationHistory } from '@/lib/sheets';
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,14 +12,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const history = await executeQuery(async () => {
-      return await sql`
-        SELECT *
-        FROM delegation_revision_history
-        WHERE delegation_id = ${parseInt(delegationId)}
-        ORDER BY created_at DESC
-      `;
-    });
+    const history = await getDelegationHistory(parseInt(delegationId));
 
     return NextResponse.json({ history });
   } catch (error) {

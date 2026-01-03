@@ -1,5 +1,5 @@
-import { sql, executeQuery } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
+import { getDelegationRemarks, createDelegationRemark } from '@/lib/sheets';
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,15 +12,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const remarks = await executeQuery(async () => {
-      return await sql`
-        SELECT r.*, u.username 
-        FROM delegation_remarks r
-        JOIN users u ON r.user_id = u.id
-        WHERE r.delegation_id = ${parseInt(delegationId)}
-        ORDER BY r.created_at DESC
-      `;
-    });
+    const remarks = await getDelegationRemarks(parseInt(delegationId));
 
     return NextResponse.json({ remarks });
   } catch (error) {
@@ -34,7 +26,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { delegationId, userId, remark } = await request.json();
+    const { delegationId, userId, remark, username } = await request.json();
 
     if (!delegationId || !userId || !remark) {
       return NextResponse.json(
@@ -43,15 +35,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await executeQuery(async () => {
-      return await sql`
-        INSERT INTO delegation_remarks (delegation_id, user_id, remark)
-        VALUES (${delegationId}, ${userId}, ${remark})
-        RETURNING *
-      `;
-    });
+    const remarkData = {
+      delegation_id: delegationId,
+      user_id: userId,
+      username: username || 'Unknown User',
+      remark: remark
+    };
 
-    return NextResponse.json({ remark: result[0] }, { status: 201 });
+    const result = await createDelegationRemark(remarkData);
+
+    return NextResponse.json({ remark: result }, { status: 201 });
   } catch (error) {
     console.error('Error adding remark:', error);
     return NextResponse.json(

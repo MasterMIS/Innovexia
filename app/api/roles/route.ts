@@ -1,12 +1,16 @@
-import { sql } from '@/lib/db';
 import { NextResponse } from 'next/server';
+
+// Temporary hardcoded roles data - replace with Google Sheets when ready
+const ROLES_DATA = [
+  { id: 1, role_name: 'Admin' },
+  { id: 2, role_name: 'Manager' },
+  { id: 3, role_name: 'User' }
+];
 
 export async function GET() {
   try {
-    
-    const roles = await sql`SELECT * FROM roles ORDER BY id`;
-
-    return NextResponse.json({ roles });
+    // TODO: Replace with Google Sheets implementation
+    return NextResponse.json({ roles: ROLES_DATA });
   } catch (error) {
     console.error('Error fetching roles:', error);
     return NextResponse.json(

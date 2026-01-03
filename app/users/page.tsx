@@ -153,6 +153,7 @@ export default function UsersPage() {
     try {
       const uploadFormData = new FormData();
       uploadFormData.append('file', imageFile);
+      uploadFormData.append('type', 'user'); // Specify this is a user image
 
       const response = await fetch('/api/upload', {
         method: 'POST',

@@ -1,56 +1,70 @@
-import postgres from "postgres";
+/* 
+ * ============================================
+ * SUPABASE CONNECTION DISABLED
+ * ============================================
+ * This file has been disabled as the application
+ * now uses Google Sheets as the database.
+ * 
+ * All database operations have been moved to lib/sheets.ts
+ * ============================================
+ */
 
-// Initialize the PostgreSQL database connection
-// Use POSTGRES_URL for Vercel (pooled connection) or fallback to DATABASE_URL for local dev
-const connectionString = process.env.POSTGRES_URL_NON_POOLING || process.env.POSTGRES_URL || process.env.DATABASE_URL!;
-console.log('🐘 DB connecting to:', connectionString ? connectionString.split('@')[1] : 'MISSING URL');
+// import postgres from "postgres";
 
-const sql = postgres(connectionString, {
-  max: 10, // Maximum number of connections
-  idle_timeout: 20, // Close connections after 20 seconds of inactivity
-  connect_timeout: 10, // Connection timeout in seconds
-  prepare: false, // Required for Supabase Transaction Mode (port 6543)
-  ssl: 'require',
-});
+// // Initialize the PostgreSQL database connection
+// // Use POSTGRES_URL for Vercel (pooled connection) or fallback to DATABASE_URL for local dev
+// const connectionString = process.env.POSTGRES_URL_NON_POOLING || process.env.POSTGRES_URL || process.env.DATABASE_URL!;
+// console.log('🐘 DB connecting to:', connectionString ? connectionString.split('@')[1] : 'MISSING URL');
 
-// Set timezone to IST for all queries
-sql`SET TIME ZONE 'Asia/Kolkata'`.catch(err => console.error('Failed to set timezone:', err));
+// const sql = postgres(connectionString, {
+//   max: 10, // Maximum number of connections
+//   idle_timeout: 20, // Close connections after 20 seconds of inactivity
+//   connect_timeout: 30, // Increased connection timeout to 30 seconds
+//   prepare: false, // Required for Supabase Transaction Mode (port 6543)
+//   ssl: 'require',
+// });
 
-// Helper function to execute queries with retry logic
-export async function executeQuery<T = any>(
-  queryFn: () => Promise<T>,
-  maxRetries = 3,
-  retryDelay = 1000
-): Promise<T> {
-  let lastError: any;
+// // Set timezone to IST for all queries (non-blocking)
+// // Don't block startup if this fails
+// setTimeout(() => {
+//   sql`SET TIME ZONE 'Asia/Kolkata'`.catch(err => console.error('Failed to set timezone:', err));
+// }, 1000);
 
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    try {
-      return await queryFn();
-    } catch (error: any) {
-      lastError = error;
-      console.error(`Query attempt ${attempt + 1} failed:`, error.message);
+// Helper function to execute queries with retry logic - DEPRECATED
+// export async function executeQuery<T = any>(
+//   queryFn: () => Promise<T>,
+//   maxRetries = 3,
+//   retryDelay = 1000
+// ): Promise<T> {
+//   let lastError: any;
 
-      // Don't retry on validation errors (4xx)
-      if (error.status >= 400 && error.status < 500) {
-        throw error;
-      }
+//   for (let attempt = 0; attempt < maxRetries; attempt++) {
+//     try {
+//       return await queryFn();
+//     } catch (error: any) {
+//       lastError = error;
+//       console.error(`Query attempt ${attempt + 1} failed:`, error.message);
 
-      // Wait before retrying, with exponential backoff
-      if (attempt < maxRetries - 1) {
-        await new Promise(resolve => setTimeout(resolve, retryDelay * Math.pow(2, attempt)));
-      }
-    }
-  }
+//       // Don't retry on validation errors (4xx)
+//       if (error.status >= 400 && error.status < 500) {
+//         throw error;
+//       }
 
-  throw lastError;
-}
+//       // Wait before retrying, with exponential backoff
+//       if (attempt < maxRetries - 1) {
+//         await new Promise(resolve => setTimeout(resolve, retryDelay * Math.pow(2, attempt)));
+//       }
+//     }
+//   }
 
-export async function getData() {
-  return executeQuery(async () => {
-    const data = await sql`SELECT * FROM posts;`;
-    return data;
-  });
-}
+//   throw lastError;
+// }
 
-export { sql };
+// export async function getData() {
+//   return executeQuery(async () => {
+//     const data = await sql`SELECT * FROM posts;`;
+//     return data;
+//   });
+// }
+
+// export { sql };

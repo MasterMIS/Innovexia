@@ -1,4 +1,4 @@
-import { sql } from '@/lib/db';
+// import { sql } from '@/lib/db'; // Disabled - now using Google Sheets
 import { NextRequest, NextResponse } from 'next/server';
 
 // GET todos

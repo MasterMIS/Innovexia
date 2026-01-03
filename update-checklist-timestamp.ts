@@ -1,5 +1,6 @@
 import 'dotenv/config';
-import { sql } from '@/lib/db';
+// This script has been disabled as the application now uses Google Sheets
+// import { sql } from '@/lib/db';
 
 async function updateChecklistColumns() {
   try {

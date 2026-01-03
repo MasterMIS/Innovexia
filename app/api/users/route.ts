@@ -1,17 +1,10 @@
-import { sql } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
+import { getAllUsers, createUser, updateUser, deleteUser } from '@/lib/sheets';
 import bcrypt from 'bcryptjs';
 
 export async function GET(request: NextRequest) {
   try {
-    
-    const users = await sql`
-      SELECT u.id, u.username, u.email, u.password, u.phone, u.role_id, u.image_url, r.role_name
-      FROM users u
-      LEFT JOIN roles r ON u.role_id = r.id
-      ORDER BY u.created_at DESC
-    `;
-
+    const users = await getAllUsers();
     return NextResponse.json({ users });
   } catch (error) {
     console.error('Error fetching users:', error);
@@ -33,13 +26,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await sql`
-      INSERT INTO users (username, email, password, role_id, phone, image_url)
-      VALUES (${username}, ${email}, ${password}, ${roleId || 3}, ${phone || null}, ${imageUrl || null})
-      RETURNING id, username, email, phone, role_id, image_url
-    `;
+    const userData = {
+      username,
+      email,
+      password,
+      phone: phone || '',
+      roleId: roleId || 3,
+      imageUrl: imageUrl || ''
+    };
 
-    return NextResponse.json({ user: result[0] }, { status: 201 });
+    const user = await createUser(userData);
+    return NextResponse.json({ user }, { status: 201 });
   } catch (error) {
     console.error('Error creating user:', error);
     return NextResponse.json(
@@ -60,41 +57,28 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    let result;
+    const userData: any = {
+      email,
+      phone,
+      roleId: roleId || 3,
+      imageUrl
+    };
+
     // Only update password if provided
     if (password) {
-      result = await sql`
-        UPDATE users SET 
-          email = ${email},
-          role_id = ${roleId || 3},
-          phone = ${phone || null},
-          image_url = ${imageUrl || null},
-          password = ${password}
-        WHERE id = ${parseInt(id)}
-        RETURNING id, username, email, phone, role_id, image_url
-      `;
-    } else {
-      result = await sql`
-        UPDATE users SET 
-          email = ${email},
-          role_id = ${roleId || 3},
-          phone = ${phone || null},
-          image_url = ${imageUrl || null}
-        WHERE id = ${parseInt(id)}
-        RETURNING id, username, email, phone, role_id, image_url
-      `;
+      userData.password = password;
     }
 
-    if (result.length === 0) {
+    const user = await updateUser(parseInt(id), userData);
+    return NextResponse.json({ user }, { status: 200 });
+  } catch (error) {
+    console.error('Error updating user:', error);
+    if (error instanceof Error && error.message === 'User not found') {
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
       );
     }
-
-    return NextResponse.json({ user: result[0] }, { status: 200 });
-  } catch (error) {
-    console.error('Error updating user:', error);
     return NextResponse.json(
       { error: 'Failed to update user' },
       { status: 500 }
@@ -113,18 +97,16 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const result = await sql`DELETE FROM users WHERE id = ${parseInt(id)} RETURNING id`;
-
-    if (result.length === 0) {
+    await deleteUser(parseInt(id));
+    return NextResponse.json({ message: 'User deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    if (error instanceof Error && error.message === 'User not found') {
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
       );
     }
-
-    return NextResponse.json({ message: 'User deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting user:', error);
     return NextResponse.json(
       { error: 'Failed to delete user' },
       { status: 500 }

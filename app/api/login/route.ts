@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@/lib/db';
+import { getAllUsers } from '@/lib/sheets';
 import bcrypt from 'bcryptjs';
 
 const createSessionId = (request: NextRequest) => {
@@ -21,16 +21,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const users = await sql`SELECT * FROM users WHERE username = ${username}`;
+    // Get all users and find the one with matching username
+    const users = await getAllUsers();
+    const user = users.find((u: any) => u.username === username);
 
-    if (users.length === 0) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Invalid username or password' },
         { status: 401 }
       );
     }
-
-    const user = users[0];
     
     // Check if password is hashed (bcrypt hashes start with $2a$, $2b$, or $2y$)
     const isHashed = user.password.startsWith('$2a$') || user.password.startsWith('$2b$') || user.password.startsWith('$2y$');
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
       id: user.id,
       username: user.username,
       email: user.email,
-      full_name: user.full_name,
+      full_name: user.full_name || user.username,
     };
 
     // Create response with auth cookie keyed by sessionId so tabs are isolated

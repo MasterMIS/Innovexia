@@ -1,5 +1,5 @@
-import { sql } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
+import { getDelegations, createDelegation, updateDelegation, deleteDelegation } from '@/lib/sheets';
 
 // Helper function to add IST offset for database storage
 function addISTOffset(date: Date): Date {
@@ -18,11 +18,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const delegations = await sql`
-      SELECT * FROM delegations 
-      WHERE user_id = ${parseInt(userId)}
-      ORDER BY created_at DESC
-    `;
+    const delegations = await getDelegations(parseInt(userId));
 
     return NextResponse.json({ delegations });
   } catch (error) {
@@ -79,41 +75,25 @@ export async function POST(request: NextRequest) {
     const adjustedCreatedAt = addISTOffset(now);
     const adjustedDueDate = dueDate ? addISTOffset(new Date(dueDate)).toISOString() : null;
 
-    const result = await sql`
-      INSERT INTO delegations (
-        user_id, 
-        delegation_name, 
-        description, 
-        assigned_to, 
-        doer_name,
-        department,
-        priority,
-        due_date, 
-        status,
-        voice_note_url,
-        reference_docs,
-        evidence_required,
-        created_at
-      )
-      VALUES (
-        ${userId}, 
-        ${delegationName}, 
-        ${description || null}, 
-        ${assignedTo}, 
-        ${doerName || null},
-        ${department || null},
-        ${priority || 'medium'},
-        ${adjustedDueDate}, 
-        ${status},
-        ${voiceNoteUrl || null},
-        ${referenceDocs ? JSON.stringify(referenceDocs) : null},
-        ${evidenceRequired || false},
-        ${adjustedCreatedAt.toISOString()}
-      )
-      RETURNING *
-    `;
+    const delegationData = {
+      user_id: userId,
+      delegation_name: delegationName,
+      description: description || null,
+      assigned_to: assignedTo,
+      doer_name: doerName || null,
+      department: department || null,
+      priority: priority || 'medium',
+      due_date: adjustedDueDate,
+      status: status,
+      voice_note_url: voiceNoteUrl || null,
+      reference_docs: referenceDocs || null,
+      evidence_required: evidenceRequired || false,
+      created_at: adjustedCreatedAt.toISOString()
+    };
 
-    return NextResponse.json({ delegation: result[0] }, { status: 201 });
+    const result = await createDelegation(delegationData);
+
+    return NextResponse.json({ delegation: result }, { status: 201 });
   } catch (error: any) {
     console.error('Error creating delegation:', error);
     console.error('Error details:', error.message);
@@ -169,32 +149,31 @@ export async function PUT(request: NextRequest) {
     const adjustedUpdatedAt = addISTOffset(now);
     const adjustedDueDate = dueDate ? addISTOffset(new Date(dueDate)).toISOString() : null;
 
-    const result = await sql`
-      UPDATE delegations
-      SET delegation_name = ${delegationName},
-          description = ${description || null},
-          assigned_to = ${assignedTo},
-          doer_name = ${doerName || null},
-          department = ${department || null},
-          priority = ${priority || 'medium'},
-          status = ${status},
-          due_date = ${adjustedDueDate},
-          voice_note_url = ${voiceNoteUrl || null},
-          reference_docs = ${referenceDocs ? JSON.stringify(referenceDocs) : null},
-          evidence_required = ${evidenceRequired || false},
-          updated_at = ${adjustedUpdatedAt.toISOString()}
-      WHERE id = ${id}
-      RETURNING *
-    `;
+    const delegationData = {
+      delegation_name: delegationName,
+      description: description || null,
+      assigned_to: assignedTo,
+      doer_name: doerName || null,
+      department: department || null,
+      priority: priority || 'medium',
+      status: status,
+      due_date: adjustedDueDate,
+      voice_note_url: voiceNoteUrl || null,
+      reference_docs: referenceDocs || null,
+      evidence_required: evidenceRequired || false,
+      updated_at: adjustedUpdatedAt.toISOString()
+    };
 
-    if (result.length === 0) {
+    const result = await updateDelegation(id, delegationData);
+
+    if (!result) {
       return NextResponse.json(
         { error: 'Delegation not found' },
         { status: 404 }
       );
     }
 
-    return NextResponse.json({ delegation: result[0] });
+    return NextResponse.json({ delegation: result });
   } catch (error) {
     console.error('Error updating delegation:', error);
     return NextResponse.json(
@@ -215,9 +194,9 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const result = await sql`DELETE FROM delegations WHERE id = ${parseInt(id)} RETURNING id`;
+    const result = await deleteDelegation(parseInt(id));
 
-    if (result.length === 0) {
+    if (!result) {
       return NextResponse.json(
         { error: 'Delegation not found' },
         { status: 404 }

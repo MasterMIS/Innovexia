@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@/lib/db';
+// import { sql } from '@/lib/db'; // Disabled - now using Google Sheets
 
 // Helper function to get day of week in IST (0=Sunday, 1=Monday, etc.)
 function getISTDayOfWeek(date: Date): number {

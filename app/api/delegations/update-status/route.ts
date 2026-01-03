@@ -1,9 +1,9 @@
-import { sql, executeQuery } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
+import { getDelegationById, updateDelegation, createDelegationHistory, createDelegationRemark } from '@/lib/sheets';
 
 export async function POST(request: NextRequest) {
   try {
-    const { delegationId, status, revisedDueDate, remark, userId } = await request.json();
+    const { delegationId, status, revisedDueDate, remark, userId, username } = await request.json();
 
     if (!delegationId || !status || !userId) {
       return NextResponse.json(
@@ -12,58 +12,46 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await executeQuery(async () => {
-      // Get current delegation data
-      const currentDelegation = await sql`
-        SELECT status, due_date FROM delegations WHERE id = ${delegationId}
-      `;
+    // Get current delegation data
+    const currentDelegation = await getDelegationById(delegationId);
 
-      if (currentDelegation.length === 0) {
-        throw new Error('Delegation not found');
-      }
+    if (!currentDelegation) {
+      return NextResponse.json(
+        { error: 'Delegation not found' },
+        { status: 404 }
+      );
+    }
 
-      const oldStatus = currentDelegation[0].status;
-      const oldDueDate = currentDelegation[0].due_date;
-      const newDueDate = revisedDueDate || oldDueDate;
+    const oldStatus = currentDelegation.status;
+    const oldDueDate = currentDelegation.due_date;
+    const newDueDate = revisedDueDate || oldDueDate;
 
-      // Update delegation
-      await sql`
-        UPDATE delegations
-        SET status = ${status},
-            due_date = ${newDueDate},
-            updated_at = CURRENT_TIMESTAMP
-        WHERE id = ${delegationId}
-      `;
-
-      // Create revision history record
-      await sql`
-        INSERT INTO delegation_revision_history (
-          delegation_id,
-          old_status,
-          new_status,
-          old_due_date,
-          new_due_date,
-          reason
-        ) VALUES (
-        ${delegationId},
-        ${oldStatus},
-        ${status},
-        ${oldDueDate},
-        ${newDueDate},
-        ${remark || null}
-      )
-    `;
-
-      // Add remark if provided
-      if (remark) {
-        await sql`
-          INSERT INTO delegation_remarks (delegation_id, user_id, remark)
-          VALUES (${delegationId}, ${userId}, ${remark})
-        `;
-      }
-
-      return true;
+    // Update delegation
+    await updateDelegation(delegationId, {
+      status: status,
+      due_date: newDueDate,
+      updated_at: new Date().toISOString()
     });
+
+    // Create revision history record
+    await createDelegationHistory({
+      delegation_id: delegationId,
+      old_status: oldStatus,
+      new_status: status,
+      old_due_date: oldDueDate,
+      new_due_date: newDueDate,
+      reason: remark || null
+    });
+
+    // Add remark if provided
+    if (remark) {
+      await createDelegationRemark({
+        delegation_id: delegationId,
+        user_id: userId,
+        username: username || 'Unknown User',
+        remark: remark
+      });
+    }
 
     return NextResponse.json({ message: 'Status updated successfully' });
   } catch (error: any) {
