@@ -30,17 +30,20 @@ export default function DateRangePicker({ fromDate, toDate, onRangeChange }: Dat
     };
 
     const handleDateClick = (date: Date) => {
+        // Normalize the date to midnight to avoid time comparison issues
+        const normalizedDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+        
         if (selectingStart) {
-            setStartDate(date);
+            setStartDate(normalizedDate);
             setEndDate(null);
             setSelectingStart(false);
         } else {
-            if (startDate && date < startDate) {
-                setStartDate(date);
+            if (startDate && normalizedDate < startDate) {
+                setStartDate(normalizedDate);
                 setEndDate(null);
                 setSelectingStart(false);
             } else {
-                setEndDate(date);
+                setEndDate(normalizedDate);
                 setSelectingStart(true);
             }
         }
@@ -48,9 +51,16 @@ export default function DateRangePicker({ fromDate, toDate, onRangeChange }: Dat
 
     const handleApply = () => {
         if (startDate && endDate) {
+            // Use local timezone to avoid UTC offset issues
+            const formatLocalDate = (date: Date) => {
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            };
             onRangeChange(
-                startDate.toISOString().split('T')[0],
-                endDate.toISOString().split('T')[0]
+                formatLocalDate(startDate),
+                formatLocalDate(endDate)
             );
             setShowPicker(false);
         }
@@ -87,7 +97,7 @@ export default function DateRangePicker({ fromDate, toDate, onRangeChange }: Dat
                     <button
                         type="button"
                         onClick={() => handleMonthChange('prev')}
-                        className="p-1 hover:bg-[#f5f1e8] dark:hover:bg-gray-700 rounded"
+                        className="p-1 hover:bg-[var(--theme-lighter)] dark:hover:bg-gray-700 rounded"
                     >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -99,7 +109,7 @@ export default function DateRangePicker({ fromDate, toDate, onRangeChange }: Dat
                     <button
                         type="button"
                         onClick={() => handleMonthChange('next')}
-                        className="p-1 hover:bg-[#f5f1e8] dark:hover:bg-gray-700 rounded"
+                        className="p-1 hover:bg-[var(--theme-lighter)] dark:hover:bg-gray-700 rounded"
                     >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -120,20 +130,28 @@ export default function DateRangePicker({ fromDate, toDate, onRangeChange }: Dat
                     {Array.from({ length: daysInMonth }).map((_, i) => {
                         const day = i + 1;
                         const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-                        const isStart = startDate && date.toDateString() === startDate.toDateString();
-                        const isEnd = endDate && date.toDateString() === endDate.toDateString();
-                        const isInRange = startDate && endDate && date > startDate && date < endDate;
+                        
+                        // Create normalized dates for comparison (midnight with no time)
+                        const dateTime = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+                        const startTime = startDate ? new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate()).getTime() : null;
+                        const endTime = endDate ? new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate()).getTime() : null;
+                        
+                        const isStart = startTime && dateTime === startTime;
+                        const isEnd = endTime && dateTime === endTime;
+                        const isInRange = startTime && endTime && dateTime >= startTime && dateTime <= endTime && !isStart && !isEnd;
+                        const isSelected = isStart || isEnd;
 
                         return (
                             <button
                                 key={day}
                                 type="button"
                                 onClick={() => handleDateClick(date)}
-                                className={`p-2 text-sm rounded-lg transition ${isStart || isEnd
-                                        ? 'bg-[#f4d24a] text-gray-900 font-bold'
+                                className={`p-2 text-sm rounded-lg transition ${
+                                    isSelected
+                                        ? 'bg-[var(--theme-primary)] text-gray-900 font-bold shadow-md'
                                         : isInRange
-                                            ? 'bg-[#f4d24a]/30 text-gray-900 dark:text-white'
-                                            : 'hover:bg-[#f5f1e8] dark:hover:bg-gray-700 text-gray-900 dark:text-white'
+                                            ? 'bg-[var(--theme-primary)]/40 text-gray-900 dark:text-white font-semibold'
+                                            : 'hover:bg-[var(--theme-lighter)] dark:hover:bg-gray-700 text-gray-900 dark:text-white'
                                     }`}
                             >
                                 {day}
@@ -150,7 +168,7 @@ export default function DateRangePicker({ fromDate, toDate, onRangeChange }: Dat
             <button
                 type="button"
                 onClick={() => setShowPicker(!showPicker)}
-                className="w-full px-3 py-2 bg-[#f5f1e8] dark:bg-gray-700 border-0 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-[#f4d24a] transition text-left flex items-center justify-between"
+                className="w-full px-3 py-2 bg-[var(--theme-lighter)] dark:bg-gray-700 border-0 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-[var(--theme-primary)] transition text-left flex items-center justify-between"
             >
                 <span>{formatDisplayDate()}</span>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -158,55 +176,57 @@ export default function DateRangePicker({ fromDate, toDate, onRangeChange }: Dat
                 </svg>
             </button>
 
-            <AnimatePresence>
-                {showPicker && (
-                    <>
-                        <motion.div
-                            className="fixed inset-0 bg-black/30 z-[80]"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            onClick={() => setShowPicker(false)}
-                        />
+            {showPicker && (
+                <div className="fixed inset-0 z-[9996] flex items-center justify-center p-4">
+                    {/* Backdrop */}
+                    <motion.div
+                        className="absolute inset-0 bg-black/50"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setShowPicker(false)}
+                    />
 
-                        <motion.div
-                            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[90] bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 max-w-[90vw]"
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <div className="flex gap-6 flex-wrap justify-center">
-                                {renderCalendar(currentMonth1, setCurrentMonth1, true)}
-                                {renderCalendar(currentMonth2, setCurrentMonth2, false)}
-                            </div>
+                    {/* Modal */}
+                    <motion.div
+                        className="relative z-[9997] bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 max-w-[90vw]"
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.9 }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex gap-6 flex-wrap justify-center">
+                            {renderCalendar(currentMonth1, setCurrentMonth1, true)}
+                            {renderCalendar(currentMonth2, setCurrentMonth2, false)}
+                        </div>
 
-                            <div className="mt-4 flex gap-2 border-t border-gray-200 dark:border-gray-700 pt-4">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setStartDate(null);
-                                        setEndDate(null);
-                                        setSelectingStart(true);
-                                        onRangeChange('', '');
-                                    }}
-                                    className="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white text-sm font-semibold rounded-lg transition"
-                                >
-                                    Clear
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={handleApply}
-                                    disabled={!startDate || !endDate}
-                                    className="flex-1 px-4 py-2 bg-[#f4d24a] hover:bg-[#e5c33a] text-gray-900 text-sm font-bold rounded-lg transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Apply
-                                </button>
-                            </div>
-                        </motion.div>
-                    </>
-                )}
-            </AnimatePresence>
+                        <div className="mt-4 flex gap-2 border-t border-gray-200 dark:border-gray-700 pt-4">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setStartDate(null);
+                                    setEndDate(null);
+                                    setSelectingStart(true);
+                                    onRangeChange('', '');
+                                    setShowPicker(false);
+                                }}
+                                className="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white text-sm font-semibold rounded-lg transition"
+                            >
+                                Clear
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleApply}
+                                disabled={!startDate || !endDate}
+                                className="flex-1 px-4 py-2 bg-[var(--theme-primary)] hover:bg-[var(--theme-secondary)] text-gray-900 text-sm font-bold rounded-lg transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Apply
+                            </button>
+                        </div>
+                    </motion.div>
+                </div>
+            )}
         </div>
     );
 }
+

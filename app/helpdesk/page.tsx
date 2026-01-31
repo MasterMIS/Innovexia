@@ -101,7 +101,7 @@ export default function HelpDeskPage() {
 
   const [remarkText, setRemarkText] = useState('');
   const [newStatus, setNewStatus] = useState('');
-  
+
   // Sorting and Pagination
   const [sortColumn, setSortColumn] = useState<string>('created_at');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -133,6 +133,34 @@ export default function HelpDeskPage() {
   const router = useRouter();
   const toast = useToast();
   const loader = useLoader();
+
+  // Helper function to create notification for a user
+  const createNotificationForUser = async (username: string, type: string, title: string, message: string, ticketId?: number) => {
+    try {
+      const usersResponse = await fetch('/api/users');
+      if (usersResponse.ok) {
+        const data = await usersResponse.json();
+        const users = data.users || [];
+        const targetUser = users.find((u: any) => u.username.toLowerCase() === username.toLowerCase());
+        if (targetUser) {
+          await fetch('/api/notifications', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              user_id: targetUser.id,
+              user_role: targetUser.role_name || 'Doer',
+              type,
+              title,
+              message,
+              delegation_id: ticketId,
+            }),
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error creating notification:', error);
+    }
+  };
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -238,8 +266,30 @@ export default function HelpDeskPage() {
       });
 
       if (response.ok) {
+        const data = await response.json();
         loader.hideLoader();
         toast.success('Ticket created successfully!');
+
+        // Send notifications to assigned and accountable persons
+        if (assignedUser && assignedUser.username !== currentUser.username) {
+          await createNotificationForUser(
+            assignedUser.username,
+            'ticket_created',
+            'New Ticket Assigned',
+            `${currentUser.full_name || currentUser.username} assigned you ticket: "${formData.subject}"`,
+            data.id
+          );
+        }
+        if (accountableUser && accountableUser.username !== currentUser.username && accountableUser.username !== assignedUser?.username) {
+          await createNotificationForUser(
+            accountableUser.username,
+            'ticket_created',
+            'New Ticket - Accountable',
+            `${currentUser.full_name || currentUser.username} made you accountable for ticket: "${formData.subject}"`,
+            data.id
+          );
+        }
+
         setShowAddModal(false);
         setFormData({
           category: '',
@@ -283,17 +333,50 @@ export default function HelpDeskPage() {
       if (response.ok) {
         loader.hideLoader();
         toast.success('Status updated successfully!');
-        
+
+        // Send notifications to assigned and accountable persons
+        const ticket = selectedTicket;
+        if (ticket) {
+          if (ticket.assigned_to_name && ticket.assigned_to_name !== currentUser.username) {
+            await createNotificationForUser(
+              ticket.assigned_to_name,
+              'ticket_status_changed',
+              'Ticket Status Changed',
+              `${currentUser.full_name || currentUser.username} changed status of "${ticket.subject}" to ${newStatus}`,
+              ticket.id
+            );
+          }
+          if (ticket.accountable_person_name && ticket.accountable_person_name !== currentUser.username && ticket.accountable_person_name !== ticket.assigned_to_name) {
+            await createNotificationForUser(
+              ticket.accountable_person_name,
+              'ticket_status_changed',
+              'Ticket Status Changed',
+              `${currentUser.full_name || currentUser.username} changed status of "${ticket.subject}" to ${newStatus}`,
+              ticket.id
+            );
+          }
+          // Notify ticket raiser
+          if (ticket.raised_by_name && ticket.raised_by_name !== currentUser.username && ticket.raised_by_name !== ticket.assigned_to_name && ticket.raised_by_name !== ticket.accountable_person_name) {
+            await createNotificationForUser(
+              ticket.raised_by_name,
+              'ticket_status_changed',
+              'Ticket Status Changed',
+              `${currentUser.full_name || currentUser.username} changed status of "${ticket.subject}" to ${newStatus}`,
+              ticket.id
+            );
+          }
+        }
+
         // Fetch updated ticket data
         const updatedTicketsResponse = await fetch('/api/helpdesk');
         const updatedTickets = await updatedTicketsResponse.json();
         const updatedTicket = updatedTickets.find((t: Ticket) => t.id === selectedTicket.id);
-        
+
         if (updatedTicket) {
           setSelectedTicket(updatedTicket);
           setNewStatus(updatedTicket.status);
         }
-        
+
         fetchTickets();
         setShowDetailModal(false);
       } else {
@@ -327,6 +410,40 @@ export default function HelpDeskPage() {
         loader.hideLoader();
         toast.success('Remark added successfully!');
         setRemarkText('');
+
+        // Send notifications to assigned and accountable persons
+        const ticket = selectedTicket;
+        if (ticket) {
+          if (ticket.assigned_to_name && ticket.assigned_to_name !== currentUser.username) {
+            await createNotificationForUser(
+              ticket.assigned_to_name,
+              'ticket_remark_added',
+              'New Ticket Remark',
+              `${currentUser.full_name || currentUser.username} added a remark to "${ticket.subject}"`,
+              ticket.id
+            );
+          }
+          if (ticket.accountable_person_name && ticket.accountable_person_name !== currentUser.username && ticket.accountable_person_name !== ticket.assigned_to_name) {
+            await createNotificationForUser(
+              ticket.accountable_person_name,
+              'ticket_remark_added',
+              'New Ticket Remark',
+              `${currentUser.full_name || currentUser.username} added a remark to "${ticket.subject}"`,
+              ticket.id
+            );
+          }
+          // Notify ticket raiser
+          if (ticket.raised_by_name && ticket.raised_by_name !== currentUser.username && ticket.raised_by_name !== ticket.assigned_to_name && ticket.raised_by_name !== ticket.accountable_person_name) {
+            await createNotificationForUser(
+              ticket.raised_by_name,
+              'ticket_remark_added',
+              'New Ticket Remark',
+              `${currentUser.full_name || currentUser.username} added a remark to "${ticket.subject}"`,
+              ticket.id
+            );
+          }
+        }
+
         fetchTicketRemarks(selectedTicket.id);
       } else {
         loader.hideLoader();
@@ -591,6 +708,27 @@ export default function HelpDeskPage() {
       if (response.ok) {
         loader.hideLoader();
         toast.success('Ticket updated successfully!');
+
+        // Send notifications to assigned and accountable persons
+        if (assignedUser && assignedUser.username !== currentUser.username) {
+          await createNotificationForUser(
+            assignedUser.username,
+            'ticket_updated',
+            'Ticket Updated',
+            `${currentUser.full_name || currentUser.username} updated ticket: "${formData.subject}"`,
+            editingTicket.id
+          );
+        }
+        if (accountableUser && accountableUser.username !== currentUser.username && accountableUser.username !== assignedUser?.username) {
+          await createNotificationForUser(
+            accountableUser.username,
+            'ticket_updated',
+            'Ticket Updated',
+            `${currentUser.full_name || currentUser.username} updated ticket: "${formData.subject}"`,
+            editingTicket.id
+          );
+        }
+
         setShowEditModal(false);
         setEditingTicket(null);
         setFormData({
@@ -620,6 +758,7 @@ export default function HelpDeskPage() {
 
     try {
       loader.showLoader();
+      const ticket = tickets.find(t => t.id === deletingTicketId);
       const response = await fetch(`/api/helpdesk?id=${deletingTicketId}`, {
         method: 'DELETE'
       });
@@ -627,6 +766,39 @@ export default function HelpDeskPage() {
       if (response.ok) {
         loader.hideLoader();
         toast.success('Ticket deleted successfully!');
+
+        // Send notifications to assigned and accountable persons
+        if (ticket) {
+          if (ticket.assigned_to_name && ticket.assigned_to_name !== currentUser.username) {
+            await createNotificationForUser(
+              ticket.assigned_to_name,
+              'ticket_deleted',
+              'Ticket Deleted',
+              `${currentUser.full_name || currentUser.username} deleted ticket: "${ticket.subject}"`,
+              ticket.id
+            );
+          }
+          if (ticket.accountable_person_name && ticket.accountable_person_name !== currentUser.username && ticket.accountable_person_name !== ticket.assigned_to_name) {
+            await createNotificationForUser(
+              ticket.accountable_person_name,
+              'ticket_deleted',
+              'Ticket Deleted',
+              `${currentUser.full_name || currentUser.username} deleted ticket: "${ticket.subject}"`,
+              ticket.id
+            );
+          }
+          // Notify ticket raiser
+          if (ticket.raised_by_name && ticket.raised_by_name !== currentUser.username && ticket.raised_by_name !== ticket.assigned_to_name && ticket.raised_by_name !== ticket.accountable_person_name) {
+            await createNotificationForUser(
+              ticket.raised_by_name,
+              'ticket_deleted',
+              'Ticket Deleted',
+              `${currentUser.full_name || currentUser.username} deleted ticket: "${ticket.subject}"`,
+              ticket.id
+            );
+          }
+        }
+
         setShowDeleteModal(false);
         setDeletingTicketId(null);
         fetchTickets();
@@ -643,47 +815,45 @@ export default function HelpDeskPage() {
 
   return (
     <LayoutWrapper>
-      <div className="p-6">
+      <div className="p-4 md:p-6">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
             <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-[#f4d24a] to-[#e5c33a] bg-clip-text text-transparent mb-2">
+              <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-secondary)] bg-clip-text text-transparent mb-2">
                 HelpDesk
               </h1>
               <p className="text-gray-600 dark:text-gray-400">Manage and track support tickets</p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 w-full md:w-auto overflow-x-auto pb-1 md:pb-0" style={{ scrollbarWidth: 'none' }}>
               {/* View Mode Toggle */}
-              <div className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg p-1">
+              <div className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg p-1 flex-shrink-0">
                 <button
                   onClick={() => setViewMode('list')}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded transition ${
-                    viewMode === 'list'
-                      ? 'bg-[#f4d24a] text-gray-900 font-semibold'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                  }`}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded transition ${viewMode === 'list'
+                    ? 'bg-[var(--theme-primary)] text-gray-900 font-semibold'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                    }`}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
                   </svg>
-                  List
+                  <span className="hidden sm:inline">List</span>
                 </button>
                 <button
                   onClick={() => setViewMode('table')}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded transition ${
-                    viewMode === 'table'
-                      ? 'bg-[#f4d24a] text-gray-900 font-semibold'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                  }`}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded transition ${viewMode === 'table'
+                    ? 'bg-[var(--theme-primary)] text-gray-900 font-semibold'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                    }`}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                   </svg>
-                  Table
+                  <span className="hidden sm:inline">Table</span>
                 </button>
               </div>
-              
+
               {/* Filters Button with Count Badge */}
               <div className="relative">
                 <button
@@ -694,10 +864,10 @@ export default function HelpDeskPage() {
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                   </svg>
-                  Filters
+                  <span className="hidden sm:inline">Filters</span>
                 </button>
                 {activeFilterCount > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-[#f4d24a] text-gray-900 text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                  <span className="absolute -top-2 -right-2 bg-[var(--theme-primary)] text-gray-900 text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
                     {activeFilterCount}
                   </span>
                 )}
@@ -707,10 +877,11 @@ export default function HelpDeskPage() {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setShowAddModal(true)}
-                className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#f4d24a] to-[#e5c33a] text-gray-900 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-shadow"
+                className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-secondary)] text-gray-900 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-shadow flex-shrink-0"
               >
                 <Icon name="plus" size={20} />
-                Raise Ticket
+                <span className="hidden sm:inline">Raise Ticket</span>
+                <span className="sm:hidden">Raise</span>
               </motion.button>
             </div>
           </div>
@@ -729,25 +900,21 @@ export default function HelpDeskPage() {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => setSelectedStatus('all')}
-              className={`cursor-pointer rounded-xl p-3 border transition min-w-[180px] ${
-                selectedStatus === 'all'
-                  ? 'bg-gradient-to-br from-[#f4d24a] to-[#e5c33a] border-yellow-400 shadow-lg'
-                  : 'bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 border-gray-200 dark:border-gray-600 hover:shadow-md'
-              }`}
+              className={`cursor-pointer rounded-xl p-3 border transition min-w-[180px] ${selectedStatus === 'all'
+                ? 'bg-gradient-to-br from-[var(--theme-primary)] to-[var(--theme-secondary)] border-yellow-400 shadow-lg'
+                : 'bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 border-gray-200 dark:border-gray-600 hover:shadow-md'
+                }`}
             >
               <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                  selectedStatus === 'all' ? 'bg-yellow-600' : 'bg-gray-500'
-                }`}>
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${selectedStatus === 'all' ? 'bg-yellow-600' : 'bg-gray-500'
+                  }`}>
                   <Icon name="list" size={20} className="text-white" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className={`text-xs font-semibold uppercase tracking-wide ${
-                    selectedStatus === 'all' ? 'text-gray-900' : 'text-gray-600 dark:text-gray-400'
-                  }`}>All Tickets</p>
-                  <p className={`text-2xl font-bold ${
-                    selectedStatus === 'all' ? 'text-gray-900' : 'text-gray-700 dark:text-gray-300'
-                  }`}>{tickets.length}</p>
+                  <p className={`text-xs font-semibold uppercase tracking-wide ${selectedStatus === 'all' ? 'text-gray-900' : 'text-gray-600 dark:text-gray-400'
+                    }`}>All Tickets</p>
+                  <p className={`text-2xl font-bold ${selectedStatus === 'all' ? 'text-gray-900' : 'text-gray-700 dark:text-gray-300'
+                    }`}>{tickets.length}</p>
                 </div>
               </div>
             </motion.div>
@@ -759,25 +926,21 @@ export default function HelpDeskPage() {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => setSelectedStatus(status.key)}
-                className={`cursor-pointer rounded-xl p-3 border transition min-w-[180px] ${
-                  selectedStatus === status.key
-                    ? `bg-gradient-to-br ${status.color} border-opacity-50 shadow-lg`
-                    : 'bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 border-gray-200 dark:border-gray-600 hover:shadow-md'
-                }`}
+                className={`cursor-pointer rounded-xl p-3 border transition min-w-[180px] ${selectedStatus === status.key
+                  ? `bg-gradient-to-br ${status.color} border-opacity-50 shadow-lg`
+                  : 'bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 border-gray-200 dark:border-gray-600 hover:shadow-md'
+                  }`}
               >
                 <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                    selectedStatus === status.key ? 'bg-white/20' : 'bg-gray-500'
-                  }`}>
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${selectedStatus === status.key ? 'bg-white/20' : 'bg-gray-500'
+                    }`}>
                     <Icon name={status.icon as any} size={20} className="text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className={`text-xs font-semibold uppercase tracking-wide ${
-                      selectedStatus === status.key ? 'text-white' : 'text-gray-600 dark:text-gray-400'
-                    }`}>{status.label}</p>
-                    <p className={`text-2xl font-bold ${
-                      selectedStatus === status.key ? 'text-white' : 'text-gray-700 dark:text-gray-300'
-                    }`}>{getTicketCountByStatus(status.key)}</p>
+                    <p className={`text-xs font-semibold uppercase tracking-wide ${selectedStatus === status.key ? 'text-white' : 'text-gray-600 dark:text-gray-400'
+                      }`}>{status.label}</p>
+                    <p className={`text-2xl font-bold ${selectedStatus === status.key ? 'text-white' : 'text-gray-700 dark:text-gray-300'
+                      }`}>{getTicketCountByStatus(status.key)}</p>
                   </div>
                 </div>
               </motion.div>
@@ -794,7 +957,7 @@ export default function HelpDeskPage() {
 
             {loading ? (
               <div className="text-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#f4d24a] mx-auto"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--theme-primary)] mx-auto"></div>
                 <p className="mt-4 text-gray-600 dark:text-gray-400">Loading tickets...</p>
               </div>
             ) : filteredTickets.length === 0 ? (
@@ -806,7 +969,7 @@ export default function HelpDeskPage() {
               <>
                 {/* List View */}
                 {viewMode === 'list' && (
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <AnimatePresence>
                       {displayTickets.map((ticket, index) => (
                         <motion.div
@@ -816,12 +979,12 @@ export default function HelpDeskPage() {
                           exit={{ opacity: 0, x: 20 }}
                           transition={{ delay: index * 0.05 }}
                           onClick={() => openTicketDetail(ticket)}
-                          className="p-5 border border-gray-200 dark:border-gray-700 rounded-xl hover:shadow-lg hover:border-[#f4d24a] transition-all cursor-pointer bg-gradient-to-r from-transparent to-transparent hover:from-yellow-50 hover:to-transparent dark:hover:from-yellow-900/10"
+                          className="p-5 border border-gray-200 dark:border-gray-700 rounded-xl hover:shadow-lg hover:border-[var(--theme-primary)] transition-all cursor-pointer bg-gradient-to-r from-transparent to-transparent hover:from-yellow-50 hover:to-transparent dark:hover:from-yellow-900/10"
                         >
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
                               <div className="flex items-center gap-3 mb-2">
-                                <span className="font-mono text-sm font-bold text-[#f4d24a]">
+                                <span className="font-mono text-sm font-bold text-[var(--theme-primary)]">
                                   #{ticket.id}
                                 </span>
                                 <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getPriorityColor(ticket.priority)}`}>
@@ -838,9 +1001,9 @@ export default function HelpDeskPage() {
                               <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
                                 <div className="flex items-center gap-2">
                                   {getUserImage(ticket.raised_by) ? (
-                                    <img src={getUserImage(ticket.raised_by)!} alt={ticket.raised_by_name} className="w-6 h-6 rounded-full object-cover border-2 border-[#f4d24a]" />
+                                    <img src={`/api/image-proxy?url=${encodeURIComponent(getUserImage(ticket.raised_by)!)}`} alt={ticket.raised_by_name} className="w-6 h-6 rounded-full object-cover border-2 border-[var(--theme-primary)]" />
                                   ) : (
-                                    <div className="w-6 h-6 bg-gradient-to-br from-[#f4d24a] to-[#e5c33a] rounded-full flex items-center justify-center text-xs font-bold text-gray-900">
+                                    <div className="w-6 h-6 bg-gradient-to-br from-[var(--theme-primary)] to-[var(--theme-secondary)] rounded-full flex items-center justify-center text-xs font-bold text-gray-900">
                                       {ticket.raised_by_name?.[0]?.toUpperCase() || '?'}
                                     </div>
                                   )}
@@ -850,7 +1013,7 @@ export default function HelpDeskPage() {
                                   <div className="flex items-center gap-2">
                                     <Icon name="user-check" size={14} />
                                     {getUserImage(ticket.assigned_to) ? (
-                                      <img src={getUserImage(ticket.assigned_to)!} alt={getUserName(ticket.assigned_to)} className="w-6 h-6 rounded-full object-cover border-2 border-blue-400" />
+                                      <img src={`/api/image-proxy?url=${encodeURIComponent(getUserImage(ticket.assigned_to)!)}`} alt={getUserName(ticket.assigned_to)} className="w-6 h-6 rounded-full object-cover border-2 border-blue-400" />
                                     ) : (
                                       <div className="w-6 h-6 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-xs font-bold text-white">
                                         {getUserName(ticket.assigned_to)?.[0]?.toUpperCase() || '?'}
@@ -863,7 +1026,7 @@ export default function HelpDeskPage() {
                                   <div className="flex items-center gap-2">
                                     <Icon name="user-check" size={14} />
                                     {getUserImage(ticket.accountable_person) ? (
-                                      <img src={getUserImage(ticket.accountable_person)!} alt={getUserName(ticket.accountable_person)} className="w-6 h-6 rounded-full object-cover border-2 border-purple-400" />
+                                      <img src={`/api/image-proxy?url=${encodeURIComponent(getUserImage(ticket.accountable_person)!)}`} alt={getUserName(ticket.accountable_person)} className="w-6 h-6 rounded-full object-cover border-2 border-purple-400" />
                                     ) : (
                                       <div className="w-6 h-6 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full flex items-center justify-center text-xs font-bold text-white">
                                         {getUserName(ticket.accountable_person)?.[0]?.toUpperCase() || '?'}
@@ -881,45 +1044,43 @@ export default function HelpDeskPage() {
                               <div className="pt-6 mt-3 border-t border-gray-100 dark:border-gray-700">
                                 <div className="flex items-center gap-2">
                                   {statusConfig.map((stage, idx) => {
-                                  const currentIdx = getStatusStageIndex(ticket.status);
-                                  const isCompleted = idx <= currentIdx;
-                                  const isCurrent = idx === currentIdx;
-                                  return (
-                                    <div key={stage.key} className="flex items-center">
-                                      <motion.div
-                                        initial={{ scale: 0.8, opacity: 0 }}
-                                        animate={{ scale: 1, opacity: 1 }}
-                                        transition={{ delay: idx * 0.1 }}
-                                        className={`relative flex items-center justify-center w-8 h-8 rounded-full border-2 transition-all ${
-                                          isCompleted
+                                    const currentIdx = getStatusStageIndex(ticket.status);
+                                    const isCompleted = idx <= currentIdx;
+                                    const isCurrent = idx === currentIdx;
+                                    return (
+                                      <div key={stage.key} className="flex items-center">
+                                        <motion.div
+                                          initial={{ scale: 0.8, opacity: 0 }}
+                                          animate={{ scale: 1, opacity: 1 }}
+                                          transition={{ delay: idx * 0.1 }}
+                                          className={`relative flex items-center justify-center w-8 h-8 rounded-full border-2 transition-all ${isCompleted
                                             ? 'bg-gradient-to-r ' + stage.color + ' border-transparent text-white'
                                             : 'bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-400'
-                                        } ${isCurrent ? 'ring-4 ring-yellow-200 dark:ring-yellow-900/50 scale-110' : ''}`}
-                                        title={stage.label}
-                                      >
-                                        {isCompleted ? (
-                                          <Icon name="check" size={16} />
-                                        ) : (
-                                          <span className="text-xs font-bold">{idx + 1}</span>
+                                            } ${isCurrent ? 'ring-4 ring-yellow-200 dark:ring-yellow-900/50 scale-110' : ''}`}
+                                          title={stage.label}
+                                        >
+                                          {isCompleted ? (
+                                            <Icon name="check" size={16} />
+                                          ) : (
+                                            <span className="text-xs font-bold">{idx + 1}</span>
+                                          )}
+                                          {isCurrent && (
+                                            <motion.div
+                                              className="absolute -top-7 left-1/2 -translate-x-1/2 text-xs font-semibold text-[var(--theme-primary)] whitespace-nowrap bg-white dark:bg-gray-800 px-2 py-0.5 rounded shadow-sm"
+                                              animate={{ y: [0, -2, 0] }}
+                                              transition={{ duration: 1.5, repeat: Infinity }}
+                                            >
+                                              {stage.label}
+                                            </motion.div>
+                                          )}
+                                        </motion.div>
+                                        {idx < statusConfig.length - 1 && (
+                                          <div className={`w-8 h-0.5 ${idx < currentIdx ? 'bg-gradient-to-r ' + stage.color : 'bg-gray-200 dark:bg-gray-700'
+                                            }`} />
                                         )}
-                                        {isCurrent && (
-                                          <motion.div
-                                            className="absolute -top-7 left-1/2 -translate-x-1/2 text-xs font-semibold text-[#f4d24a] whitespace-nowrap bg-white dark:bg-gray-800 px-2 py-0.5 rounded shadow-sm"
-                                            animate={{ y: [0, -2, 0] }}
-                                            transition={{ duration: 1.5, repeat: Infinity }}
-                                          >
-                                            {stage.label}
-                                          </motion.div>
-                                        )}
-                                      </motion.div>
-                                      {idx < statusConfig.length - 1 && (
-                                        <div className={`w-8 h-0.5 ${
-                                          idx < currentIdx ? 'bg-gradient-to-r ' + stage.color : 'bg-gray-200 dark:bg-gray-700'
-                                        }`} />
-                                      )}
-                                    </div>
-                                  );
-                                })}
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               </div>
                             </div>
@@ -953,7 +1114,7 @@ export default function HelpDeskPage() {
                 {viewMode === 'table' && (
                   <div className="overflow-x-auto">
                     <table className="w-full">
-                      <thead className="bg-[#f5f1e8] dark:bg-gray-700">
+                      <thead className="bg-[var(--theme-lighter)] dark:bg-gray-700">
                         <tr>
                           <th onClick={() => handleSort('id')} className="px-6 py-4 text-left text-sm font-semibold text-gray-900 dark:text-white cursor-pointer hover:bg-[#e5d5c8] dark:hover:bg-gray-600 transition">
                             <div className="flex items-center gap-2">
@@ -1021,13 +1182,13 @@ export default function HelpDeskPage() {
                         {displayTickets.map((ticket) => (
                           <motion.tr
                             key={ticket.id}
-                            className="hover:bg-[#f5f1e8]/50 dark:hover:bg-gray-700/50 transition cursor-pointer"
+                            className="hover:bg-[var(--theme-lighter)]/50 dark:hover:bg-gray-700/50 transition cursor-pointer"
                             onClick={() => openTicketDetail(ticket)}
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                           >
                             <td className="px-6 py-4">
-                              <span className="font-mono text-sm font-bold text-[#f4d24a]">#{ticket.id}</span>
+                              <span className="font-mono text-sm font-bold text-[var(--theme-primary)]">#{ticket.id}</span>
                             </td>
                             <td className="px-6 py-4">
                               <p className="font-semibold text-gray-900 dark:text-white">{ticket.subject}</p>
@@ -1046,9 +1207,9 @@ export default function HelpDeskPage() {
                             <td className="px-6 py-4">
                               <div className="flex items-center gap-2">
                                 {getUserImage(ticket.raised_by) ? (
-                                  <img src={getUserImage(ticket.raised_by)!} alt={ticket.raised_by_name} className="w-8 h-8 rounded-full object-cover border-2 border-[#f4d24a]" />
+                                  <img src={`/api/image-proxy?url=${encodeURIComponent(getUserImage(ticket.raised_by)!)}`} alt={ticket.raised_by_name} className="w-8 h-8 rounded-full object-cover border-2 border-[var(--theme-primary)]" />
                                 ) : (
-                                  <div className="w-8 h-8 bg-gradient-to-br from-[#f4d24a] to-[#e5c33a] rounded-full flex items-center justify-center text-sm font-bold text-gray-900 shadow-md">
+                                  <div className="w-8 h-8 bg-gradient-to-br from-[var(--theme-primary)] to-[var(--theme-secondary)] rounded-full flex items-center justify-center text-sm font-bold text-gray-900 shadow-md">
                                     {ticket.raised_by_name?.[0]?.toUpperCase() || '?'}
                                   </div>
                                 )}
@@ -1059,7 +1220,7 @@ export default function HelpDeskPage() {
                               {ticket.assigned_to ? (
                                 <div className="flex items-center gap-2">
                                   {getUserImage(ticket.assigned_to) ? (
-                                    <img src={getUserImage(ticket.assigned_to)!} alt={getUserName(ticket.assigned_to)} className="w-8 h-8 rounded-full object-cover border-2 border-blue-400" />
+                                    <img src={`/api/image-proxy?url=${encodeURIComponent(getUserImage(ticket.assigned_to)!)}`} alt={getUserName(ticket.assigned_to)} className="w-8 h-8 rounded-full object-cover border-2 border-blue-400" />
                                   ) : (
                                     <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-sm font-bold text-white shadow-md">
                                       {getUserName(ticket.assigned_to)?.[0]?.toUpperCase() || '?'}
@@ -1075,7 +1236,7 @@ export default function HelpDeskPage() {
                               {ticket.accountable_person ? (
                                 <div className="flex items-center gap-2">
                                   {getUserImage(ticket.accountable_person) ? (
-                                    <img src={getUserImage(ticket.accountable_person)!} alt={getUserName(ticket.accountable_person)} className="w-8 h-8 rounded-full object-cover border-2 border-purple-400" />
+                                    <img src={`/api/image-proxy?url=${encodeURIComponent(getUserImage(ticket.accountable_person)!)}`} alt={getUserName(ticket.accountable_person)} className="w-8 h-8 rounded-full object-cover border-2 border-purple-400" />
                                   ) : (
                                     <div className="w-8 h-8 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full flex items-center justify-center text-sm font-bold text-white shadow-md">
                                       {getUserName(ticket.accountable_person)?.[0]?.toUpperCase() || '?'}
@@ -1100,11 +1261,10 @@ export default function HelpDeskPage() {
                                   return (
                                     <div
                                       key={stage.key}
-                                      className={`w-6 h-6 rounded-full flex items-center justify-center border-2 transition-all ${
-                                        isCompleted
-                                          ? 'bg-green-500 border-green-600 text-white'
-                                          : 'bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600'
-                                      }`}
+                                      className={`w-6 h-6 rounded-full flex items-center justify-center border-2 transition-all ${isCompleted
+                                        ? 'bg-green-500 border-green-600 text-white'
+                                        : 'bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600'
+                                        }`}
                                       title={stage.label}
                                     >
                                       {isCompleted && <Icon name="check" size={12} />}
@@ -1145,7 +1305,7 @@ export default function HelpDeskPage() {
                         ))}
                       </tbody>
                     </table>
-                    
+
                     {/* Pagination Controls */}
                     {totalPages > 1 && (
                       <div className="flex items-center justify-between px-6 py-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
@@ -1160,7 +1320,7 @@ export default function HelpDeskPage() {
                           >
                             <Icon name="chevron-left" size={16} />
                           </button>
-                          
+
                           {Array.from({ length: totalPages }, (_, i) => i + 1)
                             .filter(page => {
                               // Show first page, last page, current page, and pages around current
@@ -1173,17 +1333,16 @@ export default function HelpDeskPage() {
                                 )}
                                 <button
                                   onClick={() => setCurrentPage(page)}
-                                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
-                                    currentPage === page
-                                      ? 'bg-gradient-to-r from-[#f4d24a] to-[#e5c33a] text-gray-900'
-                                      : 'border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                                  }`}
+                                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${currentPage === page
+                                    ? 'bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-secondary)] text-gray-900'
+                                    : 'border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                                    }`}
                                 >
                                   {page}
                                 </button>
                               </React.Fragment>
                             ))}
-                          
+
                           <button
                             onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                             disabled={currentPage === totalPages}
@@ -1214,19 +1373,22 @@ export default function HelpDeskPage() {
               />
 
               <motion.div
-                className="fixed z-[70] w-[600px]"
-                style={{ top: filterPos.top, right: filterPos.right }}
-                initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                className="fixed z-[70] w-full md:w-[600px] max-w-[95vw] md:max-w-none bottom-0 md:bottom-auto left-1/2 md:left-auto md:top-auto -translate-x-1/2 md:translate-x-0"
+                style={{
+                  top: typeof window !== 'undefined' && window.innerWidth >= 768 ? filterPos.top : undefined,
+                  right: typeof window !== 'undefined' && window.innerWidth >= 768 ? filterPos.right : undefined
+                }}
+                initial={{ opacity: 0, y: 100, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                exit={{ opacity: 0, y: 100, scale: 0.95 }}
                 transition={{ duration: 0.2 }}
               >
                 <div
                   className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 max-h-[calc(100vh-100px)] overflow-y-auto"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  {/* Arrow pointing to filter button */}
-                  <div className="absolute -top-2 right-8 w-4 h-4 bg-white dark:bg-gray-800 border-l border-t border-gray-200 dark:border-gray-700 transform rotate-45"></div>
+                  {/* Arrow pointing to filter button - Hide on mobile */}
+                  <div className="hidden md:block absolute -top-2 right-8 w-4 h-4 bg-white dark:bg-gray-800 border-l border-t border-gray-200 dark:border-gray-700 transform rotate-45"></div>
 
                   {/* Filter Content */}
                   <div className="p-5 space-y-4">
@@ -1250,22 +1412,22 @@ export default function HelpDeskPage() {
                           value={filterSearches.category}
                           onChange={(e) => setFilterSearches(prev => ({ ...prev, category: e.target.value }))}
                           onFocus={() => setActiveDropdown('category')}
-                          className="w-full px-3 py-2 bg-[#f5f1e8] dark:bg-gray-700 border-0 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-[#f4d24a] transition"
+                          className="w-full px-3 py-2 bg-[var(--theme-lighter)] dark:bg-gray-700 border-0 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-[var(--theme-primary)] transition"
                         />
                         {activeDropdown === 'category' && (
-                          <div 
+                          <div
                             className="absolute top-full left-0 right-0 mt-1 max-h-48 overflow-y-auto space-y-1 bg-white dark:bg-gray-800 rounded-lg p-2 shadow-xl border border-gray-200 dark:border-gray-700 z-50"
                             onMouseDown={(e) => e.preventDefault()}
                           >
                             {uniqueCategories
                               .filter(cat => !filterSearches.category || cat.toLowerCase().includes(filterSearches.category.toLowerCase()))
                               .map(cat => (
-                                <label key={cat} className="flex items-center gap-2 cursor-pointer hover:bg-[#f5f1e8] dark:hover:bg-gray-700 p-1.5 rounded transition">
+                                <label key={cat} className="flex items-center gap-2 cursor-pointer hover:bg-[var(--theme-lighter)] dark:hover:bg-gray-700 p-1.5 rounded transition">
                                   <input
                                     type="checkbox"
                                     checked={filters.categories.includes(cat)}
                                     onChange={() => toggleFilter('categories', cat)}
-                                    className="w-3.5 h-3.5 text-[#f4d24a] focus:ring-[#f4d24a] rounded"
+                                    className="w-3.5 h-3.5 text-[var(--theme-primary)] focus:ring-[var(--theme-primary)] rounded"
                                   />
                                   <span className="text-xs text-gray-900 dark:text-white">{cat}</span>
                                 </label>
@@ -1281,22 +1443,22 @@ export default function HelpDeskPage() {
                           value={filterSearches.raisedBy}
                           onChange={(e) => setFilterSearches(prev => ({ ...prev, raisedBy: e.target.value }))}
                           onFocus={() => setActiveDropdown('raisedBy')}
-                          className="w-full px-3 py-2 bg-[#f5f1e8] dark:bg-gray-700 border-0 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-[#f4d24a] transition"
+                          className="w-full px-3 py-2 bg-[var(--theme-lighter)] dark:bg-gray-700 border-0 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-[var(--theme-primary)] transition"
                         />
                         {activeDropdown === 'raisedBy' && (
-                          <div 
+                          <div
                             className="absolute top-full left-0 right-0 mt-1 max-h-48 overflow-y-auto space-y-1 bg-white dark:bg-gray-800 rounded-lg p-2 shadow-xl border border-gray-200 dark:border-gray-700 z-50"
                             onMouseDown={(e) => e.preventDefault()}
                           >
                             {uniqueRaisedBy
                               .filter(name => !filterSearches.raisedBy || name.toLowerCase().includes(filterSearches.raisedBy.toLowerCase()))
                               .map(name => (
-                                <label key={name} className="flex items-center gap-2 cursor-pointer hover:bg-[#f5f1e8] dark:hover:bg-gray-700 p-1.5 rounded transition">
+                                <label key={name} className="flex items-center gap-2 cursor-pointer hover:bg-[var(--theme-lighter)] dark:hover:bg-gray-700 p-1.5 rounded transition">
                                   <input
                                     type="checkbox"
                                     checked={filters.raisedBy.includes(name)}
                                     onChange={() => toggleFilter('raisedBy', name)}
-                                    className="w-3.5 h-3.5 text-[#f4d24a] focus:ring-[#f4d24a] rounded"
+                                    className="w-3.5 h-3.5 text-[var(--theme-primary)] focus:ring-[var(--theme-primary)] rounded"
                                   />
                                   <span className="text-xs text-gray-900 dark:text-white">{name}</span>
                                 </label>
@@ -1316,22 +1478,22 @@ export default function HelpDeskPage() {
                           value={filterSearches.assignedTo}
                           onChange={(e) => setFilterSearches(prev => ({ ...prev, assignedTo: e.target.value }))}
                           onFocus={() => setActiveDropdown('assignedTo')}
-                          className="w-full px-3 py-2 bg-[#f5f1e8] dark:bg-gray-700 border-0 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-[#f4d24a] transition"
+                          className="w-full px-3 py-2 bg-[var(--theme-lighter)] dark:bg-gray-700 border-0 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-[var(--theme-primary)] transition"
                         />
                         {activeDropdown === 'assignedTo' && (
-                          <div 
+                          <div
                             className="absolute top-full left-0 right-0 mt-1 max-h-48 overflow-y-auto space-y-1 bg-white dark:bg-gray-800 rounded-lg p-2 shadow-xl border border-gray-200 dark:border-gray-700 z-50"
                             onMouseDown={(e) => e.preventDefault()}
                           >
                             {uniqueAssignedTo
                               .filter(name => !filterSearches.assignedTo || name?.toLowerCase().includes(filterSearches.assignedTo.toLowerCase()))
                               .map(name => name && (
-                                <label key={name} className="flex items-center gap-2 cursor-pointer hover:bg-[#f5f1e8] dark:hover:bg-gray-700 p-1.5 rounded transition">
+                                <label key={name} className="flex items-center gap-2 cursor-pointer hover:bg-[var(--theme-lighter)] dark:hover:bg-gray-700 p-1.5 rounded transition">
                                   <input
                                     type="checkbox"
                                     checked={filters.assignedTo.includes(name)}
                                     onChange={() => toggleFilter('assignedTo', name)}
-                                    className="w-3.5 h-3.5 text-[#f4d24a] focus:ring-[#f4d24a] rounded"
+                                    className="w-3.5 h-3.5 text-[var(--theme-primary)] focus:ring-[var(--theme-primary)] rounded"
                                   />
                                   <span className="text-xs text-gray-900 dark:text-white">{name}</span>
                                 </label>
@@ -1347,22 +1509,22 @@ export default function HelpDeskPage() {
                           value={filterSearches.accountable}
                           onChange={(e) => setFilterSearches(prev => ({ ...prev, accountable: e.target.value }))}
                           onFocus={() => setActiveDropdown('accountable')}
-                          className="w-full px-3 py-2 bg-[#f5f1e8] dark:bg-gray-700 border-0 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-[#f4d24a] transition"
+                          className="w-full px-3 py-2 bg-[var(--theme-lighter)] dark:bg-gray-700 border-0 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-[var(--theme-primary)] transition"
                         />
                         {activeDropdown === 'accountable' && (
-                          <div 
+                          <div
                             className="absolute top-full left-0 right-0 mt-1 max-h-48 overflow-y-auto space-y-1 bg-white dark:bg-gray-800 rounded-lg p-2 shadow-xl border border-gray-200 dark:border-gray-700 z-50"
                             onMouseDown={(e) => e.preventDefault()}
                           >
                             {uniqueAccountable
                               .filter(name => !filterSearches.accountable || name?.toLowerCase().includes(filterSearches.accountable.toLowerCase()))
                               .map(name => name && (
-                                <label key={name} className="flex items-center gap-2 cursor-pointer hover:bg-[#f5f1e8] dark:hover:bg-gray-700 p-1.5 rounded transition">
+                                <label key={name} className="flex items-center gap-2 cursor-pointer hover:bg-[var(--theme-lighter)] dark:hover:bg-gray-700 p-1.5 rounded transition">
                                   <input
                                     type="checkbox"
                                     checked={filters.accountable.includes(name)}
                                     onChange={() => toggleFilter('accountable', name)}
-                                    className="w-3.5 h-3.5 text-[#f4d24a] focus:ring-[#f4d24a] rounded"
+                                    className="w-3.5 h-3.5 text-[var(--theme-primary)] focus:ring-[var(--theme-primary)] rounded"
                                   />
                                   <span className="text-xs text-gray-900 dark:text-white">{name}</span>
                                 </label>
@@ -1380,11 +1542,10 @@ export default function HelpDeskPage() {
                           <button
                             key={priority}
                             onClick={() => toggleFilter('priorities', priority)}
-                            className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition ${
-                              filters.priorities.includes(priority)
-                                ? 'bg-[#f4d24a] text-gray-900 shadow-md'
-                                : 'bg-[#f5f1e8] dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-[#e5d5c8] dark:hover:bg-gray-600'
-                            }`}
+                            className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition ${filters.priorities.includes(priority)
+                              ? 'bg-[var(--theme-primary)] text-gray-900 shadow-md'
+                              : 'bg-[var(--theme-lighter)] dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-[#e5d5c8] dark:hover:bg-gray-600'
+                              }`}
                           >
                             {priority}
                           </button>
@@ -1400,11 +1561,10 @@ export default function HelpDeskPage() {
                           <button
                             key={status.key}
                             onClick={() => toggleFilter('statuses', status.key)}
-                            className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition ${
-                              filters.statuses.includes(status.key)
-                                ? 'bg-[#f4d24a] text-gray-900 shadow-md'
-                                : 'bg-[#f5f1e8] dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-[#e5d5c8] dark:hover:bg-gray-600'
-                            }`}
+                            className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition ${filters.statuses.includes(status.key)
+                              ? 'bg-[var(--theme-primary)] text-gray-900 shadow-md'
+                              : 'bg-[var(--theme-lighter)] dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-[#e5d5c8] dark:hover:bg-gray-600'
+                              }`}
                           >
                             {status.label}
                           </button>
@@ -1422,7 +1582,7 @@ export default function HelpDeskPage() {
                       </button>
                       <button
                         onClick={() => setShowFilterModal(false)}
-                        className="px-4 py-2 bg-[#f4d24a] hover:bg-[#e5c33a] text-gray-900 font-semibold rounded-lg transition"
+                        className="px-4 py-2 bg-[var(--theme-primary)] hover:bg-[var(--theme-secondary)] text-gray-900 font-semibold rounded-lg transition"
                       >
                         Apply Filters
                       </button>
@@ -1451,7 +1611,7 @@ export default function HelpDeskPage() {
                 onClick={(e) => e.stopPropagation()}
                 className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto"
               >
-                <div className="sticky top-0 bg-gradient-to-r from-[#f4d24a] to-[#e5c33a] p-6 rounded-t-2xl z-10 shadow-lg">
+                <div className="sticky top-0 bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-secondary)] p-6 rounded-t-2xl z-10 shadow-lg">
                   <div className="flex justify-between items-center">
                     <div>
                       <h2 className="text-2xl font-bold text-gray-900">Raise New Ticket</h2>
@@ -1493,7 +1653,7 @@ export default function HelpDeskPage() {
                         <select
                           value={formData.category}
                           onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                          className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-[#f4d24a] focus:border-[#f4d24a] transition-all"
+                          className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-[var(--theme-primary)] transition-all"
                         >
                           <option value="">Select Category</option>
                           {categories.map(cat => (
@@ -1510,7 +1670,7 @@ export default function HelpDeskPage() {
                         <select
                           value={formData.priority}
                           onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-                          className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-[#f4d24a] focus:border-[#f4d24a] transition-all"
+                          className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-[var(--theme-primary)] transition-all"
                         >
                           {priorities.map(pri => (
                             <option key={pri} value={pri}>{pri}</option>
@@ -1528,7 +1688,7 @@ export default function HelpDeskPage() {
                           value={formData.subject}
                           onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
                           placeholder="Brief summary of the issue"
-                          className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-[#f4d24a] focus:border-[#f4d24a] transition-all"
+                          className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-[var(--theme-primary)] transition-all"
                         />
                       </div>
 
@@ -1542,7 +1702,7 @@ export default function HelpDeskPage() {
                           onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                           placeholder="Provide a detailed description of the problem..."
                           rows={6}
-                          className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-[#f4d24a] focus:border-[#f4d24a] transition-all resize-none"
+                          className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-[var(--theme-primary)] transition-all resize-none"
                         />
                       </div>
                     </div>
@@ -1613,9 +1773,8 @@ export default function HelpDeskPage() {
                       whileTap={{ scale: 0.98 }}
                       onClick={handleAddTicket}
                       disabled={loadingUser || !currentUser}
-                      className={`flex-1 px-8 py-4 bg-gradient-to-r from-[#f4d24a] to-[#e5c33a] text-gray-900 rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 ${
-                        loadingUser || !currentUser ? 'opacity-50 cursor-not-allowed' : 'hover:from-[#e5c33a] hover:to-[#d4b22a]'
-                      }`}
+                      className={`flex-1 px-8 py-4 bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-secondary)] text-gray-900 rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 ${loadingUser || !currentUser ? 'opacity-50 cursor-not-allowed' : 'hover:from-[var(--theme-secondary)] hover:to-[var(--theme-tertiary)]'
+                        }`}
                     >
                       <Icon name="check" size={20} />
                       Raise Ticket
@@ -1644,7 +1803,7 @@ export default function HelpDeskPage() {
                 onClick={(e) => e.stopPropagation()}
                 className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
               >
-                <div className="sticky top-0 bg-gradient-to-r from-[#f4d24a] to-[#e5c33a] p-6 rounded-t-2xl">
+                <div className="sticky top-0 bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-secondary)] p-6 rounded-t-2xl">
                   <div className="flex justify-between items-start">
                     <div>
                       <h2 className="text-2xl font-bold text-gray-900 mb-2">{selectedTicket.subject}</h2>
@@ -1723,7 +1882,7 @@ export default function HelpDeskPage() {
                         whileTap={{ scale: 0.95 }}
                         onClick={handleStatusChange}
                         disabled={newStatus === selectedTicket.status}
-                        className="px-6 py-2 bg-gradient-to-r from-[#f4d24a] to-[#e5c33a] text-gray-900 rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-6 py-2 bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-secondary)] text-gray-900 rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         Update
                       </motion.button>
@@ -1758,7 +1917,7 @@ export default function HelpDeskPage() {
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={handleAddRemark}
-                        className="px-6 py-2 bg-gradient-to-r from-[#f4d24a] to-[#e5c33a] text-gray-900 rounded-xl font-semibold"
+                        className="px-6 py-2 bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-secondary)] text-gray-900 rounded-xl font-semibold"
                       >
                         Add Note
                       </motion.button>
@@ -1984,3 +2143,4 @@ export default function HelpDeskPage() {
     </LayoutWrapper>
   );
 }
+

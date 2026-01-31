@@ -17,7 +17,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { username, email, password, phone, roleId, imageUrl } = await request.json();
+    const body = await request.json();
+    const { username, email, password, phone, roleName, imageUrl } = body;
 
     if (!username || !email || !password) {
       return NextResponse.json(
@@ -31,8 +32,46 @@ export async function POST(request: NextRequest) {
       email,
       password,
       phone: phone || '',
-      roleId: roleId || 3,
-      imageUrl: imageUrl || ''
+      roleName: roleName || 'User',
+      imageUrl: imageUrl || '',
+      
+      // Personal Details
+      dob: body.dob || '',
+      uanNumber: body.uanNumber || '',
+      aadhaarNumber: body.aadhaarNumber || '',
+      panNumber: body.panNumber || '',
+      
+      // Address Details
+      presentAddressLine1: body.presentAddressLine1 || '',
+      presentAddressLine2: body.presentAddressLine2 || '',
+      presentCity: body.presentCity || '',
+      presentCountry: body.presentCountry || '',
+      presentState: body.presentState || '',
+      presentPostalCode: body.presentPostalCode || '',
+      permanentSameAsPresent: body.permanentSameAsPresent || false,
+      permanentAddressLine1: body.permanentAddressLine1 || '',
+      permanentAddressLine2: body.permanentAddressLine2 || '',
+      permanentCity: body.permanentCity || '',
+      permanentCountry: body.permanentCountry || '',
+      permanentState: body.permanentState || '',
+      permanentPostalCode: body.permanentPostalCode || '',
+      
+      // Professional Details
+      experience: body.experience || '',
+      sourceOfHire: body.sourceOfHire || '',
+      skillSet: body.skillSet || '',
+      highestQualification: body.highestQualification || '',
+      additionalInformation: body.additionalInformation || '',
+      location: body.location || '',
+      title: body.title || '',
+      currentSalary: body.currentSalary || '',
+      department: body.department || '',
+      offerLetterUrl: body.offerLetterUrl || '',
+      tentativeJoiningDate: body.tentativeJoiningDate || '',
+      
+      // Education and Experience (JSON strings)
+      education: body.education || '[]',
+      workExperience: body.workExperience || '[]',
     };
 
     const user = await createUser(userData);
@@ -48,7 +87,8 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const { id, username, email, phone, roleId, imageUrl, password } = await request.json();
+    const body = await request.json();
+    const { id, email, phone, roleName, imageUrl, password } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -60,8 +100,46 @@ export async function PUT(request: NextRequest) {
     const userData: any = {
       email,
       phone,
-      roleId: roleId || 3,
-      imageUrl
+      roleName: roleName || 'User',
+      imageUrl,
+      
+      // Personal Details
+      dob: body.dob,
+      uanNumber: body.uanNumber,
+      aadhaarNumber: body.aadhaarNumber,
+      panNumber: body.panNumber,
+      
+      // Address Details
+      presentAddressLine1: body.presentAddressLine1,
+      presentAddressLine2: body.presentAddressLine2,
+      presentCity: body.presentCity,
+      presentCountry: body.presentCountry,
+      presentState: body.presentState,
+      presentPostalCode: body.presentPostalCode,
+      permanentSameAsPresent: body.permanentSameAsPresent,
+      permanentAddressLine1: body.permanentAddressLine1,
+      permanentAddressLine2: body.permanentAddressLine2,
+      permanentCity: body.permanentCity,
+      permanentCountry: body.permanentCountry,
+      permanentState: body.permanentState,
+      permanentPostalCode: body.permanentPostalCode,
+      
+      // Professional Details
+      experience: body.experience,
+      sourceOfHire: body.sourceOfHire,
+      skillSet: body.skillSet,
+      highestQualification: body.highestQualification,
+      additionalInformation: body.additionalInformation,
+      location: body.location,
+      title: body.title,
+      currentSalary: body.currentSalary,
+      department: body.department,
+      offerLetterUrl: body.offerLetterUrl,
+      tentativeJoiningDate: body.tentativeJoiningDate,
+      
+      // Education and Experience
+      education: body.education,
+      workExperience: body.workExperience,
     };
 
     // Only update password if provided

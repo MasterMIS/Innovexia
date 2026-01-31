@@ -68,13 +68,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const getColors = (type: ToastType) => {
     switch (type) {
       case 'success':
-        return 'bg-gradient-to-r from-[#f4d24a] to-[#f5c842] text-gray-900';
+        return 'bg-gradient-to-r from-[var(--theme-primary)] to-[#f5c842] text-gray-900';
       case 'error':
         return 'bg-gradient-to-r from-red-500 to-red-600 text-white';
       case 'warning':
         return 'bg-gradient-to-r from-orange-400 to-orange-500 text-white';
       default:
-        return 'bg-gradient-to-r from-[#e8dcc8] to-[#f5f1e8] text-gray-900 dark:from-gray-700 dark:to-gray-600 dark:text-white';
+        return 'bg-gradient-to-r from-[var(--theme-lighter)] to-[var(--theme-lighter)] text-gray-900 dark:from-gray-700 dark:to-gray-600 dark:text-white';
     }
   };
 
@@ -113,3 +113,4 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     </ToastContext.Provider>
   );
 }
+

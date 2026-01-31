@@ -1,20 +1,43 @@
 /**
- * Format a date string from the database to Indian Standard Time (IST)
- * Database already stores with IST offset, so read UTC values directly
+ * Format a date string to display format
+ * Handles both ISO format and dd/mm/yyyy HH:mm:ss format
  */
 export function formatDateToLocalTimezone(dateString: string): string {
   try {
-    const date = new Date(dateString);
+    if (!dateString) return '';
     
-    // Database already has IST offset added, so just format without timezone conversion
-    const day = String(date.getUTCDate()).padStart(2, '0');
-    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-    const year = date.getUTCFullYear();
-    const hours = String(date.getUTCHours()).padStart(2, '0');
-    const minutes = String(date.getUTCMinutes()).padStart(2, '0');
-    const seconds = String(date.getUTCSeconds()).padStart(2, '0');
+    // Remove leading single quote if present
+    const cleanStr = dateString.startsWith("'") ? dateString.substring(1) : dateString;
     
-    return `${day}/${month}/${year}, ${hours}:${minutes}:${seconds}`;
+    // Check if it's already in dd/mm/yyyy HH:mm:ss format
+    const ddmmyyyyMatch = cleanStr.match(/(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2}):(\d{2})/);
+    if (ddmmyyyyMatch) {
+      // Already in correct format, return without comma
+      return cleanStr;
+    }
+    
+    // Check if it's YYYY-MM-DDTHH:mm format (from datetime-local input)
+    const datetimeLocalMatch = cleanStr.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+    if (datetimeLocalMatch) {
+      const [_, year, month, day, hours, minutes] = datetimeLocalMatch;
+      return `${day}/${month}/${year} ${hours}:${minutes}:00`;
+    }
+    
+    // Otherwise try to parse as Date (for ISO format)
+    const date = new Date(cleanStr);
+    if (isNaN(date.getTime())) {
+      return cleanStr; // Return original if can't parse
+    }
+    
+    // Use local time methods (not UTC)
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    
+    return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
   } catch (error) {
     console.error('Error formatting date:', error);
     return dateString;

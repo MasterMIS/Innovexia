@@ -7,9 +7,24 @@ import Header from './Header';
 import { ensureSessionId } from '@/utils/session';
 
 export default function LayoutWrapper({ children }: { children: React.ReactNode }) {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+
+  // Open sidebar by default on desktop
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) {
+        setSidebarOpen(true);
+      } else {
+        setSidebarOpen(false);
+      }
+    };
+    
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -31,9 +46,9 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#f5f1e8] dark:bg-gray-800">
+      <div className="min-h-screen flex items-center justify-center bg-[var(--theme-lighter)] dark:bg-gray-800">
         <div className="text-center">
-          <div className="w-16 h-16 bg-[#f4d24a] rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl">
+          <div className="w-16 h-16 bg-[var(--theme-primary)] rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl">
             <span className="text-gray-900 font-bold text-2xl">E</span>
           </div>
           <p className="text-gray-800 dark:text-gray-200 font-medium">Loading your workspace...</p>
@@ -43,7 +58,7 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
   }
 
   return (
-    <div className="flex h-screen bg-[#f5f1e8] dark:bg-gray-800">,
+    <div className="flex h-screen bg-[var(--theme-lighter)] dark:bg-gray-800">,
       {/* Sidebar */}
       <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
 

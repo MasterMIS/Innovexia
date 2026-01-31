@@ -20,16 +20,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate file type
-    if (!ALL_TYPES.includes(file.type)) {
-      return NextResponse.json(
-        { error: 'Invalid file type. Allowed: images, audio, pdf/doc' },
-        { status: 400 }
-      );
-    }
+    // Allowing all file types as per user request
+    // if (!ALL_TYPES.includes(file.type)) {
+    //   console.error('Invalid file type:', file.type);
+    //   return NextResponse.json(
+    //     { error: 'Invalid file type. Allowed: images, audio, pdf/doc' },
+    //     { status: 400 }
+    //   );
+    // }
 
     // Validate file size (max 10MB)
     const maxSize = 10 * 1024 * 1024; // 10MB
     if (file.size > maxSize) {
+      console.error('File too large:', file.size);
       return NextResponse.json(
         { error: 'File too large. Maximum size is 10MB.' },
         { status: 400 }
@@ -38,13 +41,15 @@ export async function POST(request: NextRequest) {
 
     // Determine which folder to use based on upload type
     let folderId = GOOGLE_DRIVE_FOLDERS.DELEGATION_DOCS; // default
-    
+
     if (uploadType === 'user' || uploadType === 'user_image') {
       folderId = GOOGLE_DRIVE_FOLDERS.USER_IMAGES;
     } else if (uploadType === 'chat' || uploadType === 'chat_doc') {
       folderId = GOOGLE_DRIVE_FOLDERS.CHAT_DOCS;
     } else if (uploadType === 'delegation' || uploadType === 'delegation_doc') {
       folderId = GOOGLE_DRIVE_FOLDERS.DELEGATION_DOCS;
+    } else if (uploadType === 'checklist' || uploadType === 'checklist_attachment') {
+      folderId = GOOGLE_DRIVE_FOLDERS.CHECKLIST_ATTACHMENTS;
     }
 
     // Generate unique filename
@@ -59,7 +64,7 @@ export async function POST(request: NextRequest) {
     // Upload to Google Drive
     const result = await uploadToDrive(buffer, fileName, file.type, folderId);
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       success: true,
       url: result.publicUrl,
       downloadUrl: result.downloadUrl,
@@ -70,10 +75,17 @@ export async function POST(request: NextRequest) {
       message: 'File uploaded successfully to Google Drive'
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error uploading file to Google Drive:', error);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+
     return NextResponse.json(
-      { error: 'Failed to upload file to Google Drive' },
+      {
+        error: 'Failed to upload file to Google Drive',
+        details: error.message || String(error),
+        hint: 'Please ensure the service account has been added to the Google Drive folders with Editor permissions'
+      },
       { status: 500 }
     );
   }

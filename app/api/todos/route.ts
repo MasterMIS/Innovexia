@@ -1,5 +1,10 @@
-// import { sql } from '@/lib/db'; // Disabled - now using Google Sheets
 import { NextRequest, NextResponse } from 'next/server';
+import {
+  getTodos,
+  createTodo,
+  updateTodo,
+  deleteTodo
+} from '@/lib/sheets';
 
 // GET todos
 export async function GET(request: NextRequest) {
@@ -18,27 +23,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const todos = await sql`
-      SELECT 
-        t.id,
-        t.title,
-        t.description,
-        t.priority,
-        t.status,
-        t.category,
-        t.is_important,
-        t.assigned_to,
-        t.user_id,
-        t.created_at,
-        t.updated_at,
-        u.username,
-        u.image_url
-      FROM todos t
-      LEFT JOIN users u ON t.user_id = u.id
-      ORDER BY 
-        CASE WHEN t.is_important THEN 0 ELSE 1 END,
-        t.created_at DESC
-    `;
+    // In a real scenario, we might filter by user_id from session/cookie
+    // For now, we fetch all todos (or filter logic needs to be enhanced in sheets.ts if needed)
+
+    // Attempt to extract userId from headers/cookies if available to filter?
+    // The previous SQL used session/cookie auth but fetched ALL todos?
+    // No, standard patterns usually filter. 
+    // The previous code: `SELECT ... FROM todos` didn't have WHERE user_id
+    // But typically Todo apps are user specific.
+    // However, the previous code fetched all. Let's stick to previous behavior or improve?
+    // Previous code: `SELECT ... FROM todos t ...` with no WHERE clause for user.
+    // It seems it was a shared todo list or incomplete implementation.
+    // Let's implement getTodos().
+
+    const todos = await getTodos();
 
     return NextResponse.json(todos);
   } catch (error) {
@@ -70,20 +68,32 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { title, description, priority, status, assigned_to, user_id } = body;
 
-    if (!title || !user_id) {
+    // Use sheet headers logic: 
+    // 'id', 'title', 'description', 'priority', 'status', 'category', 'is_important', 'assigned_to', 'user_id'
+
+    // Note: 'category' was hardcoded to 'inbox' in previous SQL.
+
+    const todoData = {
+      title,
+      description: description || null,
+      priority: priority || 'medium',
+      status: status || 'pending',
+      category: 'inbox',
+      assigned_to: assigned_to || null,
+      user_id,
+      is_important: false
+    };
+
+    if (!title) {
       return NextResponse.json(
-        { error: 'Title and user_id are required' },
+        { error: 'Title is required' },
         { status: 400 }
       );
     }
 
-    const result = await sql`
-      INSERT INTO todos (title, description, priority, status, category, assigned_to, user_id)
-      VALUES (${title}, ${description || null}, ${priority || 'medium'}, ${status || 'pending'}, 'inbox', ${assigned_to || null}, ${user_id})
-      RETURNING *
-    `;
+    const newTodo = await createTodo(todoData);
 
-    return NextResponse.json(result[0], { status: 201 });
+    return NextResponse.json(newTodo, { status: 201 });
   } catch (error) {
     console.error('Error creating todo:', error);
     return NextResponse.json(
@@ -113,13 +123,7 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const {
       id,
-      title,
-      description,
-      priority,
-      status,
-      category,
-      is_important,
-      assigned_to,
+      ...updateFields
     } = body;
 
     if (!id) {
@@ -129,26 +133,9 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const result = await sql`
-      UPDATE todos 
-      SET 
-        title = ${title},
-        description = ${description || null},
-        priority = ${priority || 'medium'},
-        status = ${status || 'pending'},
-        category = ${category || 'inbox'},
-        is_important = ${is_important || false},
-        assigned_to = ${assigned_to || null},
-        updated_at = CURRENT_TIMESTAMP
-      WHERE id = ${id}
-      RETURNING *
-    `;
+    const updatedTodo = await updateTodo(parseInt(id), updateFields);
 
-    if (result.length === 0) {
-      return NextResponse.json({ error: 'Todo not found' }, { status: 404 });
-    }
-
-    return NextResponse.json(result[0]);
+    return NextResponse.json(updatedTodo);
   } catch (error) {
     console.error('Error updating todo:', error);
     return NextResponse.json(
@@ -185,14 +172,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const result = await sql`
-      DELETE FROM todos WHERE id = ${id}
-      RETURNING id
-    `;
-
-    if (result.length === 0) {
-      return NextResponse.json({ error: 'Todo not found' }, { status: 404 });
-    }
+    await deleteTodo(parseInt(id));
 
     return NextResponse.json({ success: true });
   } catch (error) {

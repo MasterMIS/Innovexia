@@ -1,40 +1,21 @@
 import { google } from 'googleapis';
 import { Readable } from 'stream';
-
-// Google Service Account credentials
-const SERVICE_ACCOUNT_CREDENTIALS = {
-  type: "service_account",
-  project_id: "clean-yew-483214-s7",
-  private_key_id: "4eb37472b1af93090d5eac25a2adaf835b19924f",
-  private_key: "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCyPMFT6z4IJYRb\n4u0Gd3YH9ER1Vz+Nuf/78dCrqerwKM0ciBo6KMdFEJELQkEYPvW4PgpQqS8xaE4f\nTWXeN3xLRq9RsDXUB+HtklrtdaF7XNIThRJmLcQHqtDwR3CabbuJlXq1zKfQfmP5\nT3PnUDQ3KmXL+Irlm5SFy8u+b+E4UUD1YY4TDYDDGOID+RD6iddJ6DDxOjhk7MCp\nT7EGBSSwZhz3JTJKlqPBS0mHKFBBPkQ6AuoQ/HwKH1hrKePjlLOpVM2Evjel28+Q\nsyTEYuB338wxrXk6hCvvMRSn1XbwcVy+Fiasnx+96lr5x2xq1Pd7bPZdBXFxXb6D\nrAWqCiD3AgMBAAECggEAEwDmTffBc+XoIFHoGq3nAD8bg3VLeeVwdSDZskvaGEQJ\nZnbecQADCwqSpGQqg5bG5R98QxBez0JDPhQm/dPlpTMCo0+J1bMHdCiMGFBX6MrD\nPUCNbyaHBZhBUbUUPOrhOXCeFj8dT14Cc8T0Yx/KiW00UFSOHqABbGiHryTHmxTl\nDRHalOIeSEiWbg43M0w42xIK+vIFM0wlTuNrzUXChyy3wU+g/mH1I6uJ5UCWOd2B\n8aThvl5m7iK0Lu1YIvc5ADY91LAfl0VdWjZO8K7yJWI1pAnmHy8bWJho3NGmJmFo\nht9ZTdQib6Jz6fa8F6CfbvG0zK4iBdSmza2j1UXkdQKBgQDmei0PtkgqjzfBa3x2\nqWoXfeWsK9Gfh6a+2ZKk7uK8oJCwSCfGgEwxnGLwjrZvzaKBSg34bM6vC92rEOV8\nj/4w7G2ATCWXrwghBvMpvd2CvXghSXNa49oL8JEdIndJfF5Qow720NsZandEC3Oi\nNFjso4gczhLMoxYEoeo1ZjgizQKBgQDF+Z++EK/l6g+X5fflDjpcOb2tFyU3dCGf\ncLZfUnvc2B5MPZW1k46gUfuUWSFQKLuDqPFSK5VYB1Zrlaw/mc6/3m+IwjAENNrN\nmnNP9+OCwYSOC+js5OFj/Dc98mrDcZAJjI1KKD9Vq+nPPFcMa7ESbLndqnbul/8N\nT2nLB2860wKBgCZMIvS7a153EeK4A6SMHi7tIp7rYRfLKLAJ4044y8BgReqk8scP\nRpnvzJkAfdwyJVCqh4vCOM3pgNoOIrQCEVD72G47OPvtf8JNL1a+T/KLnUyasepm\ndjMJtHNM6NlzKxDnJ3Nn3SBqCotqA7ruS+B2hAWVUJZkeyIl7Y8V/zn5AoGAPfHf\nU78w6oWUH3krWZZcGGNQwAoP8Qv7QUIpLiZG71EIGd7jKw9ifzNnvoEs9UHpekaw\nS3+rmQGivsL0RGpB0LMuvuHT2F0ZYV/EWO89VrpqWW/Mj+MFyx0tw8pIMaMk6Hf7\n9YomVw4VeGxu6EoB+7vdZEhkMj+I5IdGmOpYmVUCgYEA3EJ83ZQT5/r6ddSmMCWa\njWgm0hZeoXymZYBI+yHsVtWt/t8HpO4WcSpwJmOxODXAR1gkJ3K2kZiD1pVPk8xc\nnbjz/aLuwRToorcOSMXmk6mSUSIC+DHnHUs55hKF7kngj9L/zDMD+fM9jcUoPP3f\nwFGkybJViC+FdOdWmanhU+0=\n-----END PRIVATE KEY-----\n",
-  client_email: "sohan-595@clean-yew-483214-s7.iam.gserviceaccount.com",
-  client_id: "100523899003841193231",
-  auth_uri: "https://accounts.google.com/o/oauth2/auth",
-  token_uri: "https://oauth2.googleapis.com/token",
-  auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
-  client_x509_cert_url: "https://www.googleapis.com/robot/v1/metadata/x509/sohan-595%40clean-yew-483214-s7.iam.gserviceaccount.com",
-  universe_domain: "googleapis.com"
-};
+import { getGoogleDriveClient as getOAuthDriveClient } from './oauth';
 
 // Google Drive folder IDs for different features
 export const GOOGLE_DRIVE_FOLDERS = {
   DELEGATION_DOCS: '1qFcXd4be7Ii3xnPa0kLW8DiBthtHKQ-C',
   USER_IMAGES: '11Q5YUcaGcOKEW2mqDFHqmijXVx4TbDX7',
   CHAT_DOCS: '1wheUmuq2oq-AuSULQDv7XcnSfR6J4uJ6',
+  CHECKLIST_ATTACHMENTS: '1qFcXd4be7Ii3xnPa0kLW8DiBthtHKQ-C',
 };
 
 // Default folder (delegation)
 export const GOOGLE_DRIVE_FOLDER_ID = GOOGLE_DRIVE_FOLDERS.DELEGATION_DOCS;
 
-// Initialize Google Drive API client with Service Account
+// Initialize Google Drive API client with OAuth
 export async function getGoogleDriveClient() {
-  const auth = new google.auth.GoogleAuth({
-    credentials: SERVICE_ACCOUNT_CREDENTIALS,
-    scopes: ['https://www.googleapis.com/auth/drive'], // Full Drive access for existing folders
-  });
-
-  const drive = google.drive({ version: 'v3', auth });
-  return drive;
+  return await getOAuthDriveClient();
 }
 
 // Upload file to Google Drive
@@ -50,6 +31,7 @@ export async function uploadToDrive(
   fileName: string;
 }> {
   try {
+
     const drive = await getGoogleDriveClient();
 
     // Convert buffer to readable stream
@@ -80,7 +62,19 @@ export async function uploadToDrive(
     });
 
     const fileId = response.data.id!;
-    const publicUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
+
+    // Use different URL formats based on file type
+    // Thumbnail URL for images, direct view URL for audio/video and documents
+    let publicUrl: string;
+    if (mimeType.startsWith('image/')) {
+      publicUrl = `https://drive.google.com/thumbnail?id=${fileId}&sz=w400`;
+    } else if (mimeType.startsWith('audio/') || mimeType.startsWith('video/')) {
+      publicUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
+    } else {
+      // For documents and other files
+      publicUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
+    }
+
     const downloadUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
 
     return {
@@ -89,9 +83,18 @@ export async function uploadToDrive(
       downloadUrl,
       fileName: response.data.name!,
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error uploading to Google Drive:', error);
-    throw error;
+    console.error('Error code:', error.code);
+    console.error('Error message:', error.message);
+
+    if (error.code === 403) {
+      throw new Error('Permission denied. Service account does not have access to the folder. Please add sohan-595@clean-yew-483214-s7.iam.gserviceaccount.com as Editor to folder: ' + folderId);
+    } else if (error.code === 404) {
+      throw new Error('Folder not found: ' + folderId + '. Please verify the folder ID is correct.');
+    }
+
+    throw new Error('Google Drive upload failed: ' + (error.message || String(error)));
   }
 }
 
@@ -124,6 +127,111 @@ export async function listDriveFiles(folderId: string = GOOGLE_DRIVE_FOLDERS.DEL
     return response.data.files || [];
   } catch (error) {
     console.error('Error listing Drive files:', error);
+    throw error;
+  }
+}
+
+// Get file metadata by ID
+export async function getFileMetadata(fileId: string): Promise<any> {
+  try {
+    const drive = await getGoogleDriveClient();
+    const response = await drive.files.get({
+      fileId: fileId,
+      fields: 'id, name, mimeType, size, createdTime, modifiedTime, webViewLink, webContentLink',
+      supportsAllDrives: true,
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error getting file metadata:', error);
+    throw error;
+  }
+}
+
+// Update file (replace content)
+export async function updateFile(
+  fileId: string,
+  buffer: Buffer,
+  mimeType: string
+): Promise<any> {
+  try {
+    const drive = await getGoogleDriveClient();
+    const stream = Readable.from(buffer);
+
+    const response = await drive.files.update({
+      fileId: fileId,
+      media: {
+        mimeType: mimeType,
+        body: stream,
+      },
+      fields: 'id, name, webViewLink',
+      supportsAllDrives: true,
+    });
+
+    return response.data;
+  } catch (error) {
+    console.error('Error updating file:', error);
+    throw error;
+  }
+}
+
+// Copy file
+export async function copyFile(
+  fileId: string,
+  newName: string,
+  destinationFolderId?: string
+): Promise<any> {
+  try {
+    const drive = await getGoogleDriveClient();
+    const response = await drive.files.copy({
+      fileId: fileId,
+      requestBody: {
+        name: newName,
+        ...(destinationFolderId && { parents: [destinationFolderId] }),
+      },
+      fields: 'id, name, webViewLink',
+      supportsAllDrives: true,
+    });
+
+    return response.data;
+  } catch (error) {
+    console.error('Error copying file:', error);
+    throw error;
+  }
+}
+
+// Move file to trash (soft delete)
+export async function trashFile(fileId: string): Promise<void> {
+  try {
+    const drive = await getGoogleDriveClient();
+    await drive.files.update({
+      fileId: fileId,
+      requestBody: {
+        trashed: true,
+      },
+      supportsAllDrives: true,
+    });
+  } catch (error) {
+    console.error('Error trashing file:', error);
+    throw error;
+  }
+}
+
+// Download file content
+export async function downloadFile(fileId: string): Promise<Buffer> {
+  try {
+    const drive = await getGoogleDriveClient();
+    const response = await drive.files.get(
+      {
+        fileId: fileId,
+        alt: 'media',
+        supportsAllDrives: true,
+      },
+      { responseType: 'arraybuffer' }
+    );
+
+    return Buffer.from(response.data as ArrayBuffer);
+  } catch (error) {
+    console.error('Error downloading file:', error);
     throw error;
   }
 }

@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server';
-// import { sql } from '@/lib/db'; // Disabled - now using Google Sheets
+import {
+  getHelpdeskTickets,
+  createHelpdeskTicket,
+  updateHelpdeskTicket,
+  deleteHelpdeskTicket
+} from '@/lib/sheets';
 
-// Helper function to add IST offset for database storage
+// Helper function to add IST offset
 function addISTOffset(date: Date): Date {
   const istOffset = 5.5 * 60 * 60 * 1000; // 5 hours 30 minutes in milliseconds
   return new Date(date.getTime() + istOffset);
@@ -15,34 +20,12 @@ export async function GET(request: Request) {
     const status = searchParams.get('status');
     const assignedTo = searchParams.get('assignedTo');
 
-    let query;
-    
-    if (status) {
-      query = sql`
-        SELECT * FROM helpdesk_tickets 
-        WHERE status = ${status}
-        ORDER BY created_at DESC
-      `;
-    } else if (assignedTo) {
-      query = sql`
-        SELECT * FROM helpdesk_tickets 
-        WHERE assigned_to = ${parseInt(assignedTo)}
-        ORDER BY created_at DESC
-      `;
-    } else if (userId) {
-      query = sql`
-        SELECT * FROM helpdesk_tickets 
-        WHERE raised_by = ${parseInt(userId)} OR assigned_to = ${parseInt(userId)}
-        ORDER BY created_at DESC
-      `;
-    } else {
-      query = sql`
-        SELECT * FROM helpdesk_tickets 
-        ORDER BY created_at DESC
-      `;
-    }
+    const filters: any = {};
+    if (userId) filters.userId = userId;
+    if (status) filters.status = status;
+    if (assignedTo) filters.assignedTo = assignedTo;
 
-    const tickets = await query;
+    const tickets = await getHelpdeskTickets(filters);
 
     return NextResponse.json(tickets, { status: 200 });
   } catch (error) {
@@ -87,50 +70,27 @@ export async function POST(request: Request) {
     const randomNum = Math.floor(1000 + Math.random() * 9000);
     const ticketNumber = `TKT-${dateStr}-${randomNum}`;
 
-    // Add IST offset to timestamps
-    const now = new Date();
-    const adjustedCreatedAt = addISTOffset(now);
-    const adjustedDesiredDate = desiredDate ? addISTOffset(new Date(desiredDate)).toISOString() : null;
+    // Prepare ticket data
+    const ticketData = {
+      ticket_number: ticketNumber,
+      raised_by: raisedBy,
+      raised_by_name: raisedByName,
+      category,
+      priority,
+      subject,
+      description,
+      assigned_to: assignedTo || null,
+      assigned_to_name: assignedToName || null,
+      accountable_person: accountablePerson || null,
+      accountable_person_name: accountablePersonName || null, // Ensure this field exists in defaultHeaders in sheets.ts if used
+      desired_date: desiredDate ? addISTOffset(new Date(desiredDate)).toISOString() : null,
+      status: 'raised',
+      attachments: attachments ? JSON.stringify(attachments) : null,
+    };
 
-    const result = await sql`
-      INSERT INTO helpdesk_tickets (
-        ticket_number,
-        raised_by,
-        raised_by_name,
-        category,
-        priority,
-        subject,
-        description,
-        assigned_to,
-        assigned_to_name,
-        accountable_person,
-        accountable_person_name,
-        desired_date,
-        status,
-        attachments,
-        created_at
-      )
-      VALUES (
-        ${ticketNumber},
-        ${raisedBy},
-        ${raisedByName},
-        ${category},
-        ${priority},
-        ${subject},
-        ${description},
-        ${assignedTo || null},
-        ${assignedToName || null},
-        ${accountablePerson || null},
-        ${accountablePersonName || null},
-        ${adjustedDesiredDate},
-        'raised',
-        ${attachments ? JSON.stringify(attachments) : null},
-        ${adjustedCreatedAt.toISOString()}
-      )
-      RETURNING *
-    `;
+    const newTicket = await createHelpdeskTicket(ticketData);
 
-    return NextResponse.json(result[0], { status: 201 });
+    return NextResponse.json(newTicket, { status: 201 });
   } catch (error) {
     console.error('Error creating helpdesk ticket:', error);
     return NextResponse.json(
@@ -146,18 +106,7 @@ export async function PUT(request: Request) {
     const body = await request.json();
     const {
       id,
-      status,
-      assignedTo,
-      assignedToName,
-      accountablePerson,
-      accountablePersonName,
-      desiredDate,
-      remarks,
-      resolvedAt,
-      category,
-      priority,
-      subject,
-      description
+      ...updateData
     } = body;
 
     if (!id) {
@@ -167,51 +116,29 @@ export async function PUT(request: Request) {
       );
     }
 
-    // Build update object
-    const updateFields: any = {};
-    
-    if (status !== undefined) updateFields.status = status;
-    if (category !== undefined) updateFields.category = category;
-    if (priority !== undefined) updateFields.priority = priority;
-    if (subject !== undefined) updateFields.subject = subject;
-    if (description !== undefined) updateFields.description = description;
-    if (assignedTo !== undefined) updateFields.assigned_to = assignedTo;
-    if (assignedToName !== undefined) updateFields.assigned_to_name = assignedToName;
-    if (accountablePerson !== undefined) updateFields.accountable_person = accountablePerson;
-    if (accountablePersonName !== undefined) updateFields.accountable_person_name = accountablePersonName;
-    if (desiredDate !== undefined) {
-      updateFields.desired_date = addISTOffset(new Date(desiredDate)).toISOString();
-    }
-    if (remarks !== undefined) updateFields.remarks = remarks;
-    if (resolvedAt !== undefined) {
-      updateFields.resolved_at = addISTOffset(new Date(resolvedAt)).toISOString();
-    }
-    
-    // Add IST offset to updated_at
-    const now = new Date();
-    const adjustedUpdatedAt = addISTOffset(now);
-    updateFields.updated_at = adjustedUpdatedAt.toISOString();
+    // Map frontend fields to sheet columns if necessary or pass directly if keys match
+    // The previous implementation utilized 'ticketData' spread.
+    // We should ensure keys match what createHelpdeskTicket expects/sheets.ts uses.
+    // sheets.ts functions use rowToObject keys which usually match DB columns.
 
-    // Build the SET clause and values array
-    const keys = Object.keys(updateFields);
-    const values: any[] = Object.values(updateFields);
-    
-    // Create SET clause with placeholders
-    const setClause = keys
-      .map((key, index) => `${key} = $${index + 1}`)
-      .join(', ');
-    
-    // Add id to values array for WHERE clause
-    values.push(id);
-    const idPlaceholder = values.length;
+    // Transform camelCase to snake_case where appropriate based on lib/sheets.ts usage
+    const transformedData: any = {};
+    if (updateData.status !== undefined) transformedData.status = updateData.status;
+    if (updateData.category !== undefined) transformedData.category = updateData.category;
+    if (updateData.priority !== undefined) transformedData.priority = updateData.priority;
+    if (updateData.subject !== undefined) transformedData.subject = updateData.subject;
+    if (updateData.description !== undefined) transformedData.description = updateData.description;
+    if (updateData.assignedTo !== undefined) transformedData.assigned_to = updateData.assignedTo;
+    if (updateData.assignedToName !== undefined) transformedData.assigned_to_name = updateData.assignedToName;
+    if (updateData.accountablePerson !== undefined) transformedData.accountable_person = updateData.accountablePerson;
+    if (updateData.accountablePersonName !== undefined) transformedData.accountable_person_name = updateData.accountablePersonName;
+    if (updateData.desiredDate !== undefined) transformedData.desired_date = updateData.desiredDate ? addISTOffset(new Date(updateData.desiredDate)).toISOString() : null;
+    if (updateData.remarks !== undefined) transformedData.remarks = updateData.remarks;
+    if (updateData.resolvedAt !== undefined) transformedData.resolved_at = updateData.resolvedAt ? addISTOffset(new Date(updateData.resolvedAt)).toISOString() : null;
 
-    // Use sql.unsafe for dynamic query
-    const result = await sql.unsafe(
-      `UPDATE helpdesk_tickets SET ${setClause} WHERE id = $${idPlaceholder} RETURNING *`,
-      values
-    );
+    const updatedTicket = await updateHelpdeskTicket(parseInt(id), transformedData);
 
-    return NextResponse.json(result[0], { status: 200 });
+    return NextResponse.json(updatedTicket, { status: 200 });
   } catch (error) {
     console.error('Error updating helpdesk ticket:', error);
     return NextResponse.json(
@@ -234,11 +161,7 @@ export async function DELETE(request: Request) {
       );
     }
 
-    // Delete associated remarks first
-    await sql`DELETE FROM helpdesk_remarks WHERE ticket_id = ${parseInt(id)}`;
-
-    // Delete the ticket
-    await sql`DELETE FROM helpdesk_tickets WHERE id = ${parseInt(id)}`;
+    await deleteHelpdeskTicket(parseInt(id));
 
     return NextResponse.json({ success: true, message: 'Ticket deleted successfully' }, { status: 200 });
   } catch (error) {

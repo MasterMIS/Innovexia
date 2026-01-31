@@ -1,15 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDelegations, createDelegation, updateDelegation, deleteDelegation } from '@/lib/sheets';
 
-// Helper function to add IST offset for database storage
-function addISTOffset(date: Date): Date {
-  const istOffset = 5.5 * 60 * 60 * 1000; // 5 hours 30 minutes in milliseconds
-  return new Date(date.getTime() + istOffset);
+// Format date as dd/mm/yyyy HH:mm:ss
+function formatDateTime(date: Date): string {
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+}
+
+// Parse date string and return formatted string
+function parseDateString(dateStr: string): string | null {
+  if (!dateStr) return null;
+
+  // If already in dd/mm/yyyy HH:mm:ss format, return as is
+  if (/\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}/.test(dateStr)) {
+    return dateStr;
+  }
+
+  // Handle YYYY-MM-DDTHH:mm format from datetime-local
+  const datetimeMatch = dateStr.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (datetimeMatch) {
+    const [_, year, month, day, hours, minutes] = datetimeMatch;
+    return `${day}/${month}/${year} ${hours}:${minutes}:00`;
+  }
+
+  // Fallback: try to parse as Date
+  try {
+    const date = new Date(dateStr);
+    if (!isNaN(date.getTime())) {
+      return formatDateTime(date);
+    }
+  } catch (e) {
+    console.error('Error parsing date:', e);
+  }
+
+  return null;
 }
 
 export async function GET(request: NextRequest) {
   try {
     const userId = request.nextUrl.searchParams.get('userId');
+    const role = request.nextUrl.searchParams.get('role');
+    const username = request.nextUrl.searchParams.get('username');
 
     if (!userId) {
       return NextResponse.json(
@@ -18,7 +54,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const delegations = await getDelegations(parseInt(userId));
+    const delegations = await getDelegations(parseInt(userId), role || undefined, username || undefined);
 
     return NextResponse.json({ delegations });
   } catch (error) {
@@ -32,12 +68,12 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { 
-      userId, 
-      delegationName, 
-      description, 
-      assignedTo, 
-      doerName,
+    const {
+      userId,
+      delegationName,
+      description,
+      assignedTo,
+      doers, // Array of doers
       department,
       priority,
       dueDate,
@@ -60,7 +96,7 @@ export async function POST(request: NextRequest) {
       const due = new Date(dueDate);
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate());
-      
+
       if (due < now) {
         status = 'overdue';
       } else if (dueDay.getTime() === today.getTime()) {
@@ -71,29 +107,36 @@ export async function POST(request: NextRequest) {
     }
 
     // Add IST offset to timestamps
-    const now = new Date();
-    const adjustedCreatedAt = addISTOffset(now);
-    const adjustedDueDate = dueDate ? addISTOffset(new Date(dueDate)).toISOString() : null;
+    const adjustedDueDate = parseDateString(dueDate);
 
-    const delegationData = {
-      user_id: userId,
-      delegation_name: delegationName,
-      description: description || null,
-      assigned_to: assignedTo,
-      doer_name: doerName || null,
-      department: department || null,
-      priority: priority || 'medium',
-      due_date: adjustedDueDate,
-      status: status,
-      voice_note_url: voiceNoteUrl || null,
-      reference_docs: referenceDocs || null,
-      evidence_required: evidenceRequired || false,
-      created_at: adjustedCreatedAt.toISOString()
-    };
+    // Handle multiple doers - create separate delegation for each doer
+    const doersArray = doers && doers.length > 0 ? doers : [null];
+    const createdDelegations = [];
 
-    const result = await createDelegation(delegationData);
+    for (const doer of doersArray) {
+      const delegationData = {
+        user_id: userId,
+        delegation_name: delegationName,
+        description: description || null,
+        assigned_to: assignedTo,
+        doer_name: doer,
+        department: department || null,
+        priority: priority || 'medium',
+        due_date: adjustedDueDate,
+        status: status,
+        voice_note_url: voiceNoteUrl || null,
+        reference_docs: referenceDocs || null,
+        evidence_required: evidenceRequired || false,
+      };
 
-    return NextResponse.json({ delegation: result }, { status: 201 });
+      const result = await createDelegation(delegationData);
+      createdDelegations.push(result);
+    }
+
+    return NextResponse.json({
+      delegation: createdDelegations[0], // Return first one for backward compatibility
+      count: createdDelegations.length
+    }, { status: 201 });
   } catch (error: any) {
     console.error('Error creating delegation:', error);
     console.error('Error details:', error.message);
@@ -106,12 +149,13 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const { 
-      id, 
-      delegationName, 
-      description, 
-      assignedTo, 
+    const {
+      id,
+      delegationName,
+      description,
+      assignedTo,
       doerName,
+      doers, // Add doers array
       department,
       priority,
       dueDate,
@@ -130,30 +174,53 @@ export async function PUT(request: NextRequest) {
     // Calculate dynamic status based on due date
     let status = 'pending';
     if (dueDate) {
-      const now = new Date();
-      const due = new Date(dueDate);
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate());
-      
-      if (due < now) {
-        status = 'overdue';
-      } else if (dueDay.getTime() === today.getTime()) {
-        status = 'pending';
-      } else {
-        status = 'planned';
+      try {
+        const now = new Date();
+        let due: Date;
+
+        // Parse the date based on format
+        const datetimeMatch = dueDate.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+        const ddmmyyyyMatch = dueDate.match(/(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2}):(\d{2})/);
+
+        if (datetimeMatch) {
+          const [_, year, month, day, hours, minutes] = datetimeMatch;
+          due = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hours), parseInt(minutes));
+        } else if (ddmmyyyyMatch) {
+          const [_, day, month, year, hours, minutes, seconds] = ddmmyyyyMatch;
+          due = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hours), parseInt(minutes), parseInt(seconds));
+        } else {
+          due = new Date(dueDate);
+        }
+
+        if (!isNaN(due.getTime())) {
+          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate());
+
+          if (due < now) {
+            status = 'overdue';
+          } else if (dueDay.getTime() === today.getTime()) {
+            status = 'pending';
+          } else {
+            status = 'planned';
+          }
+        }
+      } catch (e) {
+        console.error('Error parsing due date for status:', e);
       }
     }
 
     // Add IST offset to timestamps
     const now = new Date();
-    const adjustedUpdatedAt = addISTOffset(now);
-    const adjustedDueDate = dueDate ? addISTOffset(new Date(dueDate)).toISOString() : null;
+    const adjustedDueDate = parseDateString(dueDate);
+
+    // Determine doer name: prioritize doerName, then first element of doers array
+    const resolvedDoerName = doerName || (doers && doers.length > 0 ? doers[0] : null);
 
     const delegationData = {
       delegation_name: delegationName,
       description: description || null,
       assigned_to: assignedTo,
-      doer_name: doerName || null,
+      doer_name: resolvedDoerName, // Updated logic
       department: department || null,
       priority: priority || 'medium',
       status: status,
@@ -161,7 +228,6 @@ export async function PUT(request: NextRequest) {
       voice_note_url: voiceNoteUrl || null,
       reference_docs: referenceDocs || null,
       evidence_required: evidenceRequired || false,
-      updated_at: adjustedUpdatedAt.toISOString()
     };
 
     const result = await updateDelegation(id, delegationData);
@@ -176,8 +242,12 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ delegation: result });
   } catch (error) {
     console.error('Error updating delegation:', error);
+    if (error instanceof Error) {
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+    }
     return NextResponse.json(
-      { error: 'Failed to update delegation' },
+      { error: 'Failed to update delegation', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }

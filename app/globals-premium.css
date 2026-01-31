@@ -9,8 +9,8 @@
 
 :root {
   /* Warm Professional Color Palette - Matching Login Design */
-  --bg: #f5f1e8;
-  --bg-secondary: #fff9e6;
+  --bg: var(--theme-lighter);
+  --bg-secondary: var(--theme-lighter);
   --surface: #ffffff;
   --surface-hover: #fefefe;
   --muted: #8b7355;
@@ -18,7 +18,7 @@
   --text-secondary: #5a4a3a;
   
   /* Primary Golden/Yellow Theme */
-  --primary: #f4d24a;
+  --primary: var(--theme-primary);
   --primary-dark: #f0c935;
   --primary-light: #f8e084;
   --primary-hover: #efc420;
@@ -46,9 +46,9 @@
   --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
   
   /* Gradients - Warm Theme */
-  --gradient-primary: linear-gradient(135deg, #f4d24a 0%, #f0c935 100%);
-  --gradient-bg: linear-gradient(to bottom right, #f5f1e8 0%, #e8dcc8 100%);
-  --gradient-surface: linear-gradient(to bottom right, #fff9e6 0%, #ffefc4 50%, #ffe8a8 100%);
+  --gradient-primary: linear-gradient(135deg, var(--theme-primary) 0%, #f0c935 100%);
+  --gradient-bg: linear-gradient(to bottom right, var(--theme-lighter) 0%, var(--theme-lighter) 100%);
+  --gradient-surface: linear-gradient(to bottom right, var(--theme-lighter) 0%, #ffefc4 50%, #ffe8a8 100%);
   --gradient-accent: linear-gradient(135deg, #6b9bd1 0%, #5b8bc1 100%);
 }
 
@@ -59,11 +59,11 @@ html[data-theme="dark"] {
   --surface: #2a2420;
   --surface-hover: #3a3430;
   --muted: #a8947d;
-  --text: #f5f1e8;
+  --text: var(--theme-lighter);
   --text-secondary: #d4c4b4;
   
   /* Primary Golden/Yellow Theme - Dark Mode */
-  --primary: #f4d24a;
+  --primary: var(--theme-primary);
   --primary-dark: #efc420;
   --primary-light: #f8e084;
   --primary-hover: #f0c935;
@@ -80,11 +80,11 @@ html[data-theme="dark"] {
   --info: #60a5fa;
   
   /* Border Colors - Dark Mode */
-  --border: #f5f1e8;
+  --border: var(--theme-lighter);
   --border-light: #4a4440;
   
   /* Gradients - Dark Mode */
-  --gradient-primary: linear-gradient(135deg, #f4d24a 0%, #efc420 100%);
+  --gradient-primary: linear-gradient(135deg, var(--theme-primary) 0%, #efc420 100%);
   --gradient-bg: linear-gradient(to bottom right, #1a1410 0%, #2a2420 100%);
   --gradient-surface: linear-gradient(to bottom right, #2a2420 0%, #3a3430 100%);
   --gradient-accent: linear-gradient(135deg, #8bb5e1 0%, #6b9bd1 100%);
@@ -572,3 +572,4 @@ html[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
 .page-enter {
   animation: fadeIn 0.5s ease-out;
 }
+

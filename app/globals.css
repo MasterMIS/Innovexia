@@ -8,6 +8,13 @@
    ============================================ */
 
 :root {
+  /* Theme Colors - Dynamic (will be overridden by ThemeColorProvider) */
+  --theme-primary: var(--theme-primary);
+  --theme-secondary: var(--theme-secondary);
+  --theme-tertiary: var(--theme-tertiary);
+  --theme-light: var(--theme-light);
+  --theme-lighter: var(--theme-lighter);
+  
   /* Color Palette */
   --bg: #f8fafc;
   --surface: #ffffff;
@@ -47,6 +54,32 @@ html[data-theme="dark"] {
   --success: #34d399;
   --warning: #fbbf24;
   --error: #f87171;
+}
+
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, var(--theme-primary), var(--theme-secondary));
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, var(--theme-secondary), var(--theme-tertiary));
+}
+
+/* Firefox scrollbar */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--theme-primary) rgba(0, 0, 0, 0.05);
 }
 
 /* Alternative Color Themes */
@@ -520,4 +553,5 @@ html[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
 .page-enter {
   animation: fadeIn 0.5s ease-out;
 }
+
 

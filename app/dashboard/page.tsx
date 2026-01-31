@@ -49,58 +49,58 @@ export default function Dashboard() {
 
   return (
     <LayoutWrapper>
-      <div className="p-6 space-y-6">
+      <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
         {/* Welcome Section */}
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg p-8 text-white">
-          <h1 className="text-3xl font-bold mb-2">Welcome to ERP System</h1>
-          <p className="text-blue-100">Manage your business efficiently with our enterprise resource planning solution</p>
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg p-4 sm:p-6 md:p-8 text-white">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2">Welcome to ERP System</h1>
+          <p className="text-sm sm:text-base text-blue-100">Manage your business efficiently with our enterprise resource planning solution</p>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow p-6 hover:shadow-lg transition">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow p-4 sm:p-6 hover:shadow-lg transition">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-600 dark:text-slate-400 text-sm mb-1">Total Delegations</p>
-                <p className="text-3xl font-bold text-slate-900 dark:text-white">{stats.totalDelegations}</p>
+                <p className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm mb-1">Total Delegations</p>
+                <p className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">{stats.totalDelegations}</p>
               </div>
-              <div className="w-14 h-14 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center text-2xl">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center text-xl sm:text-2xl">
                 📋
               </div>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow p-6 hover:shadow-lg transition">
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow p-4 sm:p-6 hover:shadow-lg transition">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-600 dark:text-slate-400 text-sm mb-1">Pending Tasks</p>
-                <p className="text-3xl font-bold text-yellow-600">{stats.pendingTasks}</p>
+                <p className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm mb-1">Pending Tasks</p>
+                <p className="text-2xl sm:text-3xl font-bold text-yellow-600">{stats.pendingTasks}</p>
               </div>
-              <div className="w-14 h-14 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg flex items-center justify-center text-2xl">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg flex items-center justify-center text-xl sm:text-2xl">
                 ⏳
               </div>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow p-6 hover:shadow-lg transition">
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow p-4 sm:p-6 hover:shadow-lg transition">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-600 dark:text-slate-400 text-sm mb-1">In Progress</p>
-                <p className="text-3xl font-bold text-blue-600">{stats.inProgress}</p>
+                <p className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm mb-1">In Progress</p>
+                <p className="text-2xl sm:text-3xl font-bold text-blue-600">{stats.inProgress}</p>
               </div>
-              <div className="w-14 h-14 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center text-2xl">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center text-xl sm:text-2xl">
                 🔄
               </div>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow p-6 hover:shadow-lg transition">
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow p-4 sm:p-6 hover:shadow-lg transition">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-600 dark:text-slate-400 text-sm mb-1">Completed</p>
-                <p className="text-3xl font-bold text-green-600">{stats.completed}</p>
+                <p className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm mb-1">Completed</p>
+                <p className="text-2xl sm:text-3xl font-bold text-green-600">{stats.completed}</p>
               </div>
-              <div className="w-14 h-14 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center text-2xl">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center text-xl sm:text-2xl">
                 ✅
               </div>
             </div>
@@ -108,8 +108,8 @@ export default function Dashboard() {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow p-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow p-4 sm:p-6">
             <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Quick Actions</h2>
             <div className="space-y-3">
               <a href="/delegation" className="block p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition">
@@ -124,8 +124,8 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">System Info</h2>
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow p-4 sm:p-6">
+            <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white mb-4">System Info</h2>
             <div className="space-y-3 text-sm">
               <div className="flex justify-between">
                 <span className="text-slate-600 dark:text-slate-400">Status</span>

@@ -73,7 +73,7 @@ export default function CustomDateTimePicker({
             <button
                 type="button"
                 onClick={() => setShowPicker(!showPicker)}
-                className="w-full px-4 py-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl text-left text-gray-900 dark:text-white focus:ring-2 focus:ring-[#f4d24a] transition text-sm flex items-center justify-between"
+                className="w-full px-4 py-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl text-left text-gray-900 dark:text-white focus:ring-2 focus:ring-[var(--theme-primary)] transition text-sm flex items-center justify-between"
             >
                 <span>{value ? formatDateDisplay(value) : placeholder}</span>
                 <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -105,7 +105,7 @@ export default function CustomDateTimePicker({
                                     <button
                                         type="button"
                                         onClick={() => setSelectedDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth() - 1))}
-                                        className="p-2 hover:bg-[#f4d24a]/10 dark:hover:bg-gray-700 rounded-lg transition"
+                                        className="p-2 hover:bg-[var(--theme-primary)]/10 dark:hover:bg-gray-700 rounded-lg transition"
                                     >
                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -117,7 +117,7 @@ export default function CustomDateTimePicker({
                                     <button
                                         type="button"
                                         onClick={() => setSelectedDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1))}
-                                        className="p-2 hover:bg-[#f4d24a]/10 dark:hover:bg-gray-700 rounded-lg transition"
+                                        className="p-2 hover:bg-[var(--theme-primary)]/10 dark:hover:bg-gray-700 rounded-lg transition"
                                     >
                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -151,10 +151,10 @@ export default function CustomDateTimePicker({
                                                     setSelectedDate(newDate);
                                                 }}
                                                 className={`p-2.5 text-sm rounded-xl transition-all ${isSelected
-                                                    ? 'bg-[#f4d24a] text-gray-900 font-bold shadow-lg'
+                                                    ? 'bg-[var(--theme-primary)] text-gray-900 font-bold shadow-lg'
                                                     : isToday
-                                                        ? 'bg-[#f4d24a]/20 text-[#f4d24a] font-bold border border-[#f4d24a]'
-                                                        : 'hover:bg-[#f4d24a]/10 text-gray-900 dark:text-white'
+                                                        ? 'bg-[var(--theme-primary)]/20 text-[var(--theme-primary)] font-bold border border-[var(--theme-primary)]'
+                                                        : 'hover:bg-[var(--theme-primary)]/10 text-gray-900 dark:text-white'
                                                     }`}
                                             >
                                                 {day}
@@ -178,7 +178,7 @@ export default function CustomDateTimePicker({
                                         <button
                                             type="button"
                                             onClick={() => setSelectedHour(selectedHour === 12 ? 1 : selectedHour + 1)}
-                                            className="p-2 hover:bg-[#f4d24a]/10 dark:hover:bg-gray-700 rounded-lg"
+                                            className="p-2 hover:bg-[var(--theme-primary)]/10 dark:hover:bg-gray-700 rounded-lg"
                                         >
                                             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
@@ -190,7 +190,7 @@ export default function CustomDateTimePicker({
                                         <button
                                             type="button"
                                             onClick={() => setSelectedHour(selectedHour === 1 ? 12 : selectedHour - 1)}
-                                            className="p-2 hover:bg-[#f4d24a]/10 dark:hover:bg-gray-700 rounded-lg"
+                                            className="p-2 hover:bg-[var(--theme-primary)]/10 dark:hover:bg-gray-700 rounded-lg"
                                         >
                                             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -205,7 +205,7 @@ export default function CustomDateTimePicker({
                                         <button
                                             type="button"
                                             onClick={() => setSelectedMinute((selectedMinute + 15) % 60)}
-                                            className="p-2 hover:bg-[#f4d24a]/10 dark:hover:bg-gray-700 rounded-lg"
+                                            className="p-2 hover:bg-[var(--theme-primary)]/10 dark:hover:bg-gray-700 rounded-lg"
                                         >
                                             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
@@ -217,7 +217,7 @@ export default function CustomDateTimePicker({
                                         <button
                                             type="button"
                                             onClick={() => setSelectedMinute(selectedMinute === 0 ? 45 : selectedMinute - 15)}
-                                            className="p-2 hover:bg-[#f4d24a]/10 dark:hover:bg-gray-700 rounded-lg"
+                                            className="p-2 hover:bg-[var(--theme-primary)]/10 dark:hover:bg-gray-700 rounded-lg"
                                         >
                                             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -231,7 +231,7 @@ export default function CustomDateTimePicker({
                                             type="button"
                                             onClick={() => setSelectedPeriod('AM')}
                                             className={`px-4 py-3 rounded-xl font-bold shadow-sm transition ${selectedPeriod === 'AM'
-                                                ? 'bg-[#f4d24a] text-gray-900'
+                                                ? 'bg-[var(--theme-primary)] text-gray-900'
                                                 : 'bg-gray-100 dark:bg-gray-700 text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
                                                 }`}
                                         >
@@ -241,7 +241,7 @@ export default function CustomDateTimePicker({
                                             type="button"
                                             onClick={() => setSelectedPeriod('PM')}
                                             className={`px-4 py-3 rounded-xl font-bold shadow-sm transition ${selectedPeriod === 'PM'
-                                                ? 'bg-[#f4d24a] text-gray-900'
+                                                ? 'bg-[var(--theme-primary)] text-gray-900'
                                                 : 'bg-gray-100 dark:bg-gray-700 text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
                                                 }`}
                                         >
@@ -261,7 +261,7 @@ export default function CustomDateTimePicker({
                                     <button
                                         type="button"
                                         onClick={handleDateTimeSet}
-                                        className="flex-[2] py-3 bg-gradient-to-r from-[#f4d24a] to-[#e5c33a] hover:from-[#e5c33a] hover:to-[#d4b22a] text-gray-900 font-black rounded-xl shadow-lg transition"
+                                        className="flex-[2] py-3 bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-secondary)] hover:from-[var(--theme-secondary)] hover:to-[var(--theme-tertiary)] text-gray-900 font-black rounded-xl shadow-lg transition"
                                     >
                                         Set Date & Time
                                     </button>
@@ -274,3 +274,4 @@ export default function CustomDateTimePicker({
         </div>
     );
 }
+

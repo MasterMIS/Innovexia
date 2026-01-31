@@ -6,6 +6,7 @@ import LayoutWrapper from '@/components/LayoutWrapper';
 import { TableToolbar } from '@/components/TableToolbar';
 import { useToast } from '@/components/ToastProvider';
 import { useLoader } from '@/components/LoaderProvider';
+import UserFormModal from '@/components/UserFormModal';
 
 interface User {
   id: number;
@@ -13,10 +14,49 @@ interface User {
   email: string;
   password: string;
   phone: string;
-  role_id: number;
-  role_name?: string;
+  role_name: string;
   image_url?: string;
   created_at: string;
+  
+  // Personal Details
+  dob?: string;
+  uan_number?: string;
+  aadhaar_number?: string;
+  pan_number?: string;
+  
+  // Address Details
+  present_address_line1?: string;
+  present_address_line2?: string;
+  present_city?: string;
+  present_country?: string;
+  present_state?: string;
+  present_postal_code?: string;
+  permanent_same_as_present?: boolean;
+  permanent_address_line1?: string;
+  permanent_address_line2?: string;
+  permanent_city?: string;
+  permanent_country?: string;
+  permanent_state?: string;
+  permanent_postal_code?: string;
+  
+  // Professional Details
+  experience?: string;
+  source_of_hire?: string;
+  skill_set?: string;
+  highest_qualification?: string;
+  additional_information?: string;
+  location?: string;
+  title?: string;
+  current_salary?: string;
+  department?: string;
+  offer_letter_url?: string;
+  tentative_joining_date?: string;
+  
+  // Education (JSON string)
+  education?: string;
+  
+  // Work Experience (JSON string)
+  work_experience?: string;
 }
 
 interface SortConfig {
@@ -25,7 +65,7 @@ interface SortConfig {
 }
 
 interface FilterConfig {
-  role_id?: string;
+  role_name?: string;
   search?: string;
 }
 
@@ -43,6 +83,14 @@ export default function UsersPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [visiblePasswords, setVisiblePasswords] = useState<Set<number>>(new Set());
+  
+  // Multi-step form
+  const [currentStep, setCurrentStep] = useState(1);
+  const [offerLetterFile, setOfferLetterFile] = useState<File | null>(null);
+  
+  // Education & Experience arrays
+  const [educationList, setEducationList] = useState<any[]>([{ school_name: '', degree: '', field_of_study: '', completion_date: '', notes: '' }]);
+  const [experienceList, setExperienceList] = useState<any[]>([{ occupation: '', company: '', summary: '', duration: '', currently_working: false }]);
 
   // Pagination & Sorting
   const [currentPage, setCurrentPage] = useState(1);
@@ -54,12 +102,73 @@ export default function UsersPage() {
     email: '',
     password: '',
     phone: '',
-    roleId: '1',
+    roleName: 'Admin',
     imageUrl: '',
+    
+    // Personal Details
+    dob: '',
+    uan_number: '',
+    aadhaar_number: '',
+    pan_number: '',
+    
+    // Address Details
+    present_address_line1: '',
+    present_address_line2: '',
+    present_city: '',
+    present_country: 'India',
+    present_state: '',
+    present_postal_code: '',
+    permanent_same_as_present: false,
+    permanent_address_line1: '',
+    permanent_address_line2: '',
+    permanent_city: '',
+    permanent_country: 'India',
+    permanent_state: '',
+    permanent_postal_code: '',
+    
+    // Professional Details
+    experience: '',
+    source_of_hire: '',
+    skill_set: '',
+    highest_qualification: '',
+    additional_information: '',
+    location: '',
+    title: '',
+    current_salary: '',
+    department: '',
+    offer_letter_url: '',
+    tentative_joining_date: '',
   });
 
   const { addToast } = useToast();
   const loader = useLoader();
+
+  // Helper function to create notification for a user
+  const createNotificationForUser = async (username: string, type: string, title: string, message: string) => {
+    try {
+      const usersResponse = await fetch('/api/users');
+      if (usersResponse.ok) {
+        const data = await usersResponse.json();
+        const users = data.users || [];
+        const targetUser = users.find((u: any) => u.username.toLowerCase() === username.toLowerCase());
+        if (targetUser) {
+          await fetch('/api/notifications', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              user_id: targetUser.id,
+              user_role: targetUser.role_name || 'Doer',
+              type,
+              title,
+              message,
+            }),
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error creating notification:', error);
+    }
+  };
 
   const fetchUsers = async () => {
     try {
@@ -101,8 +210,8 @@ export default function UsersPage() {
       );
     }
 
-    if (filterConfig.role_id) {
-      result = result.filter((u) => u.role_id === parseInt(filterConfig.role_id!));
+    if (filterConfig.role_name) {
+      result = result.filter((u) => u.role_name === filterConfig.role_name);
     }
 
     return result;
@@ -189,6 +298,9 @@ export default function UsersPage() {
     try {
       loader.showLoader();
       let imageUrl = formData.imageUrl;
+      let offerLetterUrl = formData.offer_letter_url;
+      
+      // Upload profile image
       if (imageFile) {
         imageUrl = await uploadImage();
         if (!imageUrl && imageFile) {
@@ -196,14 +308,57 @@ export default function UsersPage() {
           return;
         }
       }
+      
+      // Upload offer letter
+      if (offerLetterFile) {
+        offerLetterUrl = await uploadOfferLetter();
+      }
 
       const payload = {
         username: formData.username,
         email: formData.email,
         phone: formData.phone,
-        roleId: parseInt(formData.roleId),
+        roleName: formData.roleName,
         imageUrl: imageUrl,
         ...(formData.password && { password: formData.password }),
+        
+        // Personal details
+        dob: formData.dob,
+        uanNumber: formData.uan_number,
+        aadhaarNumber: formData.aadhaar_number,
+        panNumber: formData.pan_number,
+        
+        // Address details
+        presentAddressLine1: formData.present_address_line1,
+        presentAddressLine2: formData.present_address_line2,
+        presentCity: formData.present_city,
+        presentCountry: formData.present_country,
+        presentState: formData.present_state,
+        presentPostalCode: formData.present_postal_code,
+        permanentSameAsPresent: formData.permanent_same_as_present,
+        permanentAddressLine1: formData.permanent_address_line1,
+        permanentAddressLine2: formData.permanent_address_line2,
+        permanentCity: formData.permanent_city,
+        permanentCountry: formData.permanent_country,
+        permanentState: formData.permanent_state,
+        permanentPostalCode: formData.permanent_postal_code,
+        
+        // Professional details
+        experience: formData.experience,
+        sourceOfHire: formData.source_of_hire,
+        skillSet: formData.skill_set,
+        highestQualification: formData.highest_qualification,
+        additionalInformation: formData.additional_information,
+        location: formData.location,
+        title: formData.title,
+        currentSalary: formData.current_salary,
+        department: formData.department,
+        offerLetterUrl: offerLetterUrl,
+        tentativeJoiningDate: formData.tentative_joining_date,
+        
+        // Education and Experience as JSON
+        education: JSON.stringify(educationList),
+        workExperience: JSON.stringify(experienceList),
       };
 
       const method = editingUserId ? 'PUT' : 'POST';
@@ -217,6 +372,29 @@ export default function UsersPage() {
 
       if (!response.ok) throw new Error('Failed to save user');
 
+      const isUpdate = !!editingUserId;
+      const actionType = isUpdate ? 'user_updated' : 'user_created';
+      const actionTitle = isUpdate ? 'Profile Updated' : 'Welcome!';
+      const actionMessage = isUpdate 
+        ? `Your profile has been updated by an administrator`
+        : `Welcome ${formData.username}! Your account has been created`;
+
+      // Send notification to the user
+      await createNotificationForUser(formData.username, actionType, actionTitle, actionMessage);
+
+      // If role changed, send additional notification
+      if (isUpdate) {
+        const oldUser = users.find(u => u.id === editingUserId);
+        if (oldUser && oldUser.role_name !== formData.roleName) {
+          await createNotificationForUser(
+            formData.username,
+            'user_role_changed',
+            'Role Changed',
+            `Your role has been changed to ${formData.roleName}`
+          );
+        }
+      }
+
       resetForm();
       setShowModal(false);
       fetchUsers();
@@ -229,18 +407,105 @@ export default function UsersPage() {
     }
   };
 
+  const uploadOfferLetter = async (): Promise<string> => {
+    if (!offerLetterFile) return '';
+
+    setUploading(true);
+    try {
+      const uploadFormData = new FormData();
+      uploadFormData.append('file', offerLetterFile);
+      uploadFormData.append('type', 'user'); // Specify this is a user document
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: uploadFormData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to upload offer letter');
+      }
+
+      const data = await response.json();
+      return data.url;
+    } catch (error) {
+      console.error('Error uploading offer letter:', error);
+      alert('Failed to upload offer letter');
+      return '';
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleEditUser = (user: User) => {
     setEditingUserId(user.id);
     setFormData({
       username: user.username,
       email: user.email,
-      password: '',
-      phone: user.phone,
-      roleId: String(user.role_id),
+      password: user.password || '',
+      phone: user.phone || '',
+      roleName: user.role_name || 'User',
       imageUrl: user.image_url || '',
+      dob: user.dob || '',
+      uan_number: user.uan_number || '',
+      aadhaar_number: user.aadhaar_number || '',
+      pan_number: user.pan_number || '',
+      present_address_line1: user.present_address_line1 || '',
+      present_address_line2: user.present_address_line2 || '',
+      present_city: user.present_city || '',
+      present_country: user.present_country || 'India',
+      present_state: user.present_state || '',
+      present_postal_code: user.present_postal_code || '',
+      permanent_same_as_present: user.permanent_same_as_present || false,
+      permanent_address_line1: user.permanent_address_line1 || '',
+      permanent_address_line2: user.permanent_address_line2 || '',
+      permanent_city: user.permanent_city || '',
+      permanent_country: user.permanent_country || 'India',
+      permanent_state: user.permanent_state || '',
+      permanent_postal_code: user.permanent_postal_code || '',
+      experience: user.experience || '',
+      source_of_hire: user.source_of_hire || '',
+      skill_set: user.skill_set || '',
+      highest_qualification: user.highest_qualification || '',
+      additional_information: user.additional_information || '',
+      location: user.location || '',
+      title: user.title || '',
+      current_salary: user.current_salary || '',
+      department: user.department || '',
+      offer_letter_url: user.offer_letter_url || '',
+      tentative_joining_date: user.tentative_joining_date || '',
     });
     setImagePreview(user.image_url || '');
     setImageFile(null);
+    setOfferLetterFile(null);
+    
+    // Parse education and experience JSON
+    try {
+      const eduStr = typeof user.education === 'string' ? user.education : JSON.stringify(user.education || []);
+      if (eduStr && eduStr !== '[]' && eduStr !== 'null') {
+        const edu = JSON.parse(eduStr);
+        setEducationList(Array.isArray(edu) && edu.length > 0 ? edu : [{ school_name: '', degree: '', field_of_study: '', completion_date: '', notes: '' }]);
+      } else {
+        setEducationList([{ school_name: '', degree: '', field_of_study: '', completion_date: '', notes: '' }]);
+      }
+    } catch (e) {
+      console.error('Error parsing education:', e, 'Value:', user.education);
+      setEducationList([{ school_name: '', degree: '', field_of_study: '', completion_date: '', notes: '' }]);
+    }
+    
+    try {
+      const expStr = typeof user.work_experience === 'string' ? user.work_experience : JSON.stringify(user.work_experience || []);
+      if (expStr && expStr !== '[]' && expStr !== 'null') {
+        const exp = JSON.parse(expStr);
+        setExperienceList(Array.isArray(exp) && exp.length > 0 ? exp : [{ occupation: '', company: '', summary: '', duration: '', currently_working: false }]);
+      } else {
+        setExperienceList([{ occupation: '', company: '', summary: '', duration: '', currently_working: false }]);
+      }
+    } catch (e) {
+      console.error('Error parsing work_experience:', e, 'Value:', user.work_experience);
+      setExperienceList([{ occupation: '', company: '', summary: '', duration: '', currently_working: false }]);
+    }
+    
     setShowModal(true);
   };
 
@@ -253,8 +518,20 @@ export default function UsersPage() {
     if (!deleteId) return;
     try {
       loader.showLoader();
+      const user = users.find(u => u.id === deleteId);
       const response = await fetch(`/api/users?id=${deleteId}`, { method: 'DELETE' });
       if (!response.ok) throw new Error('Failed to delete user');
+      
+      // Send notification to the deleted user (they won't see it but for records)
+      if (user) {
+        await createNotificationForUser(
+          user.username,
+          'user_deleted',
+          'Account Deleted',
+          `Your account has been deleted by an administrator`
+        );
+      }
+      
       fetchUsers();
       addToast('User deleted successfully', 'success');
     } catch (error) {
@@ -268,16 +545,48 @@ export default function UsersPage() {
 
   const resetForm = () => {
     setEditingUserId(null);
+    setCurrentStep(1);
     setFormData({
       username: '',
       email: '',
       password: '',
       phone: '',
-      roleId: '1',
+      roleName: 'Admin',
       imageUrl: '',
+      dob: '',
+      uan_number: '',
+      aadhaar_number: '',
+      pan_number: '',
+      present_address_line1: '',
+      present_address_line2: '',
+      present_city: '',
+      present_country: 'India',
+      present_state: '',
+      present_postal_code: '',
+      permanent_same_as_present: false,
+      permanent_address_line1: '',
+      permanent_address_line2: '',
+      permanent_city: '',
+      permanent_country: 'India',
+      permanent_state: '',
+      permanent_postal_code: '',
+      experience: '',
+      source_of_hire: '',
+      skill_set: '',
+      highest_qualification: '',
+      additional_information: '',
+      location: '',
+      title: '',
+      current_salary: '',
+      department: '',
+      offer_letter_url: '',
+      tentative_joining_date: '',
     });
     setImageFile(null);
     setImagePreview('');
+    setOfferLetterFile(null);
+    setEducationList([{ school_name: '', degree: '', field_of_study: '', completion_date: '', notes: '' }]);
+    setExperienceList([{ occupation: '', company: '', summary: '', duration: '', currently_working: false }]);
   };
 
   const handleSort = (key: keyof User) => {
@@ -327,7 +636,7 @@ export default function UsersPage() {
   return (
     <LayoutWrapper>
       <motion.div
-        className="p-4 space-y-4 min-h-screen bg-gradient-to-br from-[#fffef7] via-[#fff9e6] to-[#fffef7] dark:from-gray-900 dark:via-gray-800 dark:to-gray-900"
+        className="p-4 space-y-4 min-h-screen bg-gradient-to-br from-[var(--theme-light)] via-[var(--theme-lighter)] to-[var(--theme-light)] dark:from-gray-900 dark:via-gray-800 dark:to-gray-900"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3 }}
@@ -340,7 +649,7 @@ export default function UsersPage() {
           transition={{ delay: 0.1 }}
         >
           <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-[#f4d24a] to-[#e5c33a] bg-clip-text text-transparent">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-secondary)] bg-clip-text text-transparent">
               Users Management
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mt-1">Manage system users and their roles</p>
@@ -350,7 +659,7 @@ export default function UsersPage() {
               resetForm();
               setShowModal(true);
             }}
-            className="bg-gradient-to-r from-[#f4d24a] to-[#e5c33a] hover:from-[#e5c33a] hover:to-[#d6b42a] text-gray-900 font-semibold py-2.5 px-6 rounded-xl transition-all shadow-md"
+            className="bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-secondary)] hover:from-[var(--theme-secondary)] hover:to-[var(--theme-tertiary)] text-gray-900 font-semibold py-2.5 px-6 rounded-xl transition-all shadow-md"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
           >
@@ -360,7 +669,7 @@ export default function UsersPage() {
 
         {/* Filters & Export */}
         <motion.div
-          className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl shadow-lg p-4 space-y-4 border border-[#f4d24a]/20"
+          className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl shadow-lg p-4 space-y-4 border border-[var(--theme-primary)]/20"
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.2 }}
@@ -376,23 +685,21 @@ export default function UsersPage() {
                   setFilterConfig({ ...filterConfig, search: e.target.value });
                   setCurrentPage(1);
                 }}
-                className="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-[#f4d24a] focus:border-transparent outline-none text-sm shadow-sm"
+                className="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent outline-none text-sm shadow-sm"
               />
 
               <select
-                value={filterConfig.role_id || ''}
+                value={filterConfig.role_name || ''}
                 onChange={(e) => {
-                  setFilterConfig({ ...filterConfig, role_id: e.target.value || undefined });
+                  setFilterConfig({ ...filterConfig, role_name: e.target.value || undefined });
                   setCurrentPage(1);
                 }}
-                className="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-[#f4d24a] outline-none text-sm shadow-sm"
+                className="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-[var(--theme-primary)] outline-none text-sm shadow-sm"
               >
                 <option value="">All Roles</option>
-                {roles.map((role) => (
-                  <option key={role.id} value={role.id}>
-                    {role.role_name}
-                  </option>
-                ))}
+                <option value="Admin">Admin</option>
+                <option value="TL">TL</option>
+                <option value="User">User</option>
               </select>
 
               <motion.button
@@ -423,14 +730,14 @@ export default function UsersPage() {
 
         {/* Users Table */}
         <motion.div
-          className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl shadow-lg overflow-hidden border border-[#f4d24a]/20"
+          className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl shadow-lg overflow-hidden border border-[var(--theme-primary)]/20"
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.3 }}
         >
           {loading ? (
             <div className="p-8 text-center">
-              <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-[#f4d24a] border-r-transparent"></div>
+              <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-[var(--theme-primary)] border-r-transparent"></div>
               <p className="mt-4 text-gray-600 dark:text-gray-400">Loading users...</p>
             </div>
           ) : sortedUsers.length === 0 ? (
@@ -441,7 +748,7 @@ export default function UsersPage() {
                   resetForm();
                   setShowModal(true);
                 }}
-                className="text-[#e5c33a] dark:text-[#f4d24a] hover:underline font-semibold"
+                className="text-[var(--theme-secondary)] dark:text-[var(--theme-primary)] hover:underline font-semibold"
                 whileHover={{ scale: 1.05 }}
               >
                 Create your first user
@@ -450,15 +757,15 @@ export default function UsersPage() {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gradient-to-r from-[#f4d24a] to-[#e5c33a] border-b-2 border-[#d6b42a]">
+                <thead className="bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-secondary)] border-b-2 border-[var(--theme-tertiary)]">
                   <tr>
-                    <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 cursor-pointer hover:bg-[#e5c33a] transition-colors" onClick={() => handleSort('username')}>
+                    <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 cursor-pointer hover:bg-[var(--theme-secondary)] transition-colors" onClick={() => handleSort('username')}>
                       <div className="flex items-center gap-2">Username <SortIcon column="username" /></div>
                     </th>
-                    <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 cursor-pointer hover:bg-[#e5c33a] transition-colors" onClick={() => handleSort('email')}>
+                    <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 cursor-pointer hover:bg-[var(--theme-secondary)] transition-colors" onClick={() => handleSort('email')}>
                       <div className="flex items-center gap-2">Email <SortIcon column="email" /></div>
                     </th>
-                    <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 cursor-pointer hover:bg-[#e5c33a] transition-colors" onClick={() => handleSort('phone')}>
+                    <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 cursor-pointer hover:bg-[var(--theme-secondary)] transition-colors" onClick={() => handleSort('phone')}>
                       <div className="flex items-center gap-2">Phone <SortIcon column="phone" /></div>
                     </th>
                     <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Password</th>
@@ -470,7 +777,7 @@ export default function UsersPage() {
                   {paginatedUsers.map((user, index) => (
                     <motion.tr
                       key={user.id}
-                      className="hover:bg-[#f4d24a]/10 dark:hover:bg-[#e5c33a]/10 transition-colors"
+                      className="hover:bg-[var(--theme-primary)]/10 dark:hover:bg-[var(--theme-secondary)]/10 transition-colors"
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.05 }}
@@ -478,9 +785,24 @@ export default function UsersPage() {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           {user.image_url ? (
-                            <img src={user.image_url} alt={user.username} className="w-10 h-10 rounded-full object-cover border-2 border-[#f4d24a]" />
+                            <img 
+                              src={`/api/image-proxy?url=${encodeURIComponent(user.image_url)}`}
+                              alt={user.username} 
+                              className="w-10 h-10 rounded-full object-cover border-2 border-[var(--theme-primary)]" 
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                const fallback = target.nextElementSibling as HTMLElement;
+                                if (fallback) fallback.style.display = 'flex';
+                              }}
+                            />
+                          ) : null}
+                          {!user.image_url ? (
+                            <div className="w-10 h-10 bg-gradient-to-br from-[var(--theme-primary)] to-[var(--theme-secondary)] rounded-full flex items-center justify-center text-sm font-bold text-gray-900 shadow-md">
+                              {user.username[0].toUpperCase()}
+                            </div>
                           ) : (
-                            <div className="w-10 h-10 bg-gradient-to-br from-[#f4d24a] to-[#e5c33a] rounded-full flex items-center justify-center text-sm font-bold text-gray-900 shadow-md">
+                            <div className="w-10 h-10 bg-gradient-to-br from-[var(--theme-primary)] to-[var(--theme-secondary)] rounded-full items-center justify-center text-sm font-bold text-gray-900 shadow-md" style={{ display: 'none' }}>
                               {user.username[0].toUpperCase()}
                             </div>
                           )}
@@ -556,7 +878,7 @@ export default function UsersPage() {
         {/* Pagination */}
         {totalPages > 1 && (
           <motion.div
-            className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl shadow-lg p-4 flex items-center justify-center gap-2 flex-wrap border border-[#f4d24a]/20"
+            className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl shadow-lg p-4 flex items-center justify-center gap-2 flex-wrap border border-[var(--theme-primary)]/20"
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.4 }}
@@ -577,7 +899,7 @@ export default function UsersPage() {
                 onClick={() => setCurrentPage(page)}
                 className={`px-4 py-2 rounded-xl transition font-semibold shadow-sm ${
                   currentPage === page
-                    ? 'bg-gradient-to-r from-[#f4d24a] to-[#e5c33a] text-gray-900'
+                    ? 'bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-secondary)] text-gray-900'
                     : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white'
                 }`}
                 whileHover={{ scale: 1.05 }}
@@ -599,151 +921,28 @@ export default function UsersPage() {
           </motion.div>
         )}
 
-        {/* User Form Modal */}
-        <AnimatePresence>
-          {showModal && (
-            <motion.div
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => {
-                resetForm();
-                setShowModal(false);
-              }}
-            >
-              <motion.div
-                className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-2xl shadow-2xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto border-2 border-[#f4d24a]/30"
-                initial={{ scale: 0.9, y: 20 }}
-                animate={{ scale: 1, y: 0 }}
-                exit={{ scale: 0.9, y: 20 }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <h3 className="text-xl font-bold bg-gradient-to-r from-[#f4d24a] to-[#e5c33a] bg-clip-text text-transparent mb-4">
-                  {editingUserId ? 'Edit User' : 'Add New User'}
-                </h3>
-
-                <form onSubmit={handleSaveUser} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                      Username *
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.username}
-                      onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-[#f4d24a] focus:border-transparent shadow-sm"
-                      required
-                      disabled={editingUserId ? true : false}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                      Email *
-                    </label>
-                    <input
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-[#f4d24a] focus:border-transparent shadow-sm"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                      Password {editingUserId ? '(leave blank to keep current)' : '*'}
-                    </label>
-                    <input
-                      type="password"
-                      value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-[#f4d24a] focus:border-transparent shadow-sm"
-                      required={!editingUserId}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                      Phone
-                    </label>
-                    <input
-                      type="tel"
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-[#f4d24a] focus:border-transparent shadow-sm"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                      Profile Picture
-                    </label>
-                    <div className="flex items-center gap-4">
-                      {imagePreview && (
-                        <img
-                          src={imagePreview}
-                          alt="Preview"
-                          className="w-16 h-16 rounded-full object-cover border-2 border-[#f4d24a]"
-                        />
-                      )}
-                      <div className="flex-1">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleImageChange}
-                          className="w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-[#f4d24a]/20 file:text-gray-900 hover:file:bg-[#f4d24a]/30 file:cursor-pointer cursor-pointer"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                      Role *
-                    </label>
-                    <select
-                      value={formData.roleId}
-                      onChange={(e) => setFormData({ ...formData, roleId: e.target.value })}
-                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-[#f4d24a] focus:border-transparent shadow-sm"
-                    >
-                      {roles.map((role) => (
-                        <option key={role.id} value={role.id}>
-                          {role.role_name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="flex gap-3 pt-4">
-                    <motion.button
-                      type="button"
-                      onClick={() => {
-                        resetForm();
-                        setShowModal(false);
-                      }}
-                      className="flex-1 px-6 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 font-semibold transition-colors"
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      Cancel
-                    </motion.button>
-                    <motion.button
-                      type="submit"
-                      disabled={uploading}
-                      className="flex-1 px-6 py-2.5 bg-gradient-to-r from-[#f4d24a] to-[#e5c33a] hover:from-[#e5c33a] hover:to-[#d6b42a] text-gray-900 rounded-xl font-semibold transition-all shadow-md disabled:opacity-50"
-                      whileHover={{ scale: uploading ? 1 : 1.02 }}
-                      whileTap={{ scale: uploading ? 1 : 0.98 }}
-                    >
-                      {uploading ? 'Uploading...' : editingUserId ? 'Update User' : 'Add User'}
-                    </motion.button>
-                  </div>
-                </form>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* User Form Modal - New Multi-Step Form */}
+        <UserFormModal
+          showModal={showModal}
+          editingUserId={editingUserId}
+          formData={formData}
+          setFormData={setFormData}
+          onClose={() => {
+            resetForm();
+            setShowModal(false);
+          }}
+          onSave={handleSaveUser}
+          roles={roles}
+          imagePreview={imagePreview}
+          onImageChange={handleImageChange}
+          offerLetterFile={offerLetterFile}
+          setOfferLetterFile={setOfferLetterFile}
+          educationList={educationList}
+          setEducationList={setEducationList}
+          experienceList={experienceList}
+          setExperienceList={setExperienceList}
+          uploading={uploading}
+        />
 
         {/* Delete Confirmation Modal */}
         <AnimatePresence>

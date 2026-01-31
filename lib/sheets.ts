@@ -1,19 +1,5 @@
 import { google } from 'googleapis';
-
-// Google Service Account credentials
-const SERVICE_ACCOUNT_CREDENTIALS = {
-  type: "service_account",
-  project_id: "clean-yew-483214-s7",
-  private_key_id: "4eb37472b1af93090d5eac25a2adaf835b19924f",
-  private_key: "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCyPMFT6z4IJYRb\n4u0Gd3YH9ER1Vz+Nuf/78dCrqerwKM0ciBo6KMdFEJELQkEYPvW4PgpQqS8xaE4f\nTWXeN3xLRq9RsDXUB+HtklrtdaF7XNIThRJmLcQHqtDwR3CabbuJlXq1zKfQfmP5\nT3PnUDQ3KmXL+Irlm5SFy8u+b+E4UUD1YY4TDYDDGOID+RD6iddJ6DDxOjhk7MCp\nT7EGBSSwZhz3JTJKlqPBS0mHKFBBPkQ6AuoQ/HwKH1hrKePjlLOpVM2Evjel28+Q\nsyTEYuB338wxrXk6hCvvMRSn1XbwcVy+Fiasnx+96lr5x2xq1Pd7bPZdBXFxXb6D\nrAWqCiD3AgMBAAECggEAEwDmTffBc+XoIFHoGq3nAD8bg3VLeeVwdSDZskvaGEQJ\nZnbecQADCwqSpGQqg5bG5R98QxBez0JDPhQm/dPlpTMCo0+J1bMHdCiMGFBX6MrD\nPUCNbyaHBZhBUbUUPOrhOXCeFj8dT14Cc8T0Yx/KiW00UFSOHqABbGiHryTHmxTl\nDRHalOIeSEiWbg43M0w42xIK+vIFM0wlTuNrzUXChyy3wU+g/mH1I6uJ5UCWOd2B\n8aThvl5m7iK0Lu1YIvc5ADY91LAfl0VdWjZO8K7yJWI1pAnmHy8bWJho3NGmJmFo\nht9ZTdQib6Jz6fa8F6CfbvG0zK4iBdSmza2j1UXkdQKBgQDmei0PtkgqjzfBa3x2\nqWoXfeWsK9Gfh6a+2ZKk7uK8oJCwSCfGgEwxnGLwjrZvzaKBSg34bM6vC92rEOV8\nj/4w7G2ATCWXrwghBvMpvd2CvXghSXNa49oL8JEdIndJfF5Qow720NsZandEC3Oi\nNFjso4gczhLMoxYEoeo1ZjgizQKBgQDF+Z++EK/l6g+X5fflDjpcOb2tFyU3dCGf\ncLZfUnvc2B5MPZW1k46gUfuUWSFQKLuDqPFSK5VYB1Zrlaw/mc6/3m+IwjAENNrN\nmnNP9+OCwYSOC+js5OFj/Dc98mrDcZAJjI1KKD9Vq+nPPFcMa7ESbLndqnbul/8N\nT2nLB2860wKBgCZMIvS7a153EeK4A6SMHi7tIp7rYRfLKLAJ4044y8BgReqk8scP\nRpnvzJkAfdwyJVCqh4vCOM3pgNoOIrQCEVD72G47OPvtf8JNL1a+T/KLnUyasepm\ndjMJtHNM6NlzKxDnJ3Nn3SBqCotqA7ruS+B2hAWVUJZkeyIl7Y8V/zn5AoGAPfHf\nU78w6oWUH3krWZZcGGNQwAoP8Qv7QUIpLiZG71EIGd7jKw9ifzNnvoEs9UHpekaw\nS3+rmQGivsL0RGpB0LMuvuHT2F0ZYV/EWO89VrpqWW/Mj+MFyx0tw8pIMaMk6Hf7\n9YomVw4VeGxu6EoB+7vdZEhkMj+I5IdGmOpYmVUCgYEA3EJ83ZQT5/r6ddSmMCWa\njWgm0hZeoXymZYBI+yHsVtWt/t8HpO4WcSpwJmOxODXAR1gkJ3K2kZiD1pVPk8xc\nnbjz/aLuwRToorcOSMXmk6mSUSIC+DHnHUs55hKF7kngj9L/zDMD+fM9jcUoPP3f\nwFGkybJViC+FdOdWmanhU+0=\n-----END PRIVATE KEY-----\n",
-  client_email: "sohan-595@clean-yew-483214-s7.iam.gserviceaccount.com",
-  client_id: "100523899003841193231",
-  auth_uri: "https://accounts.google.com/o/oauth2/auth",
-  token_uri: "https://oauth2.googleapis.com/token",
-  auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
-  client_x509_cert_url: "https://www.googleapis.com/robot/v1/metadata/x509/sohan-595%40clean-yew-483214-s7.iam.gserviceaccount.com",
-  universe_domain: "googleapis.com"
-};
+import { getGoogleSheetsClient as getOAuthSheetsClient } from './oauth';
 
 // Spreadsheet IDs for different features
 const SPREADSHEET_IDS = {
@@ -23,29 +9,40 @@ const SPREADSHEET_IDS = {
   HELPDESK: '17AWbMisFx_cjC2exMpf86d21VKp1dl-q49FWIcWaSkk',
   CHECKLISTS: '1PbXHXWj3jRsA6EvEHZMyzFe7Q0BsUrvCEX5PslAbhSg',
   CHAT: '1BUiGYRmlT-fcQ7Qw9VIJkyPRyzdiuSeleJY785QncHM',
+  NOTIFICATIONS: '1EqJyQR_UaXMjh6Cua1TIkMRyQqxcvJoJanvT2SB_Dco',
+  MOM: '1A7kINXsl513H_NszKbhAosSqmFI-zeYSsEGob94SKPc',
+  LEAD_TO_SALES: '1WWAxBcv8czVrThlsEXdxjEYZ674lhfxdiHgMX5KHQAc',
+  DEPARTMENTS: '1Om5QWo4iLEGeQkKF5jyEY6YeRUFil8GFkDXdkAifF3I',
 };
 
 // Backward compatibility
 const DELEGATION_SPREADSHEET_ID = SPREADSHEET_IDS.DELEGATION;
 const USERS_SPREADSHEET_ID = SPREADSHEET_IDS.USERS;
+const NOTIFICATIONS_SPREADSHEET_ID = SPREADSHEET_IDS.NOTIFICATIONS;
+
+// Format date as dd/mm/yyyy HH:mm:ss
+function formatDateTime(date: Date): string {
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+}
 
 // Sheet names
 const SHEETS = {
   DELEGATION: 'delegation',
   DELEGATION_REMARKS: 'delegation_remarks',
   DELEGATION_HISTORY: 'delegation_revision_history',
-  USERS: 'users'
+  USERS: 'users',
+  CHAT_MESSAGES: 'chat_messages'
 };
 
-// Initialize Google Sheets API client with Service Account
+// Initialize Google Sheets API client with OAuth
 export async function getGoogleSheetsClient() {
-  const auth = new google.auth.GoogleAuth({
-    credentials: SERVICE_ACCOUNT_CREDENTIALS,
-    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-  });
-
-  const sheets = google.sheets({ version: 'v4', auth });
-  return sheets;
+  return await getOAuthSheetsClient();
 }
 
 // Helper function to convert array to object based on header row
@@ -53,7 +50,26 @@ function rowToObject(headers: string[], row: any[]): any {
   const obj: any = {};
   headers.forEach((header, index) => {
     const value = row[index];
-    // Try to parse JSON strings
+
+    // Handle education and work_experience fields - ensure they're strings
+    if ((header === 'education' || header === 'work_experience') && value) {
+      if (typeof value === 'string') {
+        obj[header] = value; // Keep as string for parsing later
+      } else if (typeof value === 'object') {
+        obj[header] = JSON.stringify(value); // Convert object to JSON string
+      } else {
+        obj[header] = '[]'; // Default empty array
+      }
+      return;
+    }
+
+    // Handle boolean fields from Google Sheets (stored as TRUE/FALSE strings)
+    if ((header === 'evidence_required' || header === 'verification_required' || header === 'attachment_required') && typeof value === 'string') {
+      obj[header] = value.toUpperCase() === 'TRUE';
+      return;
+    }
+
+    // Try to parse JSON strings for other fields
     if (typeof value === 'string' && (value.startsWith('{') || value.startsWith('['))) {
       try {
         obj[header] = JSON.parse(value);
@@ -75,14 +91,21 @@ function objectToRow(headers: string[], obj: any): any[] {
     if (typeof value === 'object' && value !== null) {
       return JSON.stringify(value);
     }
-    return value === null || value === undefined ? '' : String(value);
+    // Return empty string for null/undefined
+    if (value === null || value === undefined) {
+      return '';
+    }
+    // For date-like strings (dd/mm/yyyy HH:mm:ss), return as is
+    // Google Sheets will recognize them as text without adding quotes
+    return value;
   });
 }
 
 // DELEGATION CRUD OPERATIONS
 
-export async function getDelegations(userId: number) {
+export async function getDelegations(userId: number, role?: string, username?: string) {
   try {
+
     const sheets = await getGoogleSheetsClient();
     const sheetName = SHEETS.DELEGATION;
 
@@ -93,6 +116,7 @@ export async function getDelegations(userId: number) {
     });
 
     const rows = response.data.values;
+
     if (!rows || rows.length === 0) {
       return [];
     }
@@ -100,12 +124,32 @@ export async function getDelegations(userId: number) {
     const headers = rows[0];
     const dataRows = rows.slice(1);
 
-    // Convert rows to objects and filter by user_id
-    const delegations = dataRows
+    // Convert rows to objects
+    let delegations = dataRows
       .map(row => rowToObject(headers, row))
-      .filter(delegation => parseInt(delegation.user_id) === userId)
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    
+      .filter(delegation => delegation.id); // Filter out empty rows
+
+    // Filter based on role
+    if (role?.toLowerCase() === 'admin') {
+      // Admin - show all delegations
+      // No filtering needed
+    } else if (role?.toLowerCase() === 'tl') {
+      // TL - show delegations where they are assignee or doer
+      delegations = delegations.filter(delegation =>
+        (delegation.doer_name && username && delegation.doer_name.toLowerCase() === username.toLowerCase()) ||
+        (delegation.assigned_to && username && delegation.assigned_to.toLowerCase() === username.toLowerCase())
+      );
+    } else {
+      // Regular user - show only delegations where user is the doer
+      delegations = delegations.filter(delegation =>
+        delegation.doer_name && username &&
+        delegation.doer_name.toLowerCase() === username.toLowerCase()
+      );
+    }
+
+    // Sort by created_at descending
+    delegations.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
     return delegations;
   } catch (error) {
     console.error('Error fetching delegations from Google Sheets:', error);
@@ -125,15 +169,15 @@ export async function createDelegation(delegationData: any) {
     });
 
     const headers = response.data.values?.[0] || [];
-    
+
     // If no headers, initialize the sheet
     if (headers.length === 0) {
       const defaultHeaders = [
         'id', 'user_id', 'delegation_name', 'description', 'assigned_to', 'doer_name',
-        'department', 'priority', 'due_date', 'status', 'voice_note_url', 
-        'reference_docs', 'evidence_required', 'created_at', 'updated_at'
+        'department', 'priority', 'due_date', 'status', 'voice_note_url',
+        'reference_docs', 'evidence_required', 'evidence_urls', 'created_at', 'updated_at'
       ];
-      
+
       await sheets.spreadsheets.values.update({
         spreadsheetId: DELEGATION_SPREADSHEET_ID,
         range: `${sheetName}!A1:O1`,
@@ -142,7 +186,7 @@ export async function createDelegation(delegationData: any) {
           values: [defaultHeaders],
         },
       });
-      
+
       headers.push(...defaultHeaders);
     }
 
@@ -158,8 +202,8 @@ export async function createDelegation(delegationData: any) {
     const delegation = {
       id: newId,
       ...delegationData,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
+      created_at: formatDateTime(new Date()),
+      updated_at: formatDateTime(new Date())
     };
 
     // Convert to row array
@@ -174,7 +218,7 @@ export async function createDelegation(delegationData: any) {
         values: [rowData],
       },
     });
-    
+
     return delegation;
   } catch (error) {
     console.error('Error creating delegation in Google Sheets:', error);
@@ -187,39 +231,66 @@ export async function updateDelegation(id: number, delegationData: any) {
     const sheets = await getGoogleSheetsClient();
     const sheetName = SHEETS.DELEGATION;
 
-    // Read all data to find the row
-    const response = await sheets.spreadsheets.values.get({
+    // 1. Get Headers (A1:Z1)
+    const headerResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: DELEGATION_SPREADSHEET_ID,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A1:Z1`,
+    });
+    const headers = headerResponse.data.values?.[0];
+    if (!headers) throw new Error('Headers not found');
+
+    // 2. Get All IDs (Column A) to find the row index - much faster than getting all data
+    const idResponse = await sheets.spreadsheets.values.get({
+      spreadsheetId: DELEGATION_SPREADSHEET_ID,
+      range: `${sheetName}!A:A`,
     });
 
-    const rows = response.data.values;
-    if (!rows || rows.length === 0) {
+    const idColumn = idResponse.data.values;
+    if (!idColumn || idColumn.length === 0) {
       throw new Error('Delegation not found');
     }
 
-    const headers = rows[0];
-    const dataRows = rows.slice(1);
-
     // Find row index by ID
-    const rowIndex = dataRows.findIndex(row => parseInt(row[0]) === id);
+    // Note: idColumn[i][0] contains the ID string
+    const rowIndex = idColumn.findIndex(row => {
+      if (!row || row.length === 0) return false;
+      const rowId = parseInt(row[0]);
+      const searchId = typeof id === 'string' ? parseInt(id) : id;
+      return rowId === searchId;
+    });
+
     if (rowIndex === -1) {
       throw new Error('Delegation not found');
     }
 
-    // Update the delegation object
-    const existingDelegation = rowToObject(headers, dataRows[rowIndex]);
+    // Calculate actual row number (1-based)
+    // rowIndex is 0-based index from the data array. The data array starts at A1.
+    // So if ID is at index 1 (which is A2), the row number is 2.
+    // However, ensure we handle the header row correctly if it was included or excluded.
+    // A:A usually includes A1 (header).
+    const actualRowNumber = rowIndex + 1;
+
+    // 3. Get the specific row data
+    const rowResponse = await sheets.spreadsheets.values.get({
+      spreadsheetId: DELEGATION_SPREADSHEET_ID,
+      range: `${sheetName}!A${actualRowNumber}:Z${actualRowNumber}`,
+    });
+
+    const currentRowValues = rowResponse.data.values?.[0];
+    if (!currentRowValues) throw new Error('Failed to fetch row data');
+
+    // 4. Update the delegation object
+    const existingDelegation = rowToObject(headers, currentRowValues);
     const updatedDelegation = {
       ...existingDelegation,
       ...delegationData,
-      updated_at: new Date().toISOString()
+      updated_at: formatDateTime(new Date())
     };
 
-    // Convert to row array
+    // 5. Convert to row array
     const rowData = objectToRow(headers, updatedDelegation);
 
-    // Update the specific row (add 2 to rowIndex: 1 for header, 1 for 0-based index)
-    const actualRowNumber = rowIndex + 2;
+    // 6. Update the specific row
     await sheets.spreadsheets.values.update({
       spreadsheetId: DELEGATION_SPREADSHEET_ID,
       range: `${sheetName}!A${actualRowNumber}:Z${actualRowNumber}`,
@@ -228,7 +299,7 @@ export async function updateDelegation(id: number, delegationData: any) {
         values: [rowData],
       },
     });
-    
+
     return updatedDelegation;
   } catch (error) {
     console.error('Error updating delegation in Google Sheets:', error);
@@ -254,14 +325,14 @@ export async function deleteDelegation(id: number) {
 
     const dataRows = rows.slice(1);
     const rowIndex = dataRows.findIndex(row => parseInt(row[0]) === id);
-    
+
     if (rowIndex === -1) {
       throw new Error('Delegation not found');
     }
 
     // Delete the row (add 2 to rowIndex: 1 for header, 1 for 0-based index)
     const actualRowNumber = rowIndex + 2;
-    
+
     await sheets.spreadsheets.batchUpdate({
       spreadsheetId: DELEGATION_SPREADSHEET_ID,
       requestBody: {
@@ -279,7 +350,7 @@ export async function deleteDelegation(id: number) {
         ]
       }
     });
-    
+
     return { id };
   } catch (error) {
     console.error('Error deleting delegation from Google Sheets:', error);
@@ -331,11 +402,11 @@ export async function createDelegationRemark(remarkData: any) {
     });
 
     const headers = response.data.values?.[0] || [];
-    
+
     // If no headers, initialize the sheet
     if (headers.length === 0) {
       const defaultHeaders = ['id', 'delegation_id', 'user_id', 'username', 'remark', 'created_at'];
-      
+
       await sheets.spreadsheets.values.update({
         spreadsheetId: DELEGATION_SPREADSHEET_ID,
         range: `${sheetName}!A1:F1`,
@@ -344,7 +415,7 @@ export async function createDelegationRemark(remarkData: any) {
           values: [defaultHeaders],
         },
       });
-      
+
       headers.push(...defaultHeaders);
     }
 
@@ -359,7 +430,7 @@ export async function createDelegationRemark(remarkData: any) {
     const remark = {
       id: newId,
       ...remarkData,
-      created_at: new Date().toISOString()
+      created_at: formatDateTime(new Date())
     };
 
     const rowData = objectToRow(headers, remark);
@@ -424,14 +495,14 @@ export async function createDelegationHistory(historyData: any) {
     });
 
     const headers = response.data.values?.[0] || [];
-    
+
     // If no headers, initialize the sheet
     if (headers.length === 0) {
       const defaultHeaders = [
-        'id', 'delegation_id', 'old_status', 'new_status', 
-        'old_due_date', 'new_due_date', 'reason', 'created_at'
+        'id', 'delegation_id', 'old_status', 'new_status',
+        'old_due_date', 'new_due_date', 'reason', 'evidence_urls', 'created_at'
       ];
-      
+
       await sheets.spreadsheets.values.update({
         spreadsheetId: DELEGATION_SPREADSHEET_ID,
         range: `${sheetName}!A1:H1`,
@@ -440,7 +511,7 @@ export async function createDelegationHistory(historyData: any) {
           values: [defaultHeaders],
         },
       });
-      
+
       headers.push(...defaultHeaders);
     }
 
@@ -455,7 +526,7 @@ export async function createDelegationHistory(historyData: any) {
     const history = {
       id: newId,
       ...historyData,
-      created_at: new Date().toISOString()
+      created_at: formatDateTime(new Date())
     };
 
     const rowData = objectToRow(headers, history);
@@ -517,7 +588,7 @@ export async function getAllUsers() {
     // Read all data from the sheet
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: USERS_SPREADSHEET_ID,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
     });
 
     const rows = response.data.values;
@@ -528,11 +599,11 @@ export async function getAllUsers() {
     const headers = rows[0];
     const dataRows = rows.slice(1);
 
-    // Convert rows to objects
+    // Convert rows to objects - role_name is now stored directly
     const users = dataRows
       .map(row => rowToObject(headers, row))
       .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
-    
+
     return users;
   } catch (error) {
     console.error('Error fetching users from Google Sheets:', error);
@@ -548,19 +619,57 @@ export async function createUser(userData: any) {
     // Get existing data to determine the next ID and get headers
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: USERS_SPREADSHEET_ID,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
     });
 
     const rows = response.data.values;
+    let headers: string[];
+    let dataRows: any[] = [];
+
+    // Define all column headers
+    const allHeaders = [
+      'id', 'username', 'email', 'password', 'phone', 'role_name', 'image_url',
+      'dob', 'uan_number', 'aadhaar_number', 'pan_number',
+      'present_address_line1', 'present_address_line2', 'present_city', 'present_country', 'present_state', 'present_postal_code',
+      'permanent_same_as_present', 'permanent_address_line1', 'permanent_address_line2', 'permanent_city', 'permanent_country', 'permanent_state', 'permanent_postal_code',
+      'experience', 'source_of_hire', 'skill_set', 'highest_qualification', 'additional_information',
+      'location', 'title', 'current_salary', 'department', 'offer_letter_url', 'tentative_joining_date',
+      'education', 'work_experience', 'created_at'
+    ];
+
+    // If sheet is empty, create headers
     if (!rows || rows.length === 0) {
-      throw new Error('Sheet is empty or headers are missing');
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: USERS_SPREADSHEET_ID,
+        range: `${sheetName}!A1`,
+        valueInputOption: 'RAW',
+        requestBody: {
+          values: [allHeaders],
+        },
+      });
+      headers = allHeaders;
+    } else {
+      headers = rows[0];
+      dataRows = rows.slice(1);
+
+      // Check if all required headers exist, if not update them
+      const missingHeaders = allHeaders.filter(h => !headers.includes(h));
+      if (missingHeaders.length > 0) {
+        // Update header row with all headers
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: USERS_SPREADSHEET_ID,
+          range: `${sheetName}!A1:AZ1`,
+          valueInputOption: 'RAW',
+          requestBody: {
+            values: [allHeaders],
+          },
+        });
+        headers = allHeaders;
+      }
     }
 
-    const headers = rows[0];
-    const dataRows = rows.slice(1);
-
     // Generate new ID
-    const maxId = dataRows.length > 0 
+    const maxId = dataRows.length > 0
       ? Math.max(...dataRows.map(row => parseInt(row[0]) || 0))
       : 0;
     const newId = maxId + 1;
@@ -572,9 +681,39 @@ export async function createUser(userData: any) {
       email: userData.email,
       password: userData.password,
       phone: userData.phone || '',
-      role_id: userData.roleId || 3,
+      role_name: userData.roleName || 'User',
       image_url: userData.imageUrl || '',
-      created_at: new Date().toISOString()
+      dob: userData.dob || '',
+      uan_number: userData.uanNumber || '',
+      aadhaar_number: userData.aadhaarNumber || '',
+      pan_number: userData.panNumber || '',
+      present_address_line1: userData.presentAddressLine1 || '',
+      present_address_line2: userData.presentAddressLine2 || '',
+      present_city: userData.presentCity || '',
+      present_country: userData.presentCountry || '',
+      present_state: userData.presentState || '',
+      present_postal_code: userData.presentPostalCode || '',
+      permanent_same_as_present: userData.permanentSameAsPresent || false,
+      permanent_address_line1: userData.permanentAddressLine1 || '',
+      permanent_address_line2: userData.permanentAddressLine2 || '',
+      permanent_city: userData.permanentCity || '',
+      permanent_country: userData.permanentCountry || '',
+      permanent_state: userData.permanentState || '',
+      permanent_postal_code: userData.permanentPostalCode || '',
+      experience: userData.experience || '',
+      source_of_hire: userData.sourceOfHire || '',
+      skill_set: userData.skillSet || '',
+      highest_qualification: userData.highestQualification || '',
+      additional_information: userData.additionalInformation || '',
+      location: userData.location || '',
+      title: userData.title || '',
+      current_salary: userData.currentSalary || '',
+      department: userData.department || '',
+      offer_letter_url: userData.offerLetterUrl || '',
+      tentative_joining_date: userData.tentativeJoiningDate || '',
+      education: userData.education || '[]',
+      work_experience: userData.workExperience || '[]',
+      created_at: formatDateTime(new Date())
     };
 
     // Convert to row
@@ -583,13 +722,13 @@ export async function createUser(userData: any) {
     // Append the new row
     await sheets.spreadsheets.values.append({
       spreadsheetId: USERS_SPREADSHEET_ID,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueInputOption: 'RAW',
       requestBody: {
         values: [newRow],
       },
     });
-    
+
     return newUser;
   } catch (error) {
     console.error('Error creating user in Google Sheets:', error);
@@ -605,7 +744,7 @@ export async function updateUser(id: number, userData: any) {
     // Get all rows
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: USERS_SPREADSHEET_ID,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
     });
 
     const rows = response.data.values;
@@ -630,8 +769,38 @@ export async function updateUser(id: number, userData: any) {
       ...existingUser,
       email: userData.email !== undefined ? userData.email : existingUser.email,
       phone: userData.phone !== undefined ? userData.phone : existingUser.phone,
-      role_id: userData.roleId !== undefined ? userData.roleId : existingUser.role_id,
+      role_name: userData.roleName !== undefined ? userData.roleName : existingUser.role_name,
       image_url: userData.imageUrl !== undefined ? userData.imageUrl : existingUser.image_url,
+      dob: userData.dob !== undefined ? userData.dob : existingUser.dob,
+      uan_number: userData.uanNumber !== undefined ? userData.uanNumber : existingUser.uan_number,
+      aadhaar_number: userData.aadhaarNumber !== undefined ? userData.aadhaarNumber : existingUser.aadhaar_number,
+      pan_number: userData.panNumber !== undefined ? userData.panNumber : existingUser.pan_number,
+      present_address_line1: userData.presentAddressLine1 !== undefined ? userData.presentAddressLine1 : existingUser.present_address_line1,
+      present_address_line2: userData.presentAddressLine2 !== undefined ? userData.presentAddressLine2 : existingUser.present_address_line2,
+      present_city: userData.presentCity !== undefined ? userData.presentCity : existingUser.present_city,
+      present_country: userData.presentCountry !== undefined ? userData.presentCountry : existingUser.present_country,
+      present_state: userData.presentState !== undefined ? userData.presentState : existingUser.present_state,
+      present_postal_code: userData.presentPostalCode !== undefined ? userData.presentPostalCode : existingUser.present_postal_code,
+      permanent_same_as_present: userData.permanentSameAsPresent !== undefined ? userData.permanentSameAsPresent : existingUser.permanent_same_as_present,
+      permanent_address_line1: userData.permanentAddressLine1 !== undefined ? userData.permanentAddressLine1 : existingUser.permanent_address_line1,
+      permanent_address_line2: userData.permanentAddressLine2 !== undefined ? userData.permanentAddressLine2 : existingUser.permanent_address_line2,
+      permanent_city: userData.permanentCity !== undefined ? userData.permanentCity : existingUser.permanent_city,
+      permanent_country: userData.permanentCountry !== undefined ? userData.permanentCountry : existingUser.permanent_country,
+      permanent_state: userData.permanentState !== undefined ? userData.permanentState : existingUser.permanent_state,
+      permanent_postal_code: userData.permanentPostalCode !== undefined ? userData.permanentPostalCode : existingUser.permanent_postal_code,
+      experience: userData.experience !== undefined ? userData.experience : existingUser.experience,
+      source_of_hire: userData.sourceOfHire !== undefined ? userData.sourceOfHire : existingUser.source_of_hire,
+      skill_set: userData.skillSet !== undefined ? userData.skillSet : existingUser.skill_set,
+      highest_qualification: userData.highestQualification !== undefined ? userData.highestQualification : existingUser.highest_qualification,
+      additional_information: userData.additionalInformation !== undefined ? userData.additionalInformation : existingUser.additional_information,
+      location: userData.location !== undefined ? userData.location : existingUser.location,
+      title: userData.title !== undefined ? userData.title : existingUser.title,
+      current_salary: userData.currentSalary !== undefined ? userData.currentSalary : existingUser.current_salary,
+      department: userData.department !== undefined ? userData.department : existingUser.department,
+      offer_letter_url: userData.offerLetterUrl !== undefined ? userData.offerLetterUrl : existingUser.offer_letter_url,
+      tentative_joining_date: userData.tentativeJoiningDate !== undefined ? userData.tentativeJoiningDate : existingUser.tentative_joining_date,
+      education: userData.education !== undefined ? userData.education : existingUser.education,
+      work_experience: userData.workExperience !== undefined ? userData.workExperience : existingUser.work_experience,
     };
 
     // Only update password if provided
@@ -646,13 +815,13 @@ export async function updateUser(id: number, userData: any) {
     const actualRowNumber = rowIndex + 2;
     await sheets.spreadsheets.values.update({
       spreadsheetId: USERS_SPREADSHEET_ID,
-      range: `${sheetName}!A${actualRowNumber}:Z${actualRowNumber}`,
+      range: `${sheetName}!A${actualRowNumber}:AZ${actualRowNumber}`,
       valueInputOption: 'RAW',
       requestBody: {
         values: [updatedRow],
       },
     });
-    
+
     return updatedUser;
   } catch (error) {
     console.error('Error updating user in Google Sheets:', error);
@@ -668,7 +837,7 @@ export async function deleteUser(id: number) {
     // Get all rows
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: USERS_SPREADSHEET_ID,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
     });
 
     const rows = response.data.values;
@@ -686,7 +855,7 @@ export async function deleteUser(id: number) {
 
     // Delete the row (rowIndex + 2 because: +1 for 1-based indexing, +1 for header row)
     const actualRowNumber = rowIndex + 2;
-    
+
     await sheets.spreadsheets.batchUpdate({
       spreadsheetId: USERS_SPREADSHEET_ID,
       requestBody: {
@@ -704,7 +873,7 @@ export async function deleteUser(id: number) {
         ],
       },
     });
-    
+
     return { id };
   } catch (error) {
     console.error('Error deleting user from Google Sheets:', error);
@@ -712,5 +881,1933 @@ export async function deleteUser(id: number) {
   }
 }
 
+// NOTIFICATION OPERATIONS
+
+const NOTIFICATIONS_SHEET = 'notification'; // Default sheet name in new spreadsheet
+
+async function ensureNotificationSheetExists(sheets: any) {
+  try {
+    const cacheKey = `${NOTIFICATIONS_SPREADSHEET_ID}_${NOTIFICATIONS_SHEET}`;
+    if (ensuredSheets.has(cacheKey)) return;
+
+    const headerCheck = await sheets.spreadsheets.values.get({
+      spreadsheetId: NOTIFICATIONS_SPREADSHEET_ID,
+      range: `${NOTIFICATIONS_SHEET}!A1:I1`,
+    });
+
+    if (!headerCheck.data.values || headerCheck.data.values.length === 0) {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: NOTIFICATIONS_SPREADSHEET_ID,
+        range: `${NOTIFICATIONS_SHEET}!A1:I1`,
+        valueInputOption: 'RAW',
+        requestBody: {
+          values: [['id', 'user_id', 'user_role', 'type', 'title', 'message', 'resource_id', 'target_page', 'action_by', 'is_read', 'created_at']],
+        },
+      });
+    }
+    ensuredSheets.add(cacheKey);
+  } catch (error) {
+    console.error('❌ Error ensuring notification sheet:', error);
+    throw error;
+  }
+}
+
+// Role-based notification system - Admin sees all, TL and Doer see their specific notifications
+export async function getNotifications(userId: number, userRole: string, unreadOnly: boolean = false) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+
+    await ensureNotificationSheetExists(sheets);
+
+    // Read all data
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: NOTIFICATIONS_SPREADSHEET_ID,
+      range: `${NOTIFICATIONS_SHEET}!A:K`,
+    });
+
+    const rows = response.data.values;
+
+    if (!rows || rows.length <= 1) {
+      return [];
+    }
+
+    const headers = rows[0];
+    const dataRows = rows.slice(1);
+
+    let notifications = dataRows
+      .map(row => {
+        const notif = rowToObject(headers, row);
+        // Parse is_read properly
+        if (typeof notif.is_read === 'string') {
+          notif.is_read = notif.is_read.toUpperCase() === 'TRUE';
+        }
+        return notif;
+      })
+      .filter(notif => {
+        const hasId = notif.id;
+
+        // Admin sees ALL notifications
+        if (userRole?.toLowerCase() === 'admin') {
+          return hasId;
+        }
+
+        // TL and Doer see their specific notifications
+        const matchesUser = String(notif.user_id) === String(userId);
+        return hasId && matchesUser;
+      });
+
+    // Filter unread if requested
+    if (unreadOnly) {
+      notifications = notifications.filter(n => !n.is_read);
+    }
+
+    // Sort by created_at descending
+    notifications.sort((a, b) => {
+      const dateA = new Date(a.created_at).getTime();
+      const dateB = new Date(b.created_at).getTime();
+      return dateB - dateA;
+    });
+
+    return notifications;
+  } catch (error) {
+    console.error('❌ Error fetching notifications:', error);
+    throw error;
+  }
+}
+
+export async function createNotification(notificationData: any) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+
+    // Get the last ID
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: NOTIFICATIONS_SPREADSHEET_ID,
+      range: `${NOTIFICATIONS_SHEET}!A:A`,
+    });
+
+    const rows = response.data.values || [];
+    const lastId = rows.length > 1 ? Math.max(...rows.slice(1).map(row => parseInt(row[0]) || 0)) : 0;
+    const newId = lastId + 1;
+
+    const now = formatDateTime(new Date());
+
+    const newRow = [
+      newId,
+      notificationData.user_id || '',
+      notificationData.user_role || '',
+      notificationData.type || 'info',
+      notificationData.title || '',
+      notificationData.message || '',
+      notificationData.resource_id || notificationData.delegation_id || notificationData.resourceId || '',
+      notificationData.target_page || '',
+      notificationData.action_by || '',
+      'FALSE',
+      now,
+    ];
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: NOTIFICATIONS_SPREADSHEET_ID,
+      range: `${NOTIFICATIONS_SHEET}!A:K`,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [newRow],
+      },
+    });
+    return {
+      id: newId,
+      ...notificationData,
+      is_read: false,
+      created_at: now,
+    };
+  } catch (error) {
+    console.error('❌ Error creating notification:', error);
+    throw error;
+  }
+}
+
+export async function markNotificationAsRead(id: number) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: NOTIFICATIONS_SPREADSHEET_ID,
+      range: `${NOTIFICATIONS_SHEET}!A:I`,
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) {
+      throw new Error('Notification not found');
+    }
+
+    const headers = rows[0];
+    const dataRows = rows.slice(1);
+    const rowIndex = dataRows.findIndex(row => parseInt(row[0]) === id);
+
+    if (rowIndex === -1) {
+      throw new Error('Notification not found');
+    }
+
+    // Update is_read to TRUE
+    const isReadColIndex = headers.indexOf('is_read');
+    if (isReadColIndex === -1) {
+      throw new Error('is_read column not found');
+    }
+
+    const cellAddress = `${NOTIFICATIONS_SHEET}!${String.fromCharCode(65 + isReadColIndex)}${rowIndex + 2}`;
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: NOTIFICATIONS_SPREADSHEET_ID,
+      range: cellAddress,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [['TRUE']],
+      },
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error marking notification as read:', error);
+    throw error;
+  }
+}
+
+export async function deleteNotification(id: number) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: NOTIFICATIONS_SPREADSHEET_ID,
+      range: `${NOTIFICATIONS_SHEET}!A:A`,
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) {
+      throw new Error('Notification not found');
+    }
+
+    const rowIndex = rows.slice(1).findIndex(row => parseInt(row[0]) === id);
+    if (rowIndex === -1) {
+      throw new Error('Notification not found');
+    }
+
+    // Get sheet ID
+    const sheetInfo = await sheets.spreadsheets.get({
+      spreadsheetId: NOTIFICATIONS_SPREADSHEET_ID,
+    });
+
+    const sheet = sheetInfo.data.sheets?.find(s => s.properties?.title === NOTIFICATIONS_SHEET);
+    if (!sheet || !sheet.properties) {
+      throw new Error('Notifications sheet not found');
+    }
+
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: NOTIFICATIONS_SPREADSHEET_ID,
+      requestBody: {
+        requests: [
+          {
+            deleteDimension: {
+              range: {
+                sheetId: sheet.properties.sheetId,
+                dimension: 'ROWS',
+                startIndex: rowIndex + 1,
+                endIndex: rowIndex + 2,
+              },
+            },
+          },
+        ],
+      },
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting notification:', error);
+    throw error;
+  }
+}
+
+// DEPARTMENT OPERATIONS
+
+export async function getDepartments() {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = 'Sheet1'; // Default sheet name
+
+    // Read all departments from column A
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_IDS.DEPARTMENTS,
+      range: `${sheetName}!A:A`,
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) {
+      return [];
+    }
+
+    // Get all departments from column A, filter out empty values
+    const departments = rows
+      .map(row => row[0])
+      .filter(dept => dept && dept.trim() !== '')
+      .map(dept => dept.trim());
+
+    return departments;
+  } catch (error) {
+    console.error('Error fetching departments from Google Sheets:', error);
+    throw error;
+  }
+}
+
+export async function addDepartment(departmentName: string) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = 'Sheet1'; // Default sheet name
+
+    // Check if department already exists
+    const existingDepartments = await getDepartments();
+    if (existingDepartments.some(dept => dept.toLowerCase() === departmentName.toLowerCase())) {
+      throw new Error('Department already exists');
+    }
+
+    // Append the new department to column A
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_IDS.DEPARTMENTS,
+      range: `${sheetName}!A:A`,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [[departmentName]],
+      },
+    });
+
+    return { name: departmentName };
+  } catch (error) {
+    console.error('Error adding department to Google Sheets:', error);
+    throw error;
+  }
+}
+
+export async function deleteDepartment(departmentName: string) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = 'Sheet1';
+
+    // Read all departments
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_IDS.DEPARTMENTS,
+      range: `${sheetName}!A:A`,
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) {
+      throw new Error('Department not found');
+    }
+
+    // Find the row index
+    const rowIndex = rows.findIndex(row => row[0] && row[0].trim().toLowerCase() === departmentName.toLowerCase());
+    if (rowIndex === -1) {
+      throw new Error('Department not found');
+    }
+
+    // Get sheet ID
+    const sheetInfo = await sheets.spreadsheets.get({
+      spreadsheetId: SPREADSHEET_IDS.DEPARTMENTS,
+    });
+
+    const sheet = sheetInfo.data.sheets?.find(s => s.properties?.title === sheetName);
+    if (!sheet || !sheet.properties) {
+      throw new Error('Sheet not found');
+    }
+
+    // Delete the row
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_IDS.DEPARTMENTS,
+      requestBody: {
+        requests: [
+          {
+            deleteDimension: {
+              range: {
+                sheetId: sheet.properties.sheetId,
+                dimension: 'ROWS',
+                startIndex: rowIndex,
+                endIndex: rowIndex + 1,
+              },
+            },
+          },
+        ],
+      },
+    });
+
+    return { name: departmentName };
+  } catch (error) {
+    console.error('Error deleting department from Google Sheets:', error);
+    throw error;
+  }
+}
+
+// CHECKLIST CRUD OPERATIONS
+
+// Cache to avoid repeated sheet existence checks
+const ensuredSheets = new Set<string>();
+
+// Helper function to ensure checklist sheet exists with proper headers
+async function ensureChecklistSheetExists(sheets: any, spreadsheetId: string, sheetName: string) {
+  try {
+    const cacheKey = `${spreadsheetId}_${sheetName}`;
+    if (ensuredSheets.has(cacheKey)) return;
+
+    // Check if sheet exists
+    const spreadsheet = await sheets.spreadsheets.get({
+      spreadsheetId,
+    });
+
+    const sheet = spreadsheet.data.sheets?.find((s: any) => s.properties?.title === sheetName);
+
+    if (!sheet) {
+      // Create the sheet if it doesn't exist
+      console.log(`Creating ${sheetName} sheet in checklist spreadsheet...`);
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          requests: [{
+            addSheet: {
+              properties: {
+                title: sheetName,
+              },
+            },
+          }],
+        },
+      });
+    }
+
+    // Ensure headers are present
+    const defaultHeaders = [
+      'id', 'question', 'assignee', 'doer_name', 'priority', 'department',
+      'verification_required', 'verifier_name', 'attachment_required', 'attachment_url',
+      'frequency', 'due_date', 'status', 'group_id', 'created_by',
+      'created_at', 'updated_at'
+    ];
+
+    // Check if headers exist
+    let headerResponse;
+    try {
+      headerResponse = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: `${sheetName}!A1:P1`,
+      });
+    } catch (error) {
+      headerResponse = null;
+    }
+
+    const existingHeaders = headerResponse?.data.values?.[0] || [];
+
+    if (existingHeaders.length === 0) {
+      // Create headers
+      console.log('Creating checklist sheet headers...');
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `${sheetName}!A1:P1`,
+        valueInputOption: 'RAW',
+        requestBody: {
+          values: [defaultHeaders],
+        },
+      });
+    } else {
+      // Update headers if they don't match expected format
+      const headersMatch = JSON.stringify(existingHeaders.slice(0, 16)) === JSON.stringify(defaultHeaders);
+      if (!headersMatch) {
+        console.log('Updating checklist sheet headers to match expected format...');
+        await sheets.spreadsheets.values.update({
+          spreadsheetId,
+          range: `${sheetName}!A1:P1`,
+          valueInputOption: 'RAW',
+          requestBody: {
+            values: [defaultHeaders],
+          },
+        });
+      }
+    }
+    ensuredSheets.add(cacheKey);
+  } catch (error) {
+    console.error('Error ensuring checklist sheet exists:', error);
+    throw error;
+  }
+}
+
+export async function getChecklists() {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = 'checklists'; // Checklist sheet name
+
+    // Ensure sheet exists
+    await ensureChecklistSheetExists(sheets, SPREADSHEET_IDS.CHECKLISTS, sheetName);
+
+    // Read all data from the sheet
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
+      range: `${sheetName}!A:Z`,
+    });
+
+    const rows = response.data.values;
+
+    if (!rows || rows.length === 0 || rows.length === 1) {
+      // No data rows (only headers or empty)
+      return [];
+    }
+
+    const headers = rows[0];
+    const dataRows = rows.slice(1);
+
+    // Convert rows to objects
+    const checklists = dataRows
+      .map(row => rowToObject(headers, row))
+      .filter(checklist => checklist.id); // Filter out empty rows
+
+    // Sort by due_date ascending, then created_at descending
+    checklists.sort((a, b) => {
+      const dateA = new Date(a.due_date).getTime();
+      const dateB = new Date(b.due_date).getTime();
+      if (dateA !== dateB) return dateA - dateB;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+
+    return checklists;
+  } catch (error) {
+    console.error('Error fetching checklists from Google Sheets:', error);
+    throw error;
+  }
+}
+
+// Batch append multiple checklists at once (more efficient for bulk operations)
+export async function createChecklistsBatch(checklistsData: any[]) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = 'checklists'; // Checklist sheet name
+
+    // Ensure sheet exists with headers
+    await ensureChecklistSheetExists(sheets, SPREADSHEET_IDS.CHECKLISTS, sheetName);
+
+    // Read headers
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
+      range: `${sheetName}!A1:P1`,
+    });
+
+    const headers = response.data.values?.[0] || [];
+
+    // Get all existing IDs to find the maximum
+    const allDataResponse = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
+      range: `${sheetName}!A:A`,
+    });
+    const allRows = allDataResponse.data.values || [];
+
+    // Find the maximum ID from existing rows (skip header row)
+    let maxId = 0;
+    for (let i = 1; i < allRows.length; i++) {
+      const id = parseInt(allRows[i][0]);
+      if (!isNaN(id) && id > maxId) {
+        maxId = id;
+      }
+    }
+    let nextId = maxId + 1; // Start from max ID + 1
+
+    // Prepare all rows with sequential IDs
+    const now = formatDateTime(new Date());
+    const rowsData = checklistsData.map(checklistData => {
+      const checklist = {
+        id: nextId++,
+        ...checklistData,
+        created_at: now,
+        updated_at: now
+      };
+      return objectToRow(headers, checklist);
+    });
+
+    // Append all rows in a single batch operation
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
+      range: `${sheetName}!A:Z`,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: rowsData,
+      },
+    });
+
+    return { count: rowsData.length, firstId: maxId + 1 };
+  } catch (error) {
+    console.error('Error creating checklists batch in Google Sheets:', error);
+    throw error;
+  }
+}
+
+export async function createChecklist(checklistData: any) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = 'checklists'; // Checklist sheet name
+
+    // Ensure sheet exists with headers
+    await ensureChecklistSheetExists(sheets, SPREADSHEET_IDS.CHECKLISTS, sheetName);
+
+    // Read headers
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
+      range: `${sheetName}!A1:P1`,
+    });
+
+    const headers = response.data.values?.[0] || [];
+
+    // Get all existing IDs to find the maximum
+    const allDataResponse = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
+      range: `${sheetName}!A:A`,
+    });
+    const allRows = allDataResponse.data.values || [];
+
+    // Find the maximum ID from existing rows (skip header row)
+    let maxId = 0;
+    for (let i = 1; i < allRows.length; i++) {
+      const id = parseInt(allRows[i][0]);
+      if (!isNaN(id) && id > maxId) {
+        maxId = id;
+      }
+    }
+    const newId = maxId + 1; // Start from max ID + 1
+
+    // Prepare checklist data with ID
+    const checklist = {
+      id: newId,
+      ...checklistData,
+      created_at: formatDateTime(new Date()),
+      updated_at: formatDateTime(new Date())
+    };
+
+    // Convert to row array
+    const rowData = objectToRow(headers, checklist);
+
+    // Append row
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
+      range: `${sheetName}!A:Z`,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [rowData],
+      },
+    });
+
+    return checklist;
+  } catch (error) {
+    console.error('Error creating checklist in Google Sheets:', error);
+    throw error;
+  }
+}
+
+export async function updateChecklist(id: number, checklistData: any) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = 'checklists'; // Checklist sheet name
+
+    // Read all data to find the row
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
+      range: `${sheetName}!A:Z`,
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) {
+      throw new Error('Checklist not found');
+    }
+
+    const headers = rows[0];
+    const dataRows = rows.slice(1);
+
+    // Find row index by ID
+    const rowIndex = dataRows.findIndex(row => {
+      const rowId = parseInt(row[0]);
+      const searchId = typeof id === 'string' ? parseInt(id) : id;
+      return rowId === searchId;
+    });
+
+    if (rowIndex === -1) {
+      throw new Error('Checklist not found');
+    }
+
+    // Update the checklist object
+    const existingChecklist = rowToObject(headers, dataRows[rowIndex]);
+    const updatedChecklist = {
+      ...existingChecklist,
+      ...checklistData,
+      updated_at: formatDateTime(new Date())
+    };
+
+    // Convert to row array
+    const rowData = objectToRow(headers, updatedChecklist);
+
+    // Update the specific row (add 2 to rowIndex: 1 for header, 1 for 0-based index)
+    const actualRowNumber = rowIndex + 2;
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
+      range: `${sheetName}!A${actualRowNumber}:Z${actualRowNumber}`,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [rowData],
+      },
+    });
+
+    return updatedChecklist;
+  } catch (error) {
+    console.error('Error updating checklist in Google Sheets:', error);
+    throw error;
+  }
+}
+
+export async function deleteChecklist(id: number) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = 'checklists'; // Checklist sheet name
+
+    // Read all data to find the row
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
+      range: `${sheetName}!A:Z`,
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) {
+      throw new Error('Checklist not found');
+    }
+
+    const dataRows = rows.slice(1);
+    const rowIndex = dataRows.findIndex(row => parseInt(row[0]) === id);
+
+    if (rowIndex === -1) {
+      throw new Error('Checklist not found');
+    }
+
+    // Get sheet ID
+    const sheetInfo = await sheets.spreadsheets.get({
+      spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
+    });
+
+    const sheet = sheetInfo.data.sheets?.find(s => s.properties?.title === sheetName);
+    if (!sheet || !sheet.properties) {
+      throw new Error('Checklists sheet not found');
+    }
+
+    // Delete the row (add 2 to rowIndex: 1 for header, 1 for 0-based index)
+    const actualRowNumber = rowIndex + 2;
+
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
+      requestBody: {
+        requests: [
+          {
+            deleteDimension: {
+              range: {
+                sheetId: sheet.properties.sheetId,
+                dimension: 'ROWS',
+                startIndex: actualRowNumber - 1,
+                endIndex: actualRowNumber
+              }
+            }
+          }
+        ]
+      }
+    });
+
+    return { id };
+  } catch (error) {
+    console.error('Error deleting checklist from Google Sheets:', error);
+    throw error;
+  }
+}
+
+// Update all checklists with a specific group_id
+export async function updateChecklistsByGroupId(groupId: string, checklistData: any) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = 'checklists'; // Checklist sheet name
+
+    // Read all data to find the rows with matching group_id
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
+      range: `${sheetName}!A:Z`,
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) {
+      return { updated: 0 };
+    }
+
+    const headers = rows[0];
+    const groupIdIndex = headers.indexOf('group_id');
+
+    if (groupIdIndex === -1) {
+      throw new Error('group_id column not found');
+    }
+
+    const dataRows = rows.slice(1);
+    const rowsToUpdate: Array<{ rowNumber: number; data: any[] }> = [];
+
+    // Find all rows with matching group_id and prepare updates
+    dataRows.forEach((row, index) => {
+      if (row[groupIdIndex] === groupId) {
+        const existingChecklist = rowToObject(headers, row);
+        const updatedChecklist = {
+          ...existingChecklist,
+          ...checklistData,
+          updated_at: formatDateTime(new Date())
+        };
+        const rowData = objectToRow(headers, updatedChecklist);
+        rowsToUpdate.push({
+          rowNumber: index + 2, // +2 for header row and 1-based index
+          data: rowData
+        });
+      }
+    });
+
+    if (rowsToUpdate.length === 0) {
+      return { updated: 0 };
+    }
+
+    // Update all matching rows
+    const updatePromises = rowsToUpdate.map(({ rowNumber, data }) =>
+      sheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
+        range: `${sheetName}!A${rowNumber}:Z${rowNumber}`,
+        valueInputOption: 'RAW',
+        requestBody: {
+          values: [data],
+        },
+      })
+    );
+
+    await Promise.all(updatePromises);
+
+    return { updated: rowsToUpdate.length };
+  } catch (error) {
+    console.error('Error updating checklists by group_id from Google Sheets:', error);
+    throw error;
+  }
+}
+
+// Delete all checklists with a specific group_id
+export async function deleteChecklistsByGroupId(groupId: string) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = 'checklists'; // Checklist sheet name
+
+    // Read all data to find the rows with matching group_id
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
+      range: `${sheetName}!A:Z`,
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) {
+      return { deleted: 0 };
+    }
+
+    const headers = rows[0];
+    const groupIdIndex = headers.indexOf('group_id');
+
+    if (groupIdIndex === -1) {
+      throw new Error('group_id column not found');
+    }
+
+    const dataRows = rows.slice(1);
+    const rowsToDelete: number[] = [];
+
+    // Find all rows with matching group_id
+    dataRows.forEach((row, index) => {
+      if (row[groupIdIndex] === groupId) {
+        rowsToDelete.push(index + 2); // +2 for header row and 1-based index
+      }
+    });
+
+    if (rowsToDelete.length === 0) {
+      return { deleted: 0 };
+    }
+
+    // Get sheet ID
+    const sheetInfo = await sheets.spreadsheets.get({
+      spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
+    });
+
+    const sheet = sheetInfo.data.sheets?.find(s => s.properties?.title === sheetName);
+    if (!sheet || !sheet.properties) {
+      throw new Error('Checklists sheet not found');
+    }
+
+    // Delete rows in reverse order to maintain correct indices
+    const requests = rowsToDelete
+      .sort((a, b) => b - a) // Sort descending
+      .map(rowNumber => ({
+        deleteDimension: {
+          range: {
+            sheetId: sheet.properties!.sheetId,
+            dimension: 'ROWS',
+            startIndex: rowNumber - 1,
+            endIndex: rowNumber
+          }
+        }
+      }));
+
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
+      requestBody: { requests }
+    });
+
+    return { deleted: rowsToDelete.length };
+  } catch (error) {
+    console.error('Error deleting checklists by group_id from Google Sheets:', error);
+    throw error;
+  }
+}
+
 // Export spreadsheet IDs for use in other features
 export { SPREADSHEET_IDS };
+
+// Checklist helper functions
+export async function getChecklistById(id: number) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = 'checklists';
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
+      range: `${sheetName}!A:Z`,
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length <= 1) {
+      console.log('No checklist data found in sheet');
+      return null;
+    }
+
+    const headers = rows[0];
+    const dataRows = rows.slice(1);
+
+    console.log(`Searching for checklist with ID: ${id}`);
+    console.log(`Total checklists in sheet: ${dataRows.length}`);
+
+    const checklist = dataRows
+      .map(row => rowToObject(headers, row))
+      .find(c => {
+        const checklistId = parseInt(c.id);
+        const searchId = typeof id === 'string' ? parseInt(id) : id;
+        console.log(`Comparing checklist ID ${checklistId} with search ID ${searchId}`);
+        return checklistId === searchId;
+      });
+
+    if (!checklist) {
+      console.log(`Checklist with ID ${id} not found`);
+    } else {
+      console.log(`Found checklist:`, checklist);
+    }
+
+    return checklist || null;
+  } catch (error) {
+    console.error('Error fetching checklist by ID:', error);
+    throw error;
+  }
+}
+
+export async function getChecklistRemarks(checklistId: number) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = 'checklist_remarks';
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
+      range: `${sheetName}!A:Z`,
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) {
+      return [];
+    }
+
+    const headers = rows[0];
+    const dataRows = rows.slice(1);
+
+    const remarks = dataRows
+      .map(row => rowToObject(headers, row))
+      .filter(remark => parseInt(remark.checklist_id) === checklistId)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    return remarks;
+  } catch (error) {
+    console.error('Error fetching checklist remarks from Google Sheets:', error);
+    throw error;
+  }
+}
+
+export async function createChecklistRemark(remarkData: any) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = 'checklist_remarks';
+
+    // Ensure sheet exists
+    const spreadsheet = await sheets.spreadsheets.get({
+      spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
+    });
+
+    const sheet = spreadsheet.data.sheets?.find((s: any) => s.properties?.title === sheetName);
+
+    if (!sheet) {
+      // Create the sheet if it doesn't exist
+      console.log(`Creating ${sheetName} sheet...`);
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
+        requestBody: {
+          requests: [{
+            addSheet: {
+              properties: {
+                title: sheetName,
+              },
+            },
+          }],
+        },
+      });
+    }
+
+    // Read headers
+    let response;
+    try {
+      response = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
+        range: `${sheetName}!A1:Z1`,
+      });
+    } catch (error) {
+      response = { data: { values: [] } };
+    }
+
+    const headers = response.data.values?.[0] || [];
+
+    // If no headers, initialize the sheet
+    if (headers.length === 0) {
+      const defaultHeaders = ['id', 'checklist_id', 'user_id', 'username', 'remark', 'created_at'];
+
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
+        range: `${sheetName}!A1:F1`,
+        valueInputOption: 'RAW',
+        requestBody: {
+          values: [defaultHeaders],
+        },
+      });
+
+      headers.push(...defaultHeaders);
+    }
+
+    // Generate ID
+    const allDataResponse = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
+      range: `${sheetName}!A:A`,
+    });
+    const allRows = allDataResponse.data.values || [];
+    const newId = allRows.length;
+
+    const remark = {
+      id: newId,
+      ...remarkData,
+      created_at: formatDateTime(new Date())
+    };
+
+    const rowData = objectToRow(headers, remark);
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
+      range: `${sheetName}!A:Z`,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [rowData],
+      },
+    });
+
+    return remark;
+  } catch (error) {
+    console.error('Error creating checklist remark in Google Sheets:', error);
+    throw error;
+  }
+}
+
+export async function createChecklistHistory(historyData: any) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = 'checklist_revision_history';
+
+    // Ensure sheet exists
+    const spreadsheet = await sheets.spreadsheets.get({
+      spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
+    });
+
+    const sheet = spreadsheet.data.sheets?.find((s: any) => s.properties?.title === sheetName);
+
+    if (!sheet) {
+      // Create the sheet if it doesn't exist
+      console.log(`Creating ${sheetName} sheet...`);
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
+        requestBody: {
+          requests: [{
+            addSheet: {
+              properties: {
+                title: sheetName,
+              },
+            },
+          }],
+        },
+      });
+    }
+
+    // Read headers
+    let response;
+    try {
+      response = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
+        range: `${sheetName}!A1:Z1`,
+      });
+    } catch (error) {
+      response = { data: { values: [] } };
+    }
+
+    const headers = response.data.values?.[0] || [];
+
+    // If no headers, initialize the sheet
+    if (headers.length === 0) {
+      const defaultHeaders = [
+        'id', 'checklist_id', 'user_id', 'username', 'action',
+        'old_status', 'new_status', 'remark', 'attachment_url', 'timestamp'
+      ];
+
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
+        range: `${sheetName}!A1:J1`,
+        valueInputOption: 'RAW',
+        requestBody: {
+          values: [defaultHeaders],
+        },
+      });
+
+      headers.push(...defaultHeaders);
+    }
+
+    // Generate ID
+    const allDataResponse = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
+      range: `${sheetName}!A:A`,
+    });
+    const allRows = allDataResponse.data.values || [];
+    const newId = allRows.length;
+
+    const history = {
+      id: newId,
+      ...historyData
+    };
+
+    const rowData = objectToRow(headers, history);
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
+      range: `${sheetName}!A:Z`,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [rowData],
+      },
+    });
+
+    return history;
+  } catch (error) {
+    console.error('Error creating checklist history in Google Sheets:', error);
+    throw error;
+  }
+}
+
+// HELPDESK CRUD OPERATIONS
+
+// Cache to avoid repeated sheet existence checks
+
+// Helper function to ensure helpdesk sheet exists with proper headers
+async function ensureHelpdeskSheetExists(sheets: any, spreadsheetId: string, sheetName: string) {
+  try {
+    const cacheKey = `${spreadsheetId}_${sheetName}`;
+    if (ensuredSheets.has(cacheKey)) return;
+
+    // Check if sheet exists
+    const spreadsheet = await sheets.spreadsheets.get({
+      spreadsheetId,
+    });
+
+    const sheet = spreadsheet.data.sheets?.find((s: any) => s.properties?.title === sheetName);
+
+    if (!sheet) {
+      // Create the sheet if it doesn't exist
+      console.log(`Creating ${sheetName} sheet in helpdesk spreadsheet...`);
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          requests: [{
+            addSheet: {
+              properties: {
+                title: sheetName,
+              },
+            },
+          }],
+        },
+      });
+    }
+
+    // Ensure headers are present
+    const defaultHeaders = [
+      'id', 'ticket_number', 'raised_by', 'raised_by_name', 'category', 'priority',
+      'subject', 'description', 'assigned_to', 'assigned_to_name', 'accountable_person',
+      'accountable_person_name', 'desired_date', 'status', 'attachments', 'remarks',
+      'created_at', 'updated_at', 'resolved_at'
+    ];
+
+    // Check if headers exist
+    let headerResponse;
+    try {
+      headerResponse = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: `${sheetName}!A1:S1`,
+      });
+    } catch (error) {
+      headerResponse = null;
+    }
+
+    const existingHeaders = headerResponse?.data.values?.[0] || [];
+
+    if (existingHeaders.length === 0) {
+      // Create headers
+      console.log('Creating helpdesk sheet headers...');
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `${sheetName}!A1:S1`,
+        valueInputOption: 'RAW',
+        requestBody: {
+          values: [defaultHeaders],
+        },
+      });
+    }
+    ensuredSheets.add(cacheKey);
+  } catch (error) {
+    console.error('Error ensuring helpdesk sheet exists:', error);
+    throw error;
+  }
+}
+
+export async function getHelpdeskTickets(filters: any = {}) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = 'tickets'; // Helpdesk sheet name
+
+    // Ensure sheet exists
+    await ensureHelpdeskSheetExists(sheets, SPREADSHEET_IDS.HELPDESK, sheetName);
+
+    // Read all data from the sheet
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_IDS.HELPDESK,
+      range: `${sheetName}!A:Z`,
+    });
+
+    const rows = response.data.values;
+
+    if (!rows || rows.length === 0 || rows.length === 1) {
+      return [];
+    }
+
+    const headers = rows[0];
+    const dataRows = rows.slice(1);
+
+    // Convert rows to objects
+    let tickets = dataRows
+      .map(row => rowToObject(headers, row))
+      .filter(ticket => ticket.id); // Filter out empty rows
+
+    // Apply filters
+    if (filters.status) {
+      tickets = tickets.filter(t => t.status === filters.status);
+    }
+    if (filters.assignedTo) {
+      tickets = tickets.filter(t => parseInt(t.assigned_to) === parseInt(filters.assignedTo));
+    }
+    if (filters.userId) {
+      tickets = tickets.filter(t => parseInt(t.raised_by) === parseInt(filters.userId) || parseInt(t.assigned_to) === parseInt(filters.userId));
+    }
+
+    // Sort by created_at descending
+    tickets.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    return tickets;
+  } catch (error) {
+    console.error('Error fetching helpdesk tickets from Google Sheets:', error);
+    throw error;
+  }
+}
+
+export async function createHelpdeskTicket(ticketData: any) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = 'tickets';
+
+    // Ensure sheet exists
+    await ensureHelpdeskSheetExists(sheets, SPREADSHEET_IDS.HELPDESK, sheetName);
+
+    // Read headers
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_IDS.HELPDESK,
+      range: `${sheetName}!A1:S1`,
+    });
+
+    const headers = response.data.values?.[0] || [];
+
+    // Get all existing IDs to find the maximum
+    const allDataResponse = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_IDS.HELPDESK,
+      range: `${sheetName}!A:A`,
+    });
+    const allRows = allDataResponse.data.values || [];
+
+    let maxId = 0;
+    for (let i = 1; i < allRows.length; i++) {
+      const id = parseInt(allRows[i][0]);
+      if (!isNaN(id) && id > maxId) {
+        maxId = id;
+      }
+    }
+    const newId = maxId + 1;
+
+    // Prepare ticket data
+    const ticket = {
+      id: newId,
+      ...ticketData,
+      created_at: formatDateTime(new Date()),
+      updated_at: formatDateTime(new Date())
+    };
+
+    const rowData = objectToRow(headers, ticket);
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_IDS.HELPDESK,
+      range: `${sheetName}!A:Z`,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [rowData],
+      },
+    });
+
+    return ticket;
+  } catch (error) {
+    console.error('Error creating helpdesk ticket in Google Sheets:', error);
+    throw error;
+  }
+}
+
+export async function updateHelpdeskTicket(id: number, ticketData: any) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = 'tickets';
+
+    // Read all data to find the row
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_IDS.HELPDESK,
+      range: `${sheetName}!A:Z`,
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) {
+      throw new Error('Ticket not found');
+    }
+
+    const headers = rows[0];
+    const dataRows = rows.slice(1);
+
+    // Find row index
+    const rowIndex = dataRows.findIndex(row => parseInt(row[0]) === id);
+
+    if (rowIndex === -1) {
+      throw new Error('Ticket not found');
+    }
+
+    // Update the ticket object
+    const existingTicket = rowToObject(headers, dataRows[rowIndex]);
+    const updatedTicket = {
+      ...existingTicket,
+      ...ticketData,
+      updated_at: formatDateTime(new Date())
+    };
+
+    const rowData = objectToRow(headers, updatedTicket);
+
+    const actualRowNumber = rowIndex + 2;
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_IDS.HELPDESK,
+      range: `${sheetName}!A${actualRowNumber}:Z${actualRowNumber}`,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [rowData],
+      },
+    });
+
+    return updatedTicket;
+  } catch (error) {
+    console.error('Error updating helpdesk ticket in Google Sheets:', error);
+    throw error;
+  }
+}
+
+export async function deleteHelpdeskTicket(id: number) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = 'tickets';
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_IDS.HELPDESK,
+      range: `${sheetName}!A:Z`,
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) {
+      throw new Error('Ticket not found');
+    }
+
+    const dataRows = rows.slice(1);
+    const rowIndex = dataRows.findIndex(row => parseInt(row[0]) === id);
+
+    if (rowIndex === -1) {
+      throw new Error('Ticket not found');
+    }
+
+    // Get sheet ID
+    const sheetInfo = await sheets.spreadsheets.get({
+      spreadsheetId: SPREADSHEET_IDS.HELPDESK,
+    });
+
+    const sheet = sheetInfo.data.sheets?.find((s: any) => s.properties?.title === sheetName);
+    if (!sheet || !sheet.properties) {
+      throw new Error('Tickets sheet not found');
+    }
+
+    const actualRowNumber = rowIndex + 2;
+
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_IDS.HELPDESK,
+      requestBody: {
+        requests: [
+          {
+            deleteDimension: {
+              range: {
+                sheetId: sheet.properties.sheetId,
+                dimension: 'ROWS',
+                startIndex: actualRowNumber - 1,
+                endIndex: actualRowNumber
+              }
+            }
+          }
+        ]
+      }
+    });
+
+    return { id };
+  } catch (error) {
+    console.error('Error deleting helpdesk ticket from Google Sheets:', error);
+    throw error;
+  }
+}
+
+export async function createHelpdeskRemark(remarkData: any) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = 'ticket_remarks';
+
+    // Ensure sheet exists (simplified check)
+    try {
+      await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_IDS.HELPDESK,
+        range: `${sheetName}!A1:A1`,
+      });
+    } catch (e) {
+      // Create sheet if not accessible
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId: SPREADSHEET_IDS.HELPDESK,
+        requestBody: {
+          requests: [{ addSheet: { properties: { title: sheetName } } }]
+        }
+      });
+      // Add headers
+      const defaultHeaders = ['id', 'ticket_id', 'user_id', 'username', 'remark', 'created_at'];
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_IDS.HELPDESK,
+        range: `${sheetName}!A1:F1`,
+        valueInputOption: 'RAW',
+        requestBody: { values: [defaultHeaders] }
+      });
+    }
+
+    // Get headers
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_IDS.HELPDESK,
+      range: `${sheetName}!A1:Z1`,
+    });
+    const headers = response.data.values?.[0] || [];
+
+    // Get max ID
+    const allData = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_IDS.HELPDESK,
+      range: `${sheetName}!A:A`
+    });
+    const nextId = (allData.data.values?.length || 0) + 1; // Basic ID strategy
+
+    const finalRemark = {
+      id: nextId,
+      ticket_id: remarkData.ticketId,
+      user_id: remarkData.userId,
+      username: remarkData.userName,
+      remark: remarkData.remark,
+      created_at: formatDateTime(new Date())
+    };
+
+    const rowData = objectToRow(headers, finalRemark);
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_IDS.HELPDESK,
+      range: `${sheetName}!A:Z`,
+      valueInputOption: 'RAW',
+      requestBody: { values: [rowData] }
+    });
+
+    return finalRemark;
+
+  } catch (error) {
+    console.error('Error creating helpdesk remark:', error);
+    throw error;
+  }
+}
+
+export async function getHelpdeskRemarks(ticketId: number) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = 'ticket_remarks';
+
+    try {
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_IDS.HELPDESK,
+        range: `${sheetName}!A:Z`,
+      });
+      const rows = response.data.values;
+      if (!rows || rows.length < 2) return [];
+
+      const headers = rows[0];
+      const dataRows = rows.slice(1);
+
+      return dataRows
+        .map(row => rowToObject(headers, row))
+        .filter(r => parseInt(r.ticket_id) === ticketId)
+        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()); // Ascending for chat
+    } catch (e) {
+      return [];
+    }
+  } catch (error) {
+    console.error('Error fetching remarks:', error);
+    return [];
+  }
+}
+
+
+// TODO CRUD OPERATIONS
+
+
+async function ensureTodoSheetExists(sheets: any, spreadsheetId: string, sheetName: string) {
+  try {
+    const cacheKey = `${spreadsheetId}_${sheetName}`;
+    if (ensuredSheets.has(cacheKey)) return;
+
+    const spreadsheet = await sheets.spreadsheets.get({
+      spreadsheetId,
+    });
+
+    const sheet = spreadsheet.data.sheets?.find((s: any) => s.properties?.title === sheetName);
+
+    if (!sheet) {
+      console.log(`Creating ${sheetName} sheet in todo spreadsheet...`);
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          requests: [{
+            addSheet: {
+              properties: {
+                title: sheetName,
+              },
+            },
+          }],
+        },
+      });
+    }
+
+    const defaultHeaders = [
+      'id', 'title', 'description', 'priority', 'status', 'category',
+      'is_important', 'assigned_to', 'user_id', 'created_at', 'updated_at'
+    ];
+
+    let headerResponse;
+    try {
+      headerResponse = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: `${sheetName}!A1:K1`,
+      });
+    } catch (error) {
+      headerResponse = null;
+    }
+
+    const existingHeaders = headerResponse?.data.values?.[0] || [];
+
+    if (existingHeaders.length === 0) {
+      console.log('Creating todo sheet headers...');
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `${sheetName}!A1:K1`,
+        valueInputOption: 'RAW',
+        requestBody: {
+          values: [defaultHeaders],
+        },
+      });
+    }
+    ensuredSheets.add(cacheKey);
+  } catch (error) {
+    console.error('Error ensuring todo sheet exists:', error);
+    throw error;
+  }
+}
+
+export async function getTodos(filters: any = {}) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = 'todos';
+
+    await ensureTodoSheetExists(sheets, SPREADSHEET_IDS.TODOS, sheetName);
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_IDS.TODOS,
+      range: `${sheetName}!A:Z`,
+    });
+
+    const rows = response.data.values;
+
+    if (!rows || rows.length === 0 || rows.length === 1) {
+      return [];
+    }
+
+    const headers = rows[0];
+    const dataRows = rows.slice(1);
+
+    let todos = dataRows
+      .map(row => rowToObject(headers, row))
+      .filter(todo => todo.id);
+
+    // Sort
+    todos.sort((a, b) => {
+      // Importance check (boolean string or actual boolean)
+      const isImportantA = String(a.is_important).toLowerCase() === 'true';
+      const isImportantB = String(b.is_important).toLowerCase() === 'true';
+
+      if (isImportantA !== isImportantB) return isImportantA ? -1 : 1;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+
+    return todos;
+  } catch (error) {
+    console.error('Error fetching todos:', error);
+    throw error;
+  }
+}
+
+export async function createTodo(todoData: any) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = 'todos';
+
+    await ensureTodoSheetExists(sheets, SPREADSHEET_IDS.TODOS, sheetName);
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_IDS.TODOS,
+      range: `${sheetName}!A1:K1`,
+    });
+
+    const headers = response.data.values?.[0] || [];
+
+    const allDataResponse = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_IDS.TODOS,
+      range: `${sheetName}!A:A`,
+    });
+    const allRows = allDataResponse.data.values || [];
+
+    let maxId = 0;
+    for (let i = 1; i < allRows.length; i++) {
+      const id = parseInt(allRows[i][0]);
+      if (!isNaN(id) && id > maxId) maxId = id;
+    }
+    const newId = maxId + 1;
+
+    const todo = {
+      id: newId,
+      ...todoData,
+      is_important: todoData.is_important || false, // Ensure boolean default
+      created_at: formatDateTime(new Date()),
+      updated_at: formatDateTime(new Date())
+    };
+
+    const rowData = objectToRow(headers, todo);
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_IDS.TODOS,
+      range: `${sheetName}!A:Z`,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [rowData],
+      },
+    });
+
+    return todo;
+  } catch (error) {
+    console.error('Error creating todo:', error);
+    throw error;
+  }
+}
+
+export async function updateTodo(id: number, todoData: any) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = 'todos';
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_IDS.TODOS,
+      range: `${sheetName}!A:Z`,
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) throw new Error('Todo not found');
+
+    const headers = rows[0];
+    const dataRows = rows.slice(1);
+
+    const rowIndex = dataRows.findIndex(row => parseInt(row[0]) === id);
+    if (rowIndex === -1) throw new Error('Todo not found');
+
+    const existingTodo = rowToObject(headers, dataRows[rowIndex]);
+    const updatedTodo = {
+      ...existingTodo,
+      ...todoData,
+      updated_at: formatDateTime(new Date())
+    };
+
+    const rowData = objectToRow(headers, updatedTodo);
+    const actualRowNumber = rowIndex + 2;
+
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_IDS.TODOS,
+      range: `${sheetName}!A${actualRowNumber}:Z${actualRowNumber}`,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [rowData],
+      },
+    });
+
+    return updatedTodo;
+  } catch (error) {
+    console.error('Error updating todo:', error);
+    throw error;
+  }
+}
+
+export async function deleteTodo(id: number) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = 'todos';
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_IDS.TODOS,
+      range: `${sheetName}!A:Z`,
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) throw new Error('Todo not found');
+
+    const dataRows = rows.slice(1);
+    const rowIndex = dataRows.findIndex(row => parseInt(row[0]) === id);
+    if (rowIndex === -1) throw new Error('Todo not found');
+
+    const sheetInfo = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_IDS.TODOS });
+    const sheet = sheetInfo.data.sheets?.find((s: any) => s.properties?.title === sheetName);
+    if (!sheet || !sheet.properties) throw new Error('Todo sheet not found');
+
+    const actualRowNumber = rowIndex + 2;
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_IDS.TODOS,
+      requestBody: {
+        requests: [{
+          deleteDimension: {
+            range: {
+              sheetId: sheet.properties.sheetId,
+              dimension: 'ROWS',
+              startIndex: actualRowNumber - 1,
+              endIndex: actualRowNumber
+            }
+          }
+        }]
+      }
+    });
+
+    return { id };
+  } catch (error) {
+    console.error('Error deleting todo:', error);
+    throw error;
+  }
+}
+
+
+// CHAT MESSAGE OPERATIONS
+
+async function ensureChatMessagesSheetExists(sheets: any, spreadsheetId: string, sheetName: string) {
+  try {
+    const cacheKey = `${spreadsheetId}_${sheetName}`;
+    if (ensuredSheets.has(cacheKey)) return;
+
+    const spreadsheet = await sheets.spreadsheets.get({
+      spreadsheetId,
+    });
+
+    const sheet = spreadsheet.data.sheets?.find((s: any) => s.properties?.title === sheetName);
+
+    if (!sheet) {
+      console.log(`Creating ${sheetName} sheet in chat spreadsheet...`);
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          requests: [{
+            addSheet: {
+              properties: {
+                title: sheetName,
+              },
+            },
+          }],
+        },
+      });
+    }
+
+    const defaultHeaders = [
+      'id', 'sender_id', 'sender_name', 'receiver_id', 'message',
+      'message_type', 'attachment_url', 'attachment_type', 'duration_ms', 'created_at'
+    ];
+
+    let headerResponse;
+    try {
+      headerResponse = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: `${sheetName}!A1:J1`,
+      });
+    } catch (error) {
+      headerResponse = null;
+    }
+
+    const existingHeaders = headerResponse?.data.values?.[0] || [];
+
+    if (existingHeaders.length === 0) {
+      console.log('Creating chat message sheet headers...');
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `${sheetName}!A1:J1`,
+        valueInputOption: 'RAW',
+        requestBody: {
+          values: [defaultHeaders],
+        },
+      });
+    }
+    ensuredSheets.add(cacheKey);
+  } catch (error) {
+    console.error('Error ensuring chat message sheet exists:', error);
+    throw error;
+  }
+}
+
+export async function getChatMessages() {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = SHEETS.CHAT_MESSAGES;
+
+    await ensureChatMessagesSheetExists(sheets, SPREADSHEET_IDS.CHAT, sheetName);
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_IDS.CHAT,
+      range: `${sheetName}!A:Z`,
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length <= 1) {
+      return [];
+    }
+
+    const headers = rows[0];
+    const dataRows = rows.slice(1);
+
+    const messages = dataRows
+      .map(row => rowToObject(headers, row))
+      .filter(msg => msg.id);
+
+    // Sort by created_at ascending for chat history
+    messages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+    return messages;
+  } catch (error) {
+    console.error('Error fetching chat messages:', error);
+    throw error;
+  }
+}
+
+export async function createChatMessage(messageData: any) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = SHEETS.CHAT_MESSAGES;
+
+    await ensureChatMessagesSheetExists(sheets, SPREADSHEET_IDS.CHAT, sheetName);
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_IDS.CHAT,
+      range: `${sheetName}!A1:J1`,
+    });
+
+    const headers = response.data.values?.[0] || [];
+
+    const idResponse = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_IDS.CHAT,
+      range: `${sheetName}!A:A`,
+    });
+    const allRows = idResponse.data.values || [];
+
+    let maxId = 0;
+    for (let i = 1; i < allRows.length; i++) {
+      const id = parseInt(allRows[i][0]);
+      if (!isNaN(id) && id > maxId) maxId = id;
+    }
+    const newId = maxId + 1;
+
+    const message = {
+      id: newId,
+      ...messageData,
+      created_at: formatDateTime(new Date())
+    };
+
+    const rowData = objectToRow(headers, message);
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_IDS.CHAT,
+      range: `${sheetName}!A:Z`,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [rowData],
+      },
+    });
+
+    return message;
+  } catch (error) {
+    console.error('Error creating chat message:', error);
+    throw error;
+  }
+}

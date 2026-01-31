@@ -56,7 +56,7 @@ export default function SearchableDropdown({
                         setSearchTerm('');
                     }}
                     placeholder={placeholder}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-[#f4d24a] focus:border-transparent outline-none transition-all"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent outline-none transition-all"
                 />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
                     <svg className={`w-5 h-5 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -83,7 +83,7 @@ export default function SearchableDropdown({
                                         setIsOpen(false);
                                         setSearchTerm('');
                                     }}
-                                    className={`w-full px-4 py-3 text-left hover:bg-[#f4d24a]/10 dark:hover:bg-gray-700 transition text-sm ${value?.toString() === opt.id.toString() ? 'bg-[#f4d24a]/20 font-semibold' : ''
+                                    className={`w-full px-4 py-3 text-left hover:bg-[var(--theme-primary)]/10 dark:hover:bg-gray-700 transition text-sm ${value?.toString() === opt.id.toString() ? 'bg-[var(--theme-primary)]/20 font-semibold' : ''
                                         }`}
                                 >
                                     {opt.name}
@@ -100,3 +100,4 @@ export default function SearchableDropdown({
         </div>
     );
 }
+
