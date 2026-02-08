@@ -1772,8 +1772,6 @@ export async function deleteChecklistsByGroupId(groupId: string) {
   }
 }
 
-// Export spreadsheet IDs for use in other features
-export { SPREADSHEET_IDS };
 
 // Checklist helper functions
 export async function getChecklistById(id: number) {
