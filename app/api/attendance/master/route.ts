@@ -73,6 +73,7 @@ export async function GET(request: NextRequest) {
             userId: row[1],
             startDate: normalizeDate(row[3]),
             endDate: normalizeDate(row[4]),
+            reason: row[5],
             status: row[6]
         }));
 
