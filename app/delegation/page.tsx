@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import LayoutWrapper from '@/components/LayoutWrapper';
 import { ensureSessionId } from '@/utils/session';
 import { formatDateToLocalTimezone } from '@/utils/timezone';
+import { parseDateString, formatDateToString } from '@/lib/dateUtils';
 import { useToast } from '@/components/ToastProvider';
 import { useLoader } from '@/components/LoaderProvider';
 import DateRangePicker from '@/components/DateRangePicker';
@@ -25,6 +26,7 @@ interface Delegation {
   evidence_required: boolean | string;
   evidence_urls?: string[];
   created_at: string;
+  updated_at: string;
   remarks?: Remark[];
   revision_history?: RevisionHistory[];
 }
@@ -195,24 +197,6 @@ function DelegationContent() {
   const searchParams = useSearchParams();
   const targetTagId = searchParams.get('id');
 
-  // Helper function to parse dd/mm/yyyy HH:mm:ss format
-  const parseDateString = (dateStr: string): Date | null => {
-    if (!dateStr) return null;
-
-    // Remove leading single quote if present
-    const cleanStr = dateStr.startsWith("'") ? dateStr.substring(1) : dateStr;
-
-    // Handle dd/mm/yyyy HH:mm:ss format
-    const match = cleanStr.match(/(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2}):(\d{2})/);
-    if (match) {
-      const [_, day, month, year, hours, minutes, seconds] = match;
-      return new Date(parseInt(year), parseInt(month) - 1, parseInt(day),
-        parseInt(hours), parseInt(minutes), parseInt(seconds));
-    }
-
-    // Fallback to regular Date parsing
-    return new Date(cleanStr);
-  };
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -355,14 +339,8 @@ function DelegationContent() {
     return sortedDelegations.filter((delegation: Delegation) => {
       if (!delegation.due_date) return false;
 
-      // Parse dd/mm/yyyy HH:mm:ss format correctly
-      const dateStr = delegation.due_date.replace(/^'/, '');
-      const ddmmyyyyMatch = dateStr.match(/(\d{2})\/(\d{2})\/(\d{4})/);
-
-      if (!ddmmyyyyMatch) return false;
-
-      const [_, day, month, year] = ddmmyyyyMatch;
-      const dueDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      const dueDate = parseDateString(delegation.due_date);
+      if (!dueDate) return false;
 
       return dueDate.getDate() === date.getDate() &&
         dueDate.getMonth() === date.getMonth() &&
@@ -470,6 +448,7 @@ function DelegationContent() {
         reference_docs: docUrls,
         evidence_required: formData.evidenceRequired,
         created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       };
 
       // 2. Update state immediately
@@ -844,6 +823,7 @@ function DelegationContent() {
         'Status',
         'Due Date',
         'Created Date',
+        'Last Updated',
         'Evidence'
       ];
 
@@ -862,8 +842,9 @@ function DelegationContent() {
           delegation.department || '',
           delegation.priority || '',
           status,
-          delegation.due_date ? formatDateToLocalTimezone(delegation.due_date) : '',
-          delegation.created_at ? formatDateToLocalTimezone(delegation.created_at) : '',
+          formatDateToLocalTimezone(delegation.due_date),
+          formatDateToLocalTimezone(delegation.created_at),
+          formatDateToLocalTimezone(delegation.updated_at),
           delegation.evidence_required ? 'Yes' : 'No'
         ].map(field => {
           // Escape double quotes and wrap in quotes if contains comma, newline, or quote
@@ -1161,26 +1142,19 @@ function DelegationContent() {
     return user?.image_url || null;
   };
 
-  const calculateStatus = (dueDate: string) => {
-    if (!dueDate) return 'without_plan';
+  const calculateStatus = (dueDateStr: string) => {
+    if (!dueDateStr) return 'without_plan';
 
-    // Parse dd/mm/yyyy format correctly
-    const dateStr = dueDate.replace(/^'/, '');
-    const ddmmyyyyMatch = dateStr.match(/(\d{2})\/(\d{2})\/(\d{4})/);
-
-    if (!ddmmyyyyMatch) return 'without_plan';
-
-    const [_, day, month, year] = ddmmyyyyMatch;
-    const dueDay = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-    dueDay.setHours(0, 0, 0, 0);
+    const dueDay = parseDateString(dueDateStr);
+    if (!dueDay) return 'without_plan';
 
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    today.setHours(0, 0, 0, 0);
+    const dueDayOnly = new Date(dueDay.getFullYear(), dueDay.getMonth(), dueDay.getDate());
 
-    if (dueDay < today) {
+    if (dueDayOnly < today) {
       return 'overdue';
-    } else if (dueDay.getTime() === today.getTime()) {
+    } else if (dueDayOnly.getTime() === today.getTime()) {
       return 'pending';
     } else {
       return 'planned';
@@ -1197,22 +1171,19 @@ function DelegationContent() {
     today.setHours(0, 0, 0, 0);
 
     return delegations.filter(delegation => {
-      // Parse the date from dd/mm/yyyy HH:mm:ss format
-      let dueDate = null;
+      // Parse the date using the improved helper
+      let dueDateDay = null;
       if (delegation.due_date) {
-        const dateStr = delegation.due_date.replace(/^'/, '');
-        const ddmmyyyyMatch = dateStr.match(/(\d{2})\/(\d{2})\/(\d{4})/);
-        if (ddmmyyyyMatch) {
-          const [_, day, month, year] = ddmmyyyyMatch;
-          dueDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-          dueDate.setHours(0, 0, 0, 0);
+        dueDateDay = parseDateString(delegation.due_date);
+        if (dueDateDay) {
+          dueDateDay = new Date(dueDateDay.getFullYear(), dueDateDay.getMonth(), dueDateDay.getDate());
         }
       }
 
       const status = delegation.status?.toLowerCase() || '';
 
       // Must have a due date that is today or in the past
-      if (!dueDate || dueDate > today) {
+      if (!dueDateDay || dueDateDay > today) {
         return false;
       }
 
@@ -1239,22 +1210,19 @@ function DelegationContent() {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        // Parse the date from dd/mm/yyyy HH:mm:ss format
-        let dueDate = null;
+        // Parse the date using improved helper
+        let dueDateDay = null;
         if (delegation.due_date) {
-          const dateStr = delegation.due_date.replace(/^'/, ''); // Remove leading quote if present
-          const ddmmyyyyMatch = dateStr.match(/(\d{2})\/(\d{2})\/(\d{4})/);
-          if (ddmmyyyyMatch) {
-            const [_, day, month, year] = ddmmyyyyMatch;
-            dueDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-            dueDate.setHours(0, 0, 0, 0);
+          dueDateDay = parseDateString(delegation.due_date);
+          if (dueDateDay) {
+            dueDateDay = new Date(dueDateDay.getFullYear(), dueDateDay.getMonth(), dueDateDay.getDate());
           }
         }
 
         const status = delegation.status?.toLowerCase() || '';
 
         // Must have a due date that is today or in the past
-        if (!dueDate || dueDate > today) {
+        if (!dueDateDay || dueDateDay > today) {
           return false;
         }
 
@@ -1323,29 +1291,20 @@ function DelegationContent() {
           return false;
         }
 
-        // Parse dd/mm/yyyy format correctly
-        const dateStr = delegation.due_date.replace(/^'/, '');
-        const ddmmyyyyMatch = dateStr.match(/(\d{2})\/(\d{2})\/(\d{4})/);
-
-        if (!ddmmyyyyMatch) {
-          // If due date doesn't match expected format, exclude it
-          return false;
-        }
-
-        const [_, day, month, year] = ddmmyyyyMatch;
-        const dueDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-        dueDate.setHours(0, 0, 0, 0);
+        const dueDateDay = parseDateString(delegation.due_date);
+        if (!dueDateDay) return false;
+        dueDateDay.setHours(0, 0, 0, 0);
 
         if (filters.dueDateFrom) {
           const fromDate = new Date(filters.dueDateFrom);
           fromDate.setHours(0, 0, 0, 0);
-          if (dueDate < fromDate) return false;
+          if (dueDateDay < fromDate) return false;
         }
 
         if (filters.dueDateTo) {
           const toDate = new Date(filters.dueDateTo);
           toDate.setHours(23, 59, 59, 999); // End of day
-          if (dueDate > toDate) return false;
+          if (dueDateDay > toDate) return false;
         }
       }
 
@@ -1360,8 +1319,11 @@ function DelegationContent() {
       switch (sortField) {
         case 'id':
           return (a.id - b.id) * dir;
-        case 'created_at':
-          return ((new Date(a.created_at).getTime() || 0) - (new Date(b.created_at).getTime() || 0)) * dir;
+        case 'created_at': {
+          const dateA = parseDateString(a.created_at);
+          const dateB = parseDateString(b.created_at);
+          return ((dateA?.getTime() || 0) - (dateB?.getTime() || 0)) * dir;
+        }
         case 'delegation_name':
           return compareText(a.delegation_name, b.delegation_name) * dir;
         case 'assigned_to':
@@ -1372,8 +1334,11 @@ function DelegationContent() {
           return compareText(a.department, b.department) * dir;
         case 'priority':
           return ((priorityRank[a.priority] || 0) - (priorityRank[b.priority] || 0)) * dir;
-        case 'due_date':
-          return ((new Date(a.due_date || 0).getTime() || 0) - (new Date(b.due_date || 0).getTime() || 0)) * dir;
+        case 'due_date': {
+          const dateA = parseDateString(a.due_date);
+          const dateB = parseDateString(b.due_date);
+          return ((dateA?.getTime() || 0) - (dateB?.getTime() || 0)) * dir;
+        }
         case 'status':
           return compareText(a.status, b.status) * dir;
         default:
@@ -1920,12 +1885,7 @@ function DelegationContent() {
                             <SortIcon field="id" />
                           </button>
                         </th>
-                        <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 dark:text-white">
-                          <button onClick={() => handleSort('created_at')} className="flex items-center gap-1">
-                            <span>Created</span>
-                            <SortIcon field="created_at" />
-                          </button>
-                        </th>
+
                         <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 dark:text-white">
                           <button onClick={() => handleSort('delegation_name')} className="flex items-center gap-1">
                             <span>Task</span>
@@ -1990,11 +1950,7 @@ function DelegationContent() {
                                 #{delegation.id}
                               </span>
                             </td>
-                            <td className="px-6 py-4">
-                              <div className="text-sm text-gray-900 dark:text-white">
-                                {delegation.created_at ? formatDateToLocalTimezone(delegation.created_at) : ''}
-                              </div>
-                            </td>
+
                             <td className="px-6 py-4">
                               <p className="font-semibold text-gray-900 dark:text-white">{delegation.delegation_name}</p>
                             </td>
@@ -2036,7 +1992,7 @@ function DelegationContent() {
                               <div className="text-sm">
                                 {delegation.due_date ? (
                                   <p className="text-gray-900 dark:text-white font-medium">
-                                    {delegation.due_date.replace(/^'/, '')}
+                                    {formatDateToLocalTimezone(delegation.due_date)}
                                   </p>
                                 ) : (
                                   <span className="text-gray-500">No date</span>
@@ -2480,20 +2436,7 @@ function DelegationContent() {
                                 </div>
                               </div>
 
-                              {/* Created Date */}
-                              <div className="flex items-center gap-1.5">
-                                <div className="w-7 h-7 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
-                                  <svg className="w-4 h-4 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                  </svg>
-                                </div>
-                                <div>
-                                  <p className="text-[10px] text-gray-500 dark:text-gray-400 font-semibold">Created</p>
-                                  <p className="text-xs font-bold text-gray-900 dark:text-white">
-                                    {delegation.created_at ? formatDateToLocalTimezone(delegation.created_at) : ''}
-                                  </p>
-                                </div>
-                              </div>
+
                             </div>
                           </div>
 
@@ -3476,7 +3419,7 @@ function DelegationContent() {
                           <div className="flex-1 min-w-0">
                             <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Due Date</p>
                             <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                              {selectedDelegation.due_date ? formatDateToLocalTimezone(selectedDelegation.due_date) : 'No date'}
+                              {formatDateToString(parseDateString(selectedDelegation.due_date)) || 'No date'}
                             </p>
                           </div>
                         </div>
@@ -3492,6 +3435,34 @@ function DelegationContent() {
                             <span className={`text-sm font-semibold ${selectedDelegation.evidence_required ? 'text-green-600' : 'text-gray-400'}`}>
                               {selectedDelegation.evidence_required ? 'Yes' : 'No'}
                             </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="flex items-start gap-2">
+                          <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0">
+                            <svg className="w-4 h-4 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Created At</p>
+                            <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                              {formatDateToString(parseDateString(selectedDelegation.created_at)) || 'N/A'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0">
+                            <svg className="w-4 h-4 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Last Updated</p>
+                            <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                              {formatDateToString(parseDateString(selectedDelegation.updated_at)) || 'N/A'}
+                            </p>
                           </div>
                         </div>
                       </div>

@@ -1,45 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDelegations, createDelegation, updateDelegation, deleteDelegation } from '@/lib/sheets';
+import { formatToSheetDate } from '@/lib/dateUtils';
 
-// Format date as dd/mm/yyyy HH:mm:ss
-function formatDateTime(date: Date): string {
-  const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const year = date.getFullYear();
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  const seconds = String(date.getSeconds()).padStart(2, '0');
-  return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
-}
-
-// Parse date string and return formatted string
-function parseDateString(dateStr: string): string | null {
-  if (!dateStr) return null;
-
-  // If already in dd/mm/yyyy HH:mm:ss format, return as is
-  if (/\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}/.test(dateStr)) {
-    return dateStr;
-  }
-
-  // Handle YYYY-MM-DDTHH:mm format from datetime-local
-  const datetimeMatch = dateStr.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
-  if (datetimeMatch) {
-    const [_, year, month, day, hours, minutes] = datetimeMatch;
-    return `${day}/${month}/${year} ${hours}:${minutes}:00`;
-  }
-
-  // Fallback: try to parse as Date
-  try {
-    const date = new Date(dateStr);
-    if (!isNaN(date.getTime())) {
-      return formatDateTime(date);
-    }
-  } catch (e) {
-    console.error('Error parsing date:', e);
-  }
-
-  return null;
-}
 
 export async function GET(request: NextRequest) {
   try {
@@ -47,11 +9,10 @@ export async function GET(request: NextRequest) {
     const role = request.nextUrl.searchParams.get('role');
     const username = request.nextUrl.searchParams.get('username');
 
+    // If no userId provided (like in Score page), fetch all as admin
     if (!userId) {
-      return NextResponse.json(
-        { error: 'User ID is required' },
-        { status: 400 }
-      );
+      const delegations = await getDelegations(0, 'admin');
+      return NextResponse.json({ delegations });
     }
 
     const delegations = await getDelegations(parseInt(userId), role || undefined, username || undefined);
@@ -89,25 +50,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Use raw dueDate as fallback, but try to format it
+    let adjustedDueDate = dueDate;
+
     // Calculate dynamic status based on due date
     let status = 'pending';
     if (dueDate) {
       const now = new Date();
       const due = new Date(dueDate);
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate());
 
-      if (due < now) {
-        status = 'overdue';
-      } else if (dueDay.getTime() === today.getTime()) {
-        status = 'pending';
-      } else {
-        status = 'planned';
+      if (!isNaN(due.getTime())) {
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate());
+
+        if (due < now) {
+          status = 'overdue';
+        } else if (dueDay.getTime() === today.getTime()) {
+          status = 'pending';
+        } else {
+          status = 'planned';
+        }
+
+        // Use normalized format for sheet
+        adjustedDueDate = formatToSheetDate(due);
       }
     }
-
-    // Add IST offset to timestamps
-    const adjustedDueDate = parseDateString(dueDate);
 
     // Handle multiple doers - create separate delegation for each doer
     const doersArray = doers && doers.length > 0 ? doers : [null];
@@ -171,12 +138,15 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    // Use raw dueDate as fallback, but try to format it
+    let adjustedDueDate = dueDate;
+
     // Calculate dynamic status based on due date
     let status = 'pending';
     if (dueDate) {
       try {
         const now = new Date();
-        let due: Date;
+        let due: Date | null = null;
 
         // Parse the date based on format
         const datetimeMatch = dueDate.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
@@ -192,7 +162,7 @@ export async function PUT(request: NextRequest) {
           due = new Date(dueDate);
         }
 
-        if (!isNaN(due.getTime())) {
+        if (due && !isNaN(due.getTime())) {
           const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
           const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate());
 
@@ -203,15 +173,13 @@ export async function PUT(request: NextRequest) {
           } else {
             status = 'planned';
           }
+
+          adjustedDueDate = formatToSheetDate(due);
         }
       } catch (e) {
         console.error('Error parsing due date for status:', e);
       }
     }
-
-    // Add IST offset to timestamps
-    const now = new Date();
-    const adjustedDueDate = parseDateString(dueDate);
 
     // Determine doer name: prioritize doerName, then first element of doers array
     const resolvedDoerName = doerName || (doers && doers.length > 0 ? doers[0] : null);

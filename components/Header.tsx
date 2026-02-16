@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ensureSessionId } from '@/utils/session';
-import Icon from './Icon';
+import Icon, { IconName } from './Icon';
 import { useThemeColor } from './ThemeColorProvider';
 
 // Extend window type for nbdDrawerOpen flag
@@ -51,12 +51,23 @@ export default function Header({ isOpen, setIsOpen }: HeaderProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const router = useRouter();
 
-  const pages = [
-    { name: 'Dashboard', path: '/dashboard', icon: '📊' },
-    { name: 'Delegations', path: '/delegation', icon: '📋' },
-    { name: 'Todo', path: '/todo', icon: '✅' },
-    { name: 'Users', path: '/users', icon: '👥' },
-    { name: 'Chat', path: '/chat', icon: '💬' },
+  const pages: { name: string; path: string; icon: IconName }[] = [
+    { name: 'Dashboard', path: '/dashboard', icon: 'chart' },
+    { name: 'Score', path: '/score', icon: 'trophy' },
+    { name: 'Attendance', path: '/attendance', icon: 'clock' },
+    { name: 'Delegations', path: '/delegation', icon: 'clipboard' },
+    { name: 'Checklist', path: '/checklist', icon: 'checklist' },
+    { name: 'Todo', path: '/todo', icon: 'check' },
+    { name: 'MOM', path: '/mom', icon: 'document' },
+    { name: 'Lead to Sales', path: '/lead-to-sales', icon: 'trending' },
+    { name: 'O2D', path: '/o2d', icon: 'clipboard' },
+    { name: 'NBD', path: '/nbd', icon: 'clipboard' },
+    { name: 'Collection', path: '/collection', icon: 'clipboard' },
+    { name: 'NBD Incoming', path: '/nbd-incoming', icon: 'clipboard' },
+    { name: 'CRR', path: '/crr', icon: 'clipboard' },
+    { name: 'HelpDesk', path: '/helpdesk', icon: 'headset' },
+    { name: 'Users', path: '/users', icon: 'user' },
+    { name: 'Chat', path: '/chat', icon: 'message' },
   ];
 
   const filteredPages = pages.filter(page =>
@@ -341,7 +352,7 @@ export default function Header({ isOpen, setIsOpen }: HeaderProps) {
                           onClick={() => handlePageNavigation(page.path)}
                           className="w-full flex items-center gap-3 px-4 py-2 hover:bg-[var(--theme-primary)]/20 dark:hover:bg-gray-700 transition-colors text-left"
                         >
-                          <span className="text-xl">{page.icon}</span>
+                          <Icon name={page.icon} className="text-[var(--theme-primary)]" size={18} />
                           <span className="text-gray-900 dark:text-white font-medium">{page.name}</span>
                         </button>
                       ))}

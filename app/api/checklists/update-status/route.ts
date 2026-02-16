@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
 
     // Parse checklistId to ensure it's a number
     const parsedChecklistId = typeof checklistId === 'string' ? parseInt(checklistId) : checklistId;
-    
+
     console.log('Updating checklist:', { parsedChecklistId, status, userId, username });
 
     // Fetch current checklist
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     }
 
     const oldStatus = currentChecklist.status || 'pending';
-    const now = formatDateTime(new Date());
+    const now = new Date().toISOString();
 
     // Update checklist status
     const updatedData: any = {
@@ -44,10 +44,9 @@ export async function POST(request: NextRequest) {
       updated_at: now
     };
 
-    // Add attachment URL if provided
-    if (attachmentUrl) {
-      updatedData.attachment_url = attachmentUrl;
-    }
+    // Removed attachment_url update for checklist sheet as per new requirement
+    // Attachments are now only tracked in history to support multiple files
+
 
     await updateChecklist(parsedChecklistId, updatedData);
 
@@ -77,7 +76,7 @@ export async function POST(request: NextRequest) {
       await createChecklistRemark(remarkData);
     }
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       message: 'Checklist status updated successfully',
       status: status
     });

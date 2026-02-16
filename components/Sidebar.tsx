@@ -36,7 +36,9 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
     { label: 'Lead to Sales', icon: 'trending', href: '/lead-to-sales', roles: ['Admin', 'Manager', 'Employee'] },
     {
       label: 'Sales', icon: 'currency-dollar', roles: ['Admin', 'Manager'], children: [
+        { label: 'O2D', icon: 'clipboard', href: '/o2d', roles: ['Admin', 'Manager'] },
         { label: 'NBD', icon: 'clipboard', href: '/nbd', roles: ['Admin', 'Manager'] },
+        { label: 'Collection', icon: 'clipboard', href: '/collection', roles: ['Admin', 'Manager'] },
         { label: 'NBD Incoming', icon: 'clipboard', href: '/nbd-incoming', roles: ['Admin', 'Manager'] },
         { label: 'CRR', icon: 'clipboard', href: '/crr', roles: ['Admin', 'Manager'] },
       ]
@@ -138,15 +140,15 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
         {/* Logo Section */}
         <div className="p-4">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-[var(--theme-primary)] rounded-2xl flex items-center justify-center font-bold text-xl shadow-md">
-              E
+            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-md overflow-hidden">
+              <img src="/logo.png" alt="SS Enterprises" className="w-full h-full object-contain p-1" />
             </div>
-            {isOpen && <span className="font-bold text-lg whitespace-nowrap text-gray-900 dark:text-white">ERP System</span>}
+            {isOpen && <span className="font-bold text-lg whitespace-nowrap text-gray-900 dark:text-white">SS Enterprises</span>}
           </div>
         </div>
 
         {/* Menu Items */}
-        <nav className="p-4 space-y-2 overflow-y-auto h-[calc(100vh-80px)]">
+        <nav className="p-4 space-y-0.5 overflow-y-auto h-[calc(100vh-80px)]">
           {menuItems.map((item) => {
             if (item.children) {
               const expanded = isMenuExpanded(item.label);
@@ -160,7 +162,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
                       if (!isOpen) setIsOpen(true);
                       toggleMenu(item.label);
                     }}
-                    className={`w-full flex items-center justify-between gap-4 px-4 py-3 rounded-xl transition-all duration-200 ${hasActiveChild || expanded
+                    className={`w-full flex items-center justify-between gap-4 px-4 py-2 rounded-xl transition-all duration-200 ${hasActiveChild || expanded
                       ? 'bg-[var(--theme-primary)]/10 text-[var(--theme-primary)] font-semibold'
                       : 'text-gray-700 dark:text-gray-300 hover:bg-[var(--theme-primary)]/20 dark:hover:bg-gray-700'
                       }`}
@@ -196,7 +198,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
                             <Link
                               key={child.label}
                               href={child.href || '#'}
-                              className={`flex items-center gap-4 px-4 py-2.5 rounded-xl transition-all duration-200 text-sm ${isActive(child.href)
+                              className={`flex items-center gap-4 px-4 py-2 rounded-xl transition-all duration-200 text-sm ${isActive(child.href)
                                 ? 'bg-[var(--theme-primary)] text-gray-900 shadow-sm font-semibold'
                                 : 'text-gray-600 dark:text-gray-400 hover:bg-[var(--theme-primary)]/20 dark:hover:bg-gray-700'
                                 }`}
@@ -219,7 +221,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
               <Link
                 key={item.href}
                 href={item.href || '#'}
-                className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 ${isActive(item.href)
+                className={`flex items-center gap-4 px-4 py-2 rounded-xl transition-all duration-200 ${isActive(item.href)
                   ? 'bg-[var(--theme-primary)] text-gray-900 shadow-md font-semibold'
                   : 'text-gray-700 dark:text-gray-300 hover:bg-[var(--theme-primary)]/20 dark:hover:bg-gray-700'
                   }`}
@@ -236,7 +238,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
         <div className="absolute bottom-0 left-0 right-0 p-4 bg-[var(--theme-light)] dark:bg-gray-800">
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="w-full flex items-center gap-4 px-4 py-3 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-[var(--theme-primary)]/20 dark:hover:bg-gray-700 transition-all"
+            className="w-full flex items-center gap-4 px-4 py-2 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-[var(--theme-primary)]/20 dark:hover:bg-gray-700 transition-all"
             title={isOpen ? 'Collapse' : 'Expand'}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

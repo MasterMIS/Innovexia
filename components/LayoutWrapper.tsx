@@ -20,7 +20,7 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
         setSidebarOpen(false);
       }
     };
-    
+
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
@@ -31,13 +31,23 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
       try {
         const sessionId = ensureSessionId();
         const response = await fetch('/api/auth', { headers: { 'x-session-id': sessionId } });
+
         if (!response.ok) {
-          router.push('/login');
+          if (response.status === 401) {
+            console.log("Not authenticated, redirecting to login");
+            router.push('/login');
+          } else {
+            console.error("Auth check failed with status:", response.status);
+            // Don't redirect on other errors (like 500 or 429) to avoid loops
+            setIsLoading(false);
+          }
           return;
         }
         setIsLoading(false);
       } catch (error) {
-        router.push('/login');
+        console.error("Auth check error:", error);
+        // Don't redirect on network errors (Failed to fetch) to avoid loops
+        setIsLoading(false);
       }
     };
 

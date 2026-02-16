@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getChecklists, createChecklist, createChecklistsBatch, updateChecklist, deleteChecklist, deleteChecklistsByGroupId, updateChecklistsByGroupId } from '@/lib/sheets';
+import { getChecklists, createChecklist, createChecklistsBatch, updateChecklist, deleteChecklist, deleteChecklistsByGroupId, updateChecklistsByGroupId, getChecklistIdsWithHistory } from '@/lib/sheets';
 
 // Helper function to get day of week in IST (0=Sunday, 1=Monday, etc.)
 function getISTDayOfWeek(date: Date): number {
@@ -8,38 +8,19 @@ function getISTDayOfWeek(date: Date): number {
   return istDate.getDay();
 }
 
-// Helper function to format date as dd/mm/yyyy HH:mm:ss
-function formatDateTime(date: Date): string {
-  const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const year = date.getFullYear();
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  const seconds = String(date.getSeconds()).padStart(2, '0');
-  return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
-}
+
+import { parseSheetDate } from '@/lib/dateUtils';
 
 // Helper function to calculate status based on due date
 function calculateStatus(dueDate: string): string {
   if (!dueDate) return 'pending';
 
   try {
+    const parsedStr = parseSheetDate(dueDate);
+    if (!parsedStr) return 'pending';
+
+    const due = new Date(parsedStr);
     const now = new Date();
-    let due: Date;
-
-    // Parse the date based on format
-    const datetimeMatch = dueDate.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
-    const ddmmyyyyMatch = dueDate.match(/(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2}):(\d{2})/);
-
-    if (datetimeMatch) {
-      const [_, year, month, day, hours, minutes] = datetimeMatch;
-      due = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hours), parseInt(minutes));
-    } else if (ddmmyyyyMatch) {
-      const [_, day, month, year, hours, minutes, seconds] = ddmmyyyyMatch;
-      due = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hours), parseInt(minutes), parseInt(seconds));
-    } else {
-      due = new Date(dueDate);
-    }
 
     if (!isNaN(due.getTime())) {
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -254,18 +235,35 @@ function generateDatesFromFrequency(
 // GET - Fetch all checklists
 export async function GET(request: NextRequest) {
   try {
-    const checklists = await getChecklists();
+    const [checklists, checklistIdsWithHistory] = await Promise.all([
+      getChecklists(),
+      getChecklistIdsWithHistory()
+    ]);
 
-    // Update status based on due date
-    const updatedChecklists = checklists.map((checklist: any) => ({
-      ...checklist,
-      status: calculateStatus(checklist.due_date)
-    }));
+    // Update status based on due date, BUT only if no history exists
+    // If history exists, it means user has manually intervened, so we trust the stored status
+    const updatedChecklists = checklists.map((checklist: any) => {
+      let status = checklist.status;
+
+      // Only auto-calculate status if there is NO history for this checklist
+      if (!checklistIdsWithHistory.has(checklist.id)) {
+        status = calculateStatus(checklist.due_date);
+      }
+
+      return {
+        ...checklist,
+        status
+      };
+    });
 
     return NextResponse.json({ checklists: updatedChecklists });
-  } catch (error) {
-    console.error('Error fetching checklists:', error);
-    return NextResponse.json({ error: 'Failed to fetch checklists' }, { status: 500 });
+  } catch (error: any) {
+    console.error('Error fetching checklists (FULL):', error);
+    console.error('Stack:', error.stack);
+    return NextResponse.json(
+      { error: 'Failed to fetch checklists', details: error.message, stack: error.stack },
+      { status: 500 }
+    );
   }
 }
 
@@ -339,8 +337,7 @@ export async function POST(request: NextRequest) {
       console.log(`Generated group_id: ${groupId} for ${dates.length} checklists for doer: ${doer}`);
 
       const checklistsData = dates.map(dueDate => {
-        const formattedDueDate = formatDateTime(dueDate);
-        const status = calculateStatus(formattedDueDate);
+        const status = calculateStatus(dueDate.toISOString());
 
         return {
           question,
@@ -352,7 +349,7 @@ export async function POST(request: NextRequest) {
           verifier_name: verifierName || null,
           attachment_required: attachmentRequired || false,
           frequency,
-          due_date: formattedDueDate,
+          due_date: dueDate.toISOString(),
           status,
           group_id: groupId,
           created_by: createdBy || null

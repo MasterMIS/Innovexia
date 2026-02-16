@@ -31,10 +31,10 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
-    
+
     // Check if password is hashed (bcrypt hashes start with $2a$, $2b$, or $2y$)
     const isHashed = user.password.startsWith('$2a$') || user.password.startsWith('$2b$') || user.password.startsWith('$2y$');
-    
+
     let isPasswordValid = false;
     if (isHashed) {
       // Compare with bcrypt for hashed passwords
@@ -69,6 +69,15 @@ export async function POST(request: NextRequest) {
     });
 
     // Set httpOnly cookie per session to avoid cross-tab logout
+    console.log('[Login Debug] Setting auth cookie for session:', sessionId);
+    console.log('[Login Debug] Cookie options:', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7,
+      path: '/',
+    });
+
     response.cookies.set(`auth-${sessionId}`, JSON.stringify(userData), {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',

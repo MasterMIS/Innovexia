@@ -1,9 +1,9 @@
 "use client";
 
-import { 
-  Table, 
-  LayoutGrid, 
-  List, 
+import {
+  Table,
+  LayoutGrid,
+  List,
   CreditCard,
   Search,
   Bell,
@@ -31,13 +31,21 @@ import {
   Inbox,
   UserCheck,
   Check,
-  CheckCircle
+  CheckCircle,
+  BarChart3,
+  Trophy,
+  Clipboard,
+  ClipboardList,
+  FileText,
+  TrendingUp,
+  Headset,
+  Layout
 } from 'lucide-react';
 
-export type IconName = 
-  | 'table' 
-  | 'grid' 
-  | 'list' 
+export type IconName =
+  | 'table'
+  | 'grid'
+  | 'list'
   | 'card'
   | 'search'
   | 'bell'
@@ -65,7 +73,15 @@ export type IconName =
   | 'inbox'
   | 'user-check'
   | 'check'
-  | 'check-circle';
+  | 'check-circle'
+  | 'chart'
+  | 'trophy'
+  | 'clipboard'
+  | 'checklist'
+  | 'document'
+  | 'trending'
+  | 'headset'
+  | 'layout';
 
 interface IconProps {
   name: IconName;
@@ -143,6 +159,22 @@ export default function Icon({ name, className = 'ui-icon', size = 20 }: IconPro
       return <Check {...iconProps} />;
     case 'check-circle':
       return <CheckCircle {...iconProps} />;
+    case 'chart':
+      return <BarChart3 {...iconProps} />;
+    case 'trophy':
+      return <Trophy {...iconProps} />;
+    case 'clipboard':
+      return <Clipboard {...iconProps} />;
+    case 'checklist':
+      return <ClipboardList {...iconProps} />;
+    case 'document':
+      return <FileText {...iconProps} />;
+    case 'trending':
+      return <TrendingUp {...iconProps} />;
+    case 'headset':
+      return <Headset {...iconProps} />;
+    case 'layout':
+      return <Layout {...iconProps} />;
     default:
       return <Info {...iconProps} />;
   }

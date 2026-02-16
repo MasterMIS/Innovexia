@@ -4,10 +4,10 @@ import { getGoogleDriveClient as getOAuthDriveClient } from './oauth';
 
 // Google Drive folder IDs for different features
 export const GOOGLE_DRIVE_FOLDERS = {
-  DELEGATION_DOCS: '1qFcXd4be7Ii3xnPa0kLW8DiBthtHKQ-C',
-  USER_IMAGES: '11Q5YUcaGcOKEW2mqDFHqmijXVx4TbDX7',
-  CHAT_DOCS: '1wheUmuq2oq-AuSULQDv7XcnSfR6J4uJ6',
-  CHECKLIST_ATTACHMENTS: '1qFcXd4be7Ii3xnPa0kLW8DiBthtHKQ-C',
+  DELEGATION_DOCS: '1VE5RZ-9pOO1VBTrErBmnaaW2664Z5nDQ',
+  USER_IMAGES: '1hgx7Na2C49OWr9zD1vcA3TcFhaTx19T-',
+  CHAT_DOCS: '1pTqk7Xhe5GgObe327nGT7U22xkL3KWnB',
+  CHECKLIST_ATTACHMENTS: '1avQ12kObGYLjWasZfCNteA0g89vCHrA2',
 };
 
 // Default folder (delegation)

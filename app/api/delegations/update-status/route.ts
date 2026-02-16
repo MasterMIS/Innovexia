@@ -1,41 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDelegationById, updateDelegation, createDelegationHistory, createDelegationRemark } from '@/lib/sheets';
+import { formatToSheetDate, parseDateString } from '@/lib/dateUtils';
 
-// Helper to format date to dd/mm/yyyy HH:mm:ss
-function formatDateTime(date: Date): string {
-  const pad = (n: number) => n.toString().padStart(2, '0');
-  return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
-}
+// Helper to parse date strings in multiple formats and return in sheet-friendly format
+function parseDateForSheet(dateStr: string): string {
+  if (!dateStr) return formatToSheetDate(new Date());
 
-// Helper to parse date strings in multiple formats
-function parseDateString(dateStr: string): string {
-  if (!dateStr) return formatDateTime(new Date());
-
-  // If already in dd/mm/yyyy HH:mm:ss format, return as-is
-  const ddmmyyyyMatch = dateStr.match(/(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2}):(\d{2})/);
-  if (ddmmyyyyMatch) {
-    return dateStr;
+  // Use our robust library parser
+  const parsedDate = parseDateString(dateStr);
+  if (parsedDate && !isNaN(parsedDate.getTime())) {
+    return formatToSheetDate(parsedDate);
   }
 
-  // If in YYYY-MM-DDTHH:mm format (datetime-local)
-  const datetimeMatch = dateStr.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
-  if (datetimeMatch) {
-    const [_, year, month, day, hours, minutes] = datetimeMatch;
-    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hours), parseInt(minutes));
-    return formatDateTime(date);
-  }
-
-  // Try to parse as Date and format
-  try {
-    const date = new Date(dateStr);
-    if (!isNaN(date.getTime())) {
-      return formatDateTime(date);
-    }
-  } catch (e) {
-    console.error('Error parsing date:', e);
-  }
-
-  return formatDateTime(new Date());
+  return formatToSheetDate(new Date());
 }
 
 export async function POST(request: NextRequest) {
@@ -64,7 +41,7 @@ export async function POST(request: NextRequest) {
 
     const oldStatus = currentDelegation.status;
     const oldDueDate = currentDelegation.due_date;
-    const newDueDate = revisedDueDate ? parseDateString(revisedDueDate) : oldDueDate;
+    const newDueDate = revisedDueDate ? parseDateForSheet(revisedDueDate) : oldDueDate;
 
     // Update delegation
     await updateDelegation(id, {

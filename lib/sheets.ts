@@ -1,21 +1,22 @@
 import { google } from 'googleapis';
 import { getGoogleSheetsClient as getOAuthSheetsClient } from './oauth';
+import { parseSheetDate, ensureIsoDate, formatToSheetDate } from './dateUtils';
 
 // Spreadsheet IDs for different features
 export const SPREADSHEET_IDS = {
-  DELEGATION: '1m0H-RXY1lwvY1DKur7-JwUI-FfxLZv7KWPI7HJWlYhM',
-  USERS: '1lYFGRBv0FgN2tQuakbpI5GYY8h8M8jUptGW-z8l9g_4',
-  TODOS: '1wqMwWLFyEDUUvTI3CrVyFXemLnTYcTf7JVxcZhCLHO0',
-  HELPDESK: '17AWbMisFx_cjC2exMpf86d21VKp1dl-q49FWIcWaSkk',
-  CHECKLISTS: '1PbXHXWj3jRsA6EvEHZMyzFe7Q0BsUrvCEX5PslAbhSg',
-  CHAT: '1BUiGYRmlT-fcQ7Qw9VIJkyPRyzdiuSeleJY785QncHM',
-  NOTIFICATIONS: '1EqJyQR_UaXMjh6Cua1TIkMRyQqxcvJoJanvT2SB_Dco',
-  MOM: '1A7kINXsl513H_NszKbhAosSqmFI-zeYSsEGob94SKPc',
-  LEAD_TO_SALES: '1WWAxBcv8czVrThlsEXdxjEYZ674lhfxdiHgMX5KHQAc',
-  DEPARTMENTS: '1Om5QWo4iLEGeQkKF5jyEY6YeRUFil8GFkDXdkAifF3I',
-  NBD: '1zR7ak9cKx559fowngKCCkpEddcMxFg4diRbjvHtpsMQ',
-  O2D: '1WYu62z7fWlkyaFbf-YAV_hXkZbbyOrRZ_skT7IGNLec',
-  ATTENDANCE: '1OVAwEgudNS5aaFxaL7YjLaRcxsvhVzMAXG-f2DbGj8I',
+  DELEGATION: '1xlKmalbpTniv37Umd1iKmB02AhtNlURQ5LrzQsHYhAA',
+  USERS: '1SoxiAeO2OKDTLMdtT414FBKqW2K5z3kEMD5Y2Uh8NWg',
+  TODOS: '1ZXPGc5IpCsAEDA10zjqjARJsAA3286SY21IHXAj1_UQ',
+  HELPDESK: '1GSvFkMoSoY9TgUBgw5RxJb33ZVcN5BKkH7sw30rMoLA',
+  CHECKLISTS: '1KnbqHtNusr2C_QBiX2e_L3LHbsRJy68YEwuphRtTBVU',
+  CHAT: '1JcmmE4fdHXdnjSHklmX57LFI5BUEjBiLbb6a9p2H7vY',
+  NOTIFICATIONS: '13YU7-tC18jNn8304wjUylQFokNpSEg-kQUK5BFln-Lo',
+  MOM: '1BRw7HIjXetxNc4xUK1e13_qHxbZcpWFkoX_abMDT5kg',
+  LEAD_TO_SALES: '1VqiC42NJuuAnzCXjQGsd1fuyTMd8pBOtEr7o3sArsZs',
+  DEPARTMENTS: '1KNhtJtKj3GYB6_tnlAO2hp0mpZkl0mbdWZiWtRoqYvM',
+  NBD: '1T6y8oSCZKCcZ50WrXEYyQcsOfh2hAGzZK4hQehCwhS8',
+  O2D: '1mKIdZK0ZKNsN7qHY675FN6fjLwD2TxyBowXsHDDWwkc',
+  ATTENDANCE: '1oNRk7oTfnXiJWBq0lv6dW60kHcQfEV8WQEixFBOe-CM',
 };
 
 // Backward compatibility
@@ -26,16 +27,7 @@ const NBD_SPREADSHEET_ID = SPREADSHEET_IDS.NBD;
 const O2D_SPREADSHEET_ID = SPREADSHEET_IDS.O2D;
 const ATTENDANCE_SPREADSHEET_ID = SPREADSHEET_IDS.ATTENDANCE;
 
-// Format date as dd/mm/yyyy HH:mm:ss
-function formatDateTime(date: Date): string {
-  const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const year = date.getFullYear();
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  const seconds = String(date.getSeconds()).padStart(2, '0');
-  return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
-}
+// Local wrapper removed in favor of shared formatToSheetDate
 
 // Sheet names
 const SHEETS = {
@@ -58,7 +50,7 @@ export async function getGoogleSheetsClient() {
 }
 
 // Helper function to convert array to object based on header row
-function rowToObject(headers: string[], row: any[]): any {
+export function rowToObject(headers: string[], row: any[]): any {
   const obj: any = {};
   headers.forEach((header, index) => {
     const value = row[index];
@@ -75,9 +67,22 @@ function rowToObject(headers: string[], row: any[]): any {
       return;
     }
 
-    // Handle boolean fields from Google Sheets (stored as TRUE/FALSE strings)
-    if ((header === 'evidence_required' || header === 'verification_required' || header === 'attachment_required') && typeof value === 'string') {
-      obj[header] = value.toUpperCase() === 'TRUE';
+    // Handle boolean fields from Google Sheets
+    if (header === 'evidence_required' || header === 'verification_required' || header === 'attachment_required') {
+      if (typeof value === 'boolean') {
+        obj[header] = value;
+        return;
+      }
+      if (typeof value === 'string') {
+        obj[header] = value.toUpperCase() === 'TRUE';
+        return;
+      }
+    }
+
+    // Handle Date fields automatically
+    const dateHeaders = ['created_at', 'updated_at', 'due_date', 'date', 'last_updated', 'follow_up_date', 'next_follow_up_date'];
+    if (dateHeaders.includes(header.toLowerCase())) {
+      obj[header] = parseSheetDate(value);
       return;
     }
 
@@ -89,14 +94,15 @@ function rowToObject(headers: string[], row: any[]): any {
         obj[header] = value;
       }
     } else {
-      obj[header] = value === '' ? null : value;
+      // Explicitly handle empty/undefined values as null to preserve keys in JSON
+      obj[header] = (value === '' || value === undefined) ? null : value;
     }
   });
   return obj;
 }
 
 // Helper function to convert object to array based on header row
-function objectToRow(headers: string[], obj: any): any[] {
+export function objectToRow(headers: string[], obj: any): any[] {
   return headers.map(header => {
     const value = obj[header];
     // Convert objects/arrays to JSON strings
@@ -125,6 +131,7 @@ export async function getDelegations(userId: number, role?: string, username?: s
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: DELEGATION_SPREADSHEET_ID,
       range: `${sheetName}!A:Z`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
     const rows = response.data.values;
@@ -160,7 +167,11 @@ export async function getDelegations(userId: number, role?: string, username?: s
     }
 
     // Sort by created_at descending
-    delegations.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    delegations.sort((a, b) => {
+      const dateA = parseSheetDate(a.created_at);
+      const dateB = parseSheetDate(b.created_at);
+      return (dateB ? new Date(dateB).getTime() : 0) - (dateA ? new Date(dateA).getTime() : 0);
+    });
 
     return delegations;
   } catch (error) {
@@ -178,6 +189,7 @@ export async function createDelegation(delegationData: any) {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: DELEGATION_SPREADSHEET_ID,
       range: `${sheetName}!A1:Z1`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
     const headers = response.data.values?.[0] || [];
@@ -206,6 +218,7 @@ export async function createDelegation(delegationData: any) {
     const allDataResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: DELEGATION_SPREADSHEET_ID,
       range: `${sheetName}!A:A`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
     const allRows = allDataResponse.data.values || [];
     const newId = allRows.length; // Row number serves as ID
@@ -214,8 +227,8 @@ export async function createDelegation(delegationData: any) {
     const delegation = {
       id: newId,
       ...delegationData,
-      created_at: formatDateTime(new Date()),
-      updated_at: formatDateTime(new Date())
+      created_at: formatToSheetDate(new Date()),
+      updated_at: formatToSheetDate(new Date())
     };
 
     // Convert to row array
@@ -225,7 +238,7 @@ export async function createDelegation(delegationData: any) {
     await sheets.spreadsheets.values.append({
       spreadsheetId: DELEGATION_SPREADSHEET_ID,
       range: `${sheetName}!A:Z`,
-      valueInputOption: 'RAW',
+      valueInputOption: 'USER_ENTERED',
       requestBody: {
         values: [rowData],
       },
@@ -247,6 +260,7 @@ export async function updateDelegation(id: number, delegationData: any) {
     const headerResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: DELEGATION_SPREADSHEET_ID,
       range: `${sheetName}!A1:Z1`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
     const headers = headerResponse.data.values?.[0];
     if (!headers) throw new Error('Headers not found');
@@ -255,6 +269,7 @@ export async function updateDelegation(id: number, delegationData: any) {
     const idResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: DELEGATION_SPREADSHEET_ID,
       range: `${sheetName}!A:A`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
     const idColumn = idResponse.data.values;
@@ -286,6 +301,7 @@ export async function updateDelegation(id: number, delegationData: any) {
     const rowResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: DELEGATION_SPREADSHEET_ID,
       range: `${sheetName}!A${actualRowNumber}:Z${actualRowNumber}`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
     const currentRowValues = rowResponse.data.values?.[0];
@@ -293,10 +309,15 @@ export async function updateDelegation(id: number, delegationData: any) {
 
     // 4. Update the delegation object
     const existingDelegation = rowToObject(headers, currentRowValues);
+
+    // EXPLICITLY preserve created_at to prevent it being overwritten
+    const preservedCreatedAt = existingDelegation.created_at;
+
     const updatedDelegation = {
       ...existingDelegation,
       ...delegationData,
-      updated_at: formatDateTime(new Date())
+      created_at: preservedCreatedAt, // Ensure created_at is NOT updated
+      updated_at: formatToSheetDate(new Date())
     };
 
     // 5. Convert to row array
@@ -306,7 +327,7 @@ export async function updateDelegation(id: number, delegationData: any) {
     await sheets.spreadsheets.values.update({
       spreadsheetId: DELEGATION_SPREADSHEET_ID,
       range: `${sheetName}!A${actualRowNumber}:Z${actualRowNumber}`,
-      valueInputOption: 'RAW',
+      valueInputOption: 'USER_ENTERED',
       requestBody: {
         values: [rowData],
       },
@@ -328,6 +349,7 @@ export async function deleteDelegation(id: number) {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: DELEGATION_SPREADSHEET_ID,
       range: `${sheetName}!A:Z`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
     const rows = response.data.values;
@@ -380,6 +402,7 @@ export async function getDelegationRemarks(delegationId: number) {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: DELEGATION_SPREADSHEET_ID,
       range: `${sheetName}!A:Z`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
     const rows = response.data.values;
@@ -411,6 +434,7 @@ export async function createDelegationRemark(remarkData: any) {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: DELEGATION_SPREADSHEET_ID,
       range: `${sheetName}!A1:Z1`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
     const headers = response.data.values?.[0] || [];
@@ -435,6 +459,7 @@ export async function createDelegationRemark(remarkData: any) {
     const allDataResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: DELEGATION_SPREADSHEET_ID,
       range: `${sheetName}!A:A`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
     const allRows = allDataResponse.data.values || [];
     const newId = allRows.length;
@@ -442,7 +467,7 @@ export async function createDelegationRemark(remarkData: any) {
     const remark = {
       id: newId,
       ...remarkData,
-      created_at: formatDateTime(new Date())
+      created_at: formatToSheetDate(new Date())
     };
 
     const rowData = objectToRow(headers, remark);
@@ -473,6 +498,7 @@ export async function getDelegationHistory(delegationId: number) {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: DELEGATION_SPREADSHEET_ID,
       range: `${sheetName}!A:Z`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
     const rows = response.data.values;
@@ -504,6 +530,7 @@ export async function createDelegationHistory(historyData: any) {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: DELEGATION_SPREADSHEET_ID,
       range: `${sheetName}!A1:Z1`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
     const headers = response.data.values?.[0] || [];
@@ -531,6 +558,7 @@ export async function createDelegationHistory(historyData: any) {
     const allDataResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: DELEGATION_SPREADSHEET_ID,
       range: `${sheetName}!A:A`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
     const allRows = allDataResponse.data.values || [];
     const newId = allRows.length;
@@ -538,7 +566,7 @@ export async function createDelegationHistory(historyData: any) {
     const history = {
       id: newId,
       ...historyData,
-      created_at: formatDateTime(new Date())
+      created_at: formatToSheetDate(new Date())
     };
 
     const rowData = objectToRow(headers, history);
@@ -568,6 +596,7 @@ export async function getDelegationById(id: number) {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: DELEGATION_SPREADSHEET_ID,
       range: `${sheetName}!A:Z`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
     const rows = response.data.values;
@@ -601,6 +630,7 @@ export async function getAllUsers() {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: USERS_SPREADSHEET_ID,
       range: `${sheetName}!A:AZ`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
     const rows = response.data.values;
@@ -632,6 +662,7 @@ export async function createUser(userData: any) {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: USERS_SPREADSHEET_ID,
       range: `${sheetName}!A:AZ`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
     const rows = response.data.values;
@@ -725,7 +756,7 @@ export async function createUser(userData: any) {
       tentative_joining_date: userData.tentativeJoiningDate || '',
       education: userData.education || '[]',
       work_experience: userData.workExperience || '[]',
-      created_at: formatDateTime(new Date())
+      created_at: formatToSheetDate(new Date())
     };
 
     // Convert to row
@@ -757,6 +788,7 @@ export async function updateUser(id: number, userData: any) {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: USERS_SPREADSHEET_ID,
       range: `${sheetName}!A:AZ`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
     const rows = response.data.values;
@@ -850,6 +882,7 @@ export async function deleteUser(id: number) {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: USERS_SPREADSHEET_ID,
       range: `${sheetName}!A:AZ`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
     const rows = response.data.values;
@@ -905,6 +938,7 @@ async function ensureNotificationSheetExists(sheets: any) {
     const headerCheck = await sheets.spreadsheets.values.get({
       spreadsheetId: NOTIFICATIONS_SPREADSHEET_ID,
       range: `${NOTIFICATIONS_SHEET}!A1:I1`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
     if (!headerCheck.data.values || headerCheck.data.values.length === 0) {
@@ -935,6 +969,7 @@ export async function getNotifications(userId: number, userRole: string, unreadO
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: NOTIFICATIONS_SPREADSHEET_ID,
       range: `${NOTIFICATIONS_SHEET}!A:K`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
     const rows = response.data.values;
@@ -995,13 +1030,14 @@ export async function createNotification(notificationData: any) {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: NOTIFICATIONS_SPREADSHEET_ID,
       range: `${NOTIFICATIONS_SHEET}!A:A`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
     const rows = response.data.values || [];
     const lastId = rows.length > 1 ? Math.max(...rows.slice(1).map(row => parseInt(row[0]) || 0)) : 0;
     const newId = lastId + 1;
 
-    const now = formatDateTime(new Date());
+    const now = formatToSheetDate(new Date());
 
     const newRow = [
       newId,
@@ -1043,6 +1079,7 @@ export async function markNotificationAsRead(id: number) {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: NOTIFICATIONS_SPREADSHEET_ID,
       range: `${NOTIFICATIONS_SHEET}!A:I`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
     const rows = response.data.values;
@@ -1088,6 +1125,7 @@ export async function deleteNotification(id: number) {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: NOTIFICATIONS_SPREADSHEET_ID,
       range: `${NOTIFICATIONS_SHEET}!A:A`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
     const rows = response.data.values;
@@ -1146,6 +1184,7 @@ export async function getDepartments() {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_IDS.DEPARTMENTS,
       range: `${sheetName}!A:A`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
     const rows = response.data.values;
@@ -1203,6 +1242,7 @@ export async function deleteDepartment(departmentName: string) {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_IDS.DEPARTMENTS,
       range: `${sheetName}!A:A`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
     const rows = response.data.values;
@@ -1290,7 +1330,7 @@ async function ensureChecklistSheetExists(sheets: any, spreadsheetId: string, sh
     // Ensure headers are present
     const defaultHeaders = [
       'id', 'question', 'assignee', 'doer_name', 'priority', 'department',
-      'verification_required', 'verifier_name', 'attachment_required', 'attachment_url',
+      'verification_required', 'verifier_name', 'attachment_required',
       'frequency', 'due_date', 'status', 'group_id', 'created_by',
       'created_at', 'updated_at'
     ];
@@ -1301,6 +1341,7 @@ async function ensureChecklistSheetExists(sheets: any, spreadsheetId: string, sh
       headerResponse = await sheets.spreadsheets.values.get({
         spreadsheetId,
         range: `${sheetName}!A1:P1`,
+        valueRenderOption: 'UNFORMATTED_VALUE',
       });
     } catch (error) {
       headerResponse = null;
@@ -1313,7 +1354,7 @@ async function ensureChecklistSheetExists(sheets: any, spreadsheetId: string, sh
       console.log('Creating checklist sheet headers...');
       await sheets.spreadsheets.values.update({
         spreadsheetId,
-        range: `${sheetName}!A1:P1`,
+        range: `${sheetName}!A1:Q1`,
         valueInputOption: 'RAW',
         requestBody: {
           values: [defaultHeaders],
@@ -1321,12 +1362,12 @@ async function ensureChecklistSheetExists(sheets: any, spreadsheetId: string, sh
       });
     } else {
       // Update headers if they don't match expected format
-      const headersMatch = JSON.stringify(existingHeaders.slice(0, 16)) === JSON.stringify(defaultHeaders);
+      const headersMatch = JSON.stringify(existingHeaders.slice(0, 17)) === JSON.stringify(defaultHeaders);
       if (!headersMatch) {
         console.log('Updating checklist sheet headers to match expected format...');
         await sheets.spreadsheets.values.update({
           spreadsheetId,
-          range: `${sheetName}!A1:P1`,
+          range: `${sheetName}!A1:Q1`,
           valueInputOption: 'RAW',
           requestBody: {
             values: [defaultHeaders],
@@ -1337,23 +1378,32 @@ async function ensureChecklistSheetExists(sheets: any, spreadsheetId: string, sh
     ensuredSheets.add(cacheKey);
   } catch (error) {
     console.error('Error ensuring checklist sheet exists:', error);
+    // Don't throw, just log, so we can see if this is the cause but maybe proceed?
+    // Actually, if this fails, getChecklists will likely fail too, but let's see the log.
     throw error;
   }
 }
 
 export async function getChecklists() {
   try {
+    console.log('getChecklists: Starting...');
     const sheets = await getGoogleSheetsClient();
+    console.log('getChecklists: Got sheets client');
     const sheetName = 'checklists'; // Checklist sheet name
 
     // Ensure sheet exists
+    console.log('getChecklists: Ensuring sheet exists...');
     await ensureChecklistSheetExists(sheets, SPREADSHEET_IDS.CHECKLISTS, sheetName);
+    console.log('getChecklists: Sheet ensured');
 
     // Read all data from the sheet
+    console.log('getChecklists: Fetching values...');
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
       range: `${sheetName}!A:Z`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
+    console.log('getChecklists: Values fetched');
 
     const rows = response.data.values;
 
@@ -1368,7 +1418,13 @@ export async function getChecklists() {
     // Convert rows to objects
     const checklists = dataRows
       .map(row => rowToObject(headers, row))
-      .filter(checklist => checklist.id); // Filter out empty rows
+      .filter(checklist => checklist.id) // Filter out empty rows
+      .map(checklist => ({
+        ...checklist,
+        due_date: ensureIsoDate(checklist.due_date),
+        created_at: ensureIsoDate(checklist.created_at),
+        updated_at: ensureIsoDate(checklist.updated_at)
+      }));
 
     // Sort by due_date ascending, then created_at descending
     checklists.sort((a, b) => {
@@ -1398,6 +1454,7 @@ export async function createChecklistsBatch(checklistsData: any[]) {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
       range: `${sheetName}!A1:P1`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
     const headers = response.data.values?.[0] || [];
@@ -1406,6 +1463,7 @@ export async function createChecklistsBatch(checklistsData: any[]) {
     const allDataResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
       range: `${sheetName}!A:A`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
     const allRows = allDataResponse.data.values || [];
 
@@ -1420,7 +1478,7 @@ export async function createChecklistsBatch(checklistsData: any[]) {
     let nextId = maxId + 1; // Start from max ID + 1
 
     // Prepare all rows with sequential IDs
-    const now = formatDateTime(new Date());
+    const now = new Date().toISOString();
     const rowsData = checklistsData.map(checklistData => {
       const checklist = {
         id: nextId++,
@@ -1435,7 +1493,7 @@ export async function createChecklistsBatch(checklistsData: any[]) {
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
       range: `${sheetName}!A:Z`,
-      valueInputOption: 'RAW',
+      valueInputOption: 'USER_ENTERED',
       requestBody: {
         values: rowsData,
       },
@@ -1460,6 +1518,7 @@ export async function createChecklist(checklistData: any) {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
       range: `${sheetName}!A1:P1`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
     const headers = response.data.values?.[0] || [];
@@ -1468,6 +1527,7 @@ export async function createChecklist(checklistData: any) {
     const allDataResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
       range: `${sheetName}!A:A`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
     const allRows = allDataResponse.data.values || [];
 
@@ -1485,8 +1545,8 @@ export async function createChecklist(checklistData: any) {
     const checklist = {
       id: newId,
       ...checklistData,
-      created_at: formatDateTime(new Date()),
-      updated_at: formatDateTime(new Date())
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     };
 
     // Convert to row array
@@ -1496,7 +1556,7 @@ export async function createChecklist(checklistData: any) {
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
       range: `${sheetName}!A:Z`,
-      valueInputOption: 'RAW',
+      valueInputOption: 'USER_ENTERED',
       requestBody: {
         values: [rowData],
       },
@@ -1518,6 +1578,7 @@ export async function updateChecklist(id: number, checklistData: any) {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
       range: `${sheetName}!A:Z`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
     const rows = response.data.values;
@@ -1544,7 +1605,7 @@ export async function updateChecklist(id: number, checklistData: any) {
     const updatedChecklist = {
       ...existingChecklist,
       ...checklistData,
-      updated_at: formatDateTime(new Date())
+      updated_at: new Date().toISOString()
     };
 
     // Convert to row array
@@ -1555,7 +1616,7 @@ export async function updateChecklist(id: number, checklistData: any) {
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
       range: `${sheetName}!A${actualRowNumber}:Z${actualRowNumber}`,
-      valueInputOption: 'RAW',
+      valueInputOption: 'USER_ENTERED',
       requestBody: {
         values: [rowData],
       },
@@ -1663,7 +1724,7 @@ export async function updateChecklistsByGroupId(groupId: string, checklistData: 
         const updatedChecklist = {
           ...existingChecklist,
           ...checklistData,
-          updated_at: formatDateTime(new Date())
+          updated_at: new Date().toISOString()
         };
         const rowData = objectToRow(headers, updatedChecklist);
         rowsToUpdate.push({
@@ -1682,7 +1743,7 @@ export async function updateChecklistsByGroupId(groupId: string, checklistData: 
       sheets.spreadsheets.values.update({
         spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
         range: `${sheetName}!A${rowNumber}:Z${rowNumber}`,
-        valueInputOption: 'RAW',
+        valueInputOption: 'USER_ENTERED',
         requestBody: {
           values: [data],
         },
@@ -1917,7 +1978,7 @@ export async function createChecklistRemark(remarkData: any) {
     const remark = {
       id: newId,
       ...remarkData,
-      created_at: formatDateTime(new Date())
+      created_at: formatToSheetDate(new Date())
     };
 
     const rowData = objectToRow(headers, remark);
@@ -2027,6 +2088,42 @@ export async function createChecklistHistory(historyData: any) {
   } catch (error) {
     console.error('Error creating checklist history in Google Sheets:', error);
     throw error;
+  }
+}
+
+export async function getChecklistIdsWithHistory(): Promise<Set<number>> {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = 'checklist_revision_history';
+
+    // Check if sheet exists first (optimistic check) to avoid errors
+    try {
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
+        range: `${sheetName}!B:B`, // Column B is checklist_id based on createChecklistHistory
+      });
+
+      const rows = response.data.values;
+      if (!rows || rows.length <= 1) {
+        return new Set();
+      }
+
+      // Skip header (row 0) and filter valid IDs
+      const ids = new Set<number>();
+      for (let i = 1; i < rows.length; i++) {
+        const id = parseInt(rows[i][0]);
+        if (!isNaN(id)) {
+          ids.add(id);
+        }
+      }
+      return ids;
+    } catch (error) {
+      // If sheet doesn't exist or other error, return empty set
+      return new Set();
+    }
+  } catch (error) {
+    console.error('Error fetching checklist IDs with history:', error);
+    return new Set();
   }
 }
 
@@ -2189,8 +2286,8 @@ export async function createHelpdeskTicket(ticketData: any) {
     const ticket = {
       id: newId,
       ...ticketData,
-      created_at: formatDateTime(new Date()),
-      updated_at: formatDateTime(new Date())
+      created_at: formatToSheetDate(new Date()),
+      updated_at: formatToSheetDate(new Date())
     };
 
     const rowData = objectToRow(headers, ticket);
@@ -2242,7 +2339,7 @@ export async function updateHelpdeskTicket(id: number, ticketData: any) {
     const updatedTicket = {
       ...existingTicket,
       ...ticketData,
-      updated_at: formatDateTime(new Date())
+      updated_at: formatToSheetDate(new Date())
     };
 
     const rowData = objectToRow(headers, updatedTicket);
@@ -2356,13 +2453,15 @@ export async function createHelpdeskRemark(remarkData: any) {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_IDS.HELPDESK,
       range: `${sheetName}!A1:Z1`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
     const headers = response.data.values?.[0] || [];
 
     // Get max ID
     const allData = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_IDS.HELPDESK,
-      range: `${sheetName}!A:A`
+      range: `${sheetName}!A:A`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
     const nextId = (allData.data.values?.length || 0) + 1; // Basic ID strategy
 
@@ -2372,7 +2471,7 @@ export async function createHelpdeskRemark(remarkData: any) {
       user_id: remarkData.userId,
       username: remarkData.userName,
       remark: remarkData.remark,
-      created_at: formatDateTime(new Date())
+      created_at: formatToSheetDate(new Date())
     };
 
     const rowData = objectToRow(headers, finalRemark);
@@ -2401,6 +2500,7 @@ export async function getHelpdeskRemarks(ticketId: number) {
       const response = await sheets.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_IDS.HELPDESK,
         range: `${sheetName}!A:Z`,
+        valueRenderOption: 'UNFORMATTED_VALUE',
       });
       const rows = response.data.values;
       if (!rows || rows.length < 2) return [];
@@ -2462,6 +2562,7 @@ async function ensureTodoSheetExists(sheets: any, spreadsheetId: string, sheetNa
       headerResponse = await sheets.spreadsheets.values.get({
         spreadsheetId,
         range: `${sheetName}!A1:K1`,
+        valueRenderOption: 'UNFORMATTED_VALUE',
       });
     } catch (error) {
       headerResponse = null;
@@ -2497,6 +2598,7 @@ export async function getTodos(filters: any = {}) {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_IDS.TODOS,
       range: `${sheetName}!A:Z`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
     const rows = response.data.values;
@@ -2539,6 +2641,7 @@ export async function createTodo(todoData: any) {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_IDS.TODOS,
       range: `${sheetName}!A1:K1`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
     const headers = response.data.values?.[0] || [];
@@ -2546,6 +2649,7 @@ export async function createTodo(todoData: any) {
     const allDataResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_IDS.TODOS,
       range: `${sheetName}!A:A`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
     const allRows = allDataResponse.data.values || [];
 
@@ -2560,8 +2664,8 @@ export async function createTodo(todoData: any) {
       id: newId,
       ...todoData,
       is_important: todoData.is_important || false, // Ensure boolean default
-      created_at: formatDateTime(new Date()),
-      updated_at: formatDateTime(new Date())
+      created_at: formatToSheetDate(new Date()),
+      updated_at: formatToSheetDate(new Date())
     };
 
     const rowData = objectToRow(headers, todo);
@@ -2590,6 +2694,7 @@ export async function updateTodo(id: number, todoData: any) {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_IDS.TODOS,
       range: `${sheetName}!A:Z`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
     const rows = response.data.values;
@@ -2605,7 +2710,7 @@ export async function updateTodo(id: number, todoData: any) {
     const updatedTodo = {
       ...existingTodo,
       ...todoData,
-      updated_at: formatDateTime(new Date())
+      updated_at: formatToSheetDate(new Date())
     };
 
     const rowData = objectToRow(headers, updatedTodo);
@@ -2635,6 +2740,7 @@ export async function deleteTodo(id: number) {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_IDS.TODOS,
       range: `${sheetName}!A:Z`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
     const rows = response.data.values;
@@ -2712,6 +2818,7 @@ async function ensureChatMessagesSheetExists(sheets: any, spreadsheetId: string,
       headerResponse = await sheets.spreadsheets.values.get({
         spreadsheetId,
         range: `${sheetName}!A1:J1`,
+        valueRenderOption: 'UNFORMATTED_VALUE',
       });
     } catch (error) {
       headerResponse = null;
@@ -2747,6 +2854,7 @@ export async function getChatMessages() {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_IDS.CHAT,
       range: `${sheetName}!A:Z`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
     const rows = response.data.values;
@@ -2781,6 +2889,7 @@ export async function createChatMessage(messageData: any) {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_IDS.CHAT,
       range: `${sheetName}!A1:J1`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
     const headers = response.data.values?.[0] || [];
@@ -2788,6 +2897,7 @@ export async function createChatMessage(messageData: any) {
     const idResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_IDS.CHAT,
       range: `${sheetName}!A:A`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
     const allRows = idResponse.data.values || [];
 
@@ -2801,7 +2911,7 @@ export async function createChatMessage(messageData: any) {
     const message = {
       id: newId,
       ...messageData,
-      created_at: formatDateTime(new Date())
+      created_at: formatToSheetDate(new Date())
     };
 
     const rowData = objectToRow(headers, message);
@@ -2832,6 +2942,7 @@ export async function getNBDs() {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: NBD_SPREADSHEET_ID,
       range: `${sheetName}!A:Z`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
     const rows = response.data.values;
@@ -2861,6 +2972,7 @@ export async function createNBD(data: any) {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: NBD_SPREADSHEET_ID,
       range: `${sheetName}!A1:Z1`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
     let headers = response.data.values?.[0] || [];
@@ -2883,14 +2995,15 @@ export async function createNBD(data: any) {
     const allData = await sheets.spreadsheets.values.get({
       spreadsheetId: NBD_SPREADSHEET_ID,
       range: `${sheetName}!A:A`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
     const newId = (allData.data.values || []).length;
 
     const newNBD = {
       id: newId,
       ...data,
-      created_at: formatDateTime(new Date()),
-      updated_at: formatDateTime(new Date())
+      created_at: formatToSheetDate(new Date()),
+      updated_at: formatToSheetDate(new Date())
     };
 
     const rowData = objectToRow(headers, newNBD);
@@ -2917,6 +3030,7 @@ export async function updateNBD(id: number, data: any) {
     const headersRes = await sheets.spreadsheets.values.get({
       spreadsheetId: NBD_SPREADSHEET_ID,
       range: `${sheetName}!A1:Z1`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
     const headers = headersRes.data.values?.[0];
     if (!headers) throw new Error('Headers not found');
@@ -2924,6 +3038,7 @@ export async function updateNBD(id: number, data: any) {
     const idRes = await sheets.spreadsheets.values.get({
       spreadsheetId: NBD_SPREADSHEET_ID,
       range: `${sheetName}!A:A`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
     const ids = idRes.data.values || [];
     const rowIndex = ids.findIndex(row => parseInt(row[0]) == id);
@@ -2935,13 +3050,14 @@ export async function updateNBD(id: number, data: any) {
     const rowRes = await sheets.spreadsheets.values.get({
       spreadsheetId: NBD_SPREADSHEET_ID,
       range: `${sheetName}!A${actualRow}:Z${actualRow}`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
     const existing = rowToObject(headers, rowRes.data.values?.[0] || []);
 
     const updated = {
       ...existing,
       ...data,
-      updated_at: formatDateTime(new Date())
+      updated_at: formatToSheetDate(new Date())
     };
 
     const rowData = objectToRow(headers, updated);
@@ -2968,6 +3084,7 @@ export async function deleteNBD(id: number) {
     const idRes = await sheets.spreadsheets.values.get({
       spreadsheetId: NBD_SPREADSHEET_ID,
       range: `${sheetName}!A:A`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
     const ids = idRes.data.values || [];
     const rowIndex = ids.findIndex(row => parseInt(row[0]) == id);
@@ -3002,72 +3119,586 @@ export async function deleteNBD(id: number) {
 
 // O2D (Order to Delivery) OPERATIONS
 
+export async function getO2DOrders() {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = SHEETS.O2D;
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: O2D_SPREADSHEET_ID,
+      range: `${sheetName}!A:AZ`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) return [];
+
+    const headers = rows[0];
+    const dataRows = rows.slice(1);
+
+    const flatOrders = dataRows
+      .map(row => rowToObject(headers, row))
+      .filter(o => o.id);
+
+    // Group by party_id
+    const groupedMap = new Map<string, any>();
+
+    flatOrders.forEach(row => {
+      const pid = String(row.party_id);
+      if (!groupedMap.has(pid)) {
+        groupedMap.set(pid, {
+          ...row,
+          party_id: pid,
+          id: parseInt(row.id),
+          items: []
+        });
+        delete groupedMap.get(pid).item;
+        delete groupedMap.get(pid).quantity;
+      }
+      groupedMap.get(pid).items.push({
+        ...row,
+        id: parseInt(row.id),
+        item: row.item,
+        qty: row.quantity
+      });
+    });
+
+    const orders = Array.from(groupedMap.values())
+      .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+
+    return orders;
+  } catch (error) {
+    console.error('Error fetching O2D orders:', error);
+    throw error;
+  }
+}
+
 export async function createO2DOrder(orderData: any) {
   try {
     const sheets = await getGoogleSheetsClient();
     const sheetName = SHEETS.O2D;
 
     // Check headers
-    const response = await sheets.spreadsheets.values.get({
+    const headerResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: O2D_SPREADSHEET_ID,
-      range: `${sheetName}!A1:Z1`,
+      range: `${sheetName}!A1:AZ1`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
-    let headers = response.data.values?.[0] || [];
+    let headers = headerResponse.data.values?.[0] || [];
 
     if (headers.length === 0) {
       const defaultHeaders = [
-        'id', 'party_name', 'type', 'contact_person', 'email', 'contact_no_1', 'contact_no_2',
-        'location', 'state', 'field_person_name', 'items', 'created_at'
+        'id', 'party_id', 'party_name', 'type', 'contact_person', 'email', 'contact_no_1', 'contact_no_2',
+        'location', 'state', 'field_person_name', 'item', 'quantity', 'created_at',
+        'Planned_1', 'Actual_1', 'Destination',
+        'Planned_2', 'Actual_2', 'Stock Availability',
+        'Planned_3', 'Actual_3', 'Production Status',
+        'Planned_4', 'Actual_4', 'Information Status',
+        'Planned_5', 'Actual_5', 'Status_5',
+        'Planned_6', 'Actual_6', 'Dispatch Status',
+        'Planned_7', 'Actual_7', 'Bill No.', 'Revenue', 'Item Cost', 'Total Cost',
+        'Planned_8', 'Actual_8', 'Status_8'
       ];
       await sheets.spreadsheets.values.update({
         spreadsheetId: O2D_SPREADSHEET_ID,
-        range: `${sheetName}!A1:L1`,
+        range: `${sheetName}!A1:AZ1`,
         valueInputOption: 'RAW',
         requestBody: { values: [defaultHeaders] },
       });
       headers = defaultHeaders;
     }
 
-    // Generate ID
-    const allData = await sheets.spreadsheets.values.get({
+    // Generate Global ID and Party ID
+    const allIdsResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: O2D_SPREADSHEET_ID,
-      range: `${sheetName}!A:A`,
+      range: `${sheetName}!A:B`, // A is id, B is party_id
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
-    const newId = (allData.data.values || []).length;
+    const rows = allIdsResponse.data.values || [];
 
-    // Format items as "Item1: Qty1, Item2: Qty2"
-    const itemsFormatted = orderData.items
-      .map((item: any) => `${item.item}: ${item.qty}`)
-      .join(', ');
+    // Max Global ID for rows
+    let maxId = 0;
+    // Max Party ID
+    let maxPartyId = 0;
 
-    const newOrder = {
-      id: newId,
-      party_name: orderData.party_name,
-      type: orderData.type,
-      contact_person: orderData.contact_person,
-      email: orderData.email,
-      contact_no_1: orderData.contact_no_1,
-      contact_no_2: orderData.contact_no_2,
-      location: orderData.location,
-      state: orderData.state,
-      field_person_name: orderData.field_person_name,
-      items: itemsFormatted,
-      created_at: formatDateTime(new Date())
-    };
+    if (rows.length > 1) {
+      rows.slice(1).forEach(r => {
+        const id = parseInt(r[0]);
+        const pid = parseInt(r[1]);
+        if (!isNaN(id)) maxId = Math.max(maxId, id);
+        if (!isNaN(pid)) maxPartyId = Math.max(maxPartyId, pid);
+      });
+    }
 
-    const rowData = objectToRow(headers, newOrder);
+    const newPartyId = maxPartyId + 1;
+    const createdAt = formatToSheetDate(new Date());
+
+    const { items, ...partyDetails } = orderData;
+    const rowsToInsert: any[][] = [];
+
+    items.forEach((itemObj: any, index: number) => {
+      const newRow = {
+        ...partyDetails,
+        id: maxId + 1 + index,
+        party_id: newPartyId,
+        item: itemObj.item,
+        quantity: itemObj.qty,
+        created_at: createdAt
+      };
+      rowsToInsert.push(objectToRow(headers, newRow));
+    });
 
     await sheets.spreadsheets.values.append({
       spreadsheetId: O2D_SPREADSHEET_ID,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
+      valueInputOption: 'RAW',
+      requestBody: { values: rowsToInsert },
+    });
+
+    return { ...orderData, party_id: newPartyId, created_at: createdAt };
+  } catch (error) {
+    console.error('Error creating O2D order:', error);
+    throw error;
+  }
+}
+
+export async function updateO2DOrder(partyId: number, orderData: any) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = SHEETS.O2D;
+
+    const headersRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: O2D_SPREADSHEET_ID,
+      range: `${sheetName}!A1:AZ1`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+    const headers = headersRes.data.values?.[0];
+    if (!headers) throw new Error('Headers not found');
+
+    // Find all rows with this party_id
+    const idRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: O2D_SPREADSHEET_ID,
+      range: `${sheetName}!B:B`, // B is party_id
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+    const ids = idRes.data.values || [];
+
+    const rowIndices: number[] = [];
+    ids.forEach((row, index) => {
+      if (parseInt(row[0]) === partyId) {
+        rowIndices.push(index);
+      }
+    });
+
+    if (rowIndices.length === 0) throw new Error('O2D Order not found');
+
+    // We can't easily "update" multiple rows that might have changed in count
+    // safer approach: delete existing rows and insert new ones with SAME party_id
+
+    // Remember the first row index for insertion
+    const firstRowIndex = Math.min(...rowIndices);
+
+    // Fetch existing rows before deletion to preserve follow-up data
+    const preservedItemsMap = new Map<number, any>();
+    for (const idx of rowIndices) {
+      const actualRow = idx + 1;
+      const rowRes = await sheets.spreadsheets.values.get({
+        spreadsheetId: O2D_SPREADSHEET_ID,
+        range: `${sheetName}!A${actualRow}:AZ${actualRow}`,
+        valueRenderOption: 'UNFORMATTED_VALUE',
+      });
+      const rowData = rowToObject(headers, rowRes.data.values?.[0] || []);
+      if (rowData.id) {
+        preservedItemsMap.set(parseInt(rowData.id), rowData);
+      }
+    }
+
+    // Sort indices descending for deletion
+    const sortedIndices = [...rowIndices].sort((a, b) => b - a);
+
+    const sheetId = await getSheetId(sheets, O2D_SPREADSHEET_ID, sheetName);
+
+    // Delete existing items
+    const deleteRequests = sortedIndices.map(idx => ({
+      deleteDimension: {
+        range: {
+          sheetId,
+          dimension: 'ROWS',
+          startIndex: idx,
+          endIndex: idx + 1
+        }
+      }
+    }));
+
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: O2D_SPREADSHEET_ID,
+      requestBody: { requests: deleteRequests }
+    });
+
+    // Re-insert new items at the original position
+    const { items, ...partyDetails } = orderData;
+
+    // Get new max row id
+    const allIdsAfterDelete = await sheets.spreadsheets.values.get({
+      spreadsheetId: O2D_SPREADSHEET_ID,
+      range: `${sheetName}!A:A`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+    const newIdRows = allIdsAfterDelete.data.values || [];
+    let maxId = 0;
+    if (newIdRows.length > 1) {
+      maxId = Math.max(...newIdRows.slice(1).map(row => parseInt(row[0]) || 0));
+    }
+
+    const rowsToInsert: any[][] = [];
+    const createdAt = orderData.created_at || formatToSheetDate(new Date());
+
+    // Define fields to preserve
+    const PRESERVED_FIELDS = [
+      'Planned_1', 'Actual_1', 'Destination',
+      'Planned_2', 'Actual_2', 'Stock Availability',
+      'Planned_3', 'Actual_3', 'Production Status',
+      'Planned_4', 'Actual_4', 'Information Status',
+      'Planned_5', 'Actual_5', 'Status_5',
+      'Planned_6', 'Actual_6', 'Dispatch Status',
+      'Planned_7', 'Actual_7', 'Bill No.', 'Revenue', 'Item Cost', 'Total Cost',
+      'Planned_8', 'Actual_8', 'Status_8'
+    ];
+
+    let currentMaxId = maxId;
+
+    items.forEach((itemObj: any, index: number) => {
+      let finalId = itemObj.id;
+      let existingItem = null;
+
+      // Check if item exists in reserved map (using ID)
+      if (finalId && preservedItemsMap.has(parseInt(finalId))) {
+        existingItem = preservedItemsMap.get(parseInt(finalId));
+        finalId = parseInt(finalId);
+      } else {
+        // New item or temp ID, assign new global ID
+        currentMaxId++;
+        finalId = currentMaxId;
+      }
+
+      const newRow = {
+        ...partyDetails,
+        id: finalId,
+        party_id: partyId,
+        item: itemObj.item,
+        quantity: itemObj.qty,
+        created_at: existingItem ? existingItem.created_at : createdAt
+      };
+
+      // Merge preserved fields if existing item found
+      if (existingItem) {
+        PRESERVED_FIELDS.forEach(field => {
+          if (existingItem[field] !== undefined && existingItem[field] !== null && existingItem[field] !== '') {
+            newRow[field] = existingItem[field];
+          }
+        });
+      }
+
+      rowsToInsert.push(objectToRow(headers, newRow));
+    });
+
+    // Insert rows at the original position using insertDimension + update
+    if (rowsToInsert.length > 0) {
+      // First, insert empty rows at the original position
+      const insertRequests = [{
+        insertDimension: {
+          range: {
+            sheetId,
+            dimension: 'ROWS',
+            startIndex: firstRowIndex,
+            endIndex: firstRowIndex + rowsToInsert.length
+          }
+        }
+      }];
+
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId: O2D_SPREADSHEET_ID,
+        requestBody: { requests: insertRequests }
+      });
+
+      // Then update those rows with the new data
+      const updateRange = `${sheetName}!A${firstRowIndex + 1}:AZ${firstRowIndex + rowsToInsert.length}`;
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: O2D_SPREADSHEET_ID,
+        range: updateRange,
+        valueInputOption: 'RAW',
+        requestBody: { values: rowsToInsert },
+      });
+    }
+
+    return { ...orderData, party_id: partyId };
+  } catch (error) {
+    console.error('Error updating O2D order:', error);
+    throw error;
+  }
+}
+
+export async function deleteO2DOrder(partyId: number) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = SHEETS.O2D;
+
+    const idRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: O2D_SPREADSHEET_ID,
+      range: `${sheetName}!B:B`, // B is party_id
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+    const ids = idRes.data.values || [];
+
+    const rowIndices: number[] = [];
+    ids.forEach((row, index) => {
+      if (parseInt(row[0]) === partyId) {
+        rowIndices.push(index);
+      }
+    });
+
+    if (rowIndices.length === 0) throw new Error('O2D Order not found');
+
+    const sortedIndices = [...rowIndices].sort((a, b) => b - a);
+    const sheetId = await getSheetId(sheets, O2D_SPREADSHEET_ID, sheetName);
+
+    const requests = sortedIndices.map(idx => ({
+      deleteDimension: {
+        range: {
+          sheetId,
+          dimension: 'ROWS',
+          startIndex: idx,
+          endIndex: idx + 1
+        }
+      }
+    }));
+
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: O2D_SPREADSHEET_ID,
+      requestBody: { requests }
+    });
+
+    return { partyId };
+  } catch (error) {
+    console.error('Error deleting O2D order:', error);
+    throw error;
+  }
+}
+
+// Surgical update for follow-up steps (fixes data loss bug)
+export async function updateO2DFollowUp(partyId: number, followUpData: any) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = SHEETS.O2D;
+
+    // Get headers
+    const headersRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: O2D_SPREADSHEET_ID,
+      range: `${sheetName}!A1:AZ1`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+    const headers = headersRes.data.values?.[0];
+    if (!headers) throw new Error('Headers not found');
+
+    // Find all rows with this party_id
+    const idRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: O2D_SPREADSHEET_ID,
+      range: `${sheetName}!B:B`, // B is party_id
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+    const ids = idRes.data.values || [];
+
+    const rowIndices: number[] = [];
+    ids.forEach((row, index) => {
+      if (parseInt(row[0]) === partyId) {
+        rowIndices.push(index);
+      }
+    });
+
+    if (rowIndices.length === 0) throw new Error('O2D Order not found');
+
+    // Update each row matching the partyId
+    const updates = await Promise.all(rowIndices.map(async (idx) => {
+      const actualRow = idx + 1;
+
+      // Get existing row data to preserve non-update fields
+      const rowRes = await sheets.spreadsheets.values.get({
+        spreadsheetId: O2D_SPREADSHEET_ID,
+        range: `${sheetName}!A${actualRow}:AZ${actualRow}`,
+        valueRenderOption: 'UNFORMATTED_VALUE',
+      });
+
+      const existing = rowToObject(headers, rowRes.data.values?.[0] || []);
+
+      // Calculate Total Cost if Item Cost is provided
+      const itemCost = followUpData['Item Cost'] || existing['Item Cost'];
+      const qty = existing.quantity || 0;
+      let totalCost = existing['Total Cost'];
+
+      if (itemCost !== undefined && itemCost !== null && itemCost !== '') {
+        const costNum = parseFloat(itemCost);
+        const qtyNum = parseFloat(qty);
+        if (!isNaN(costNum) && !isNaN(qtyNum)) {
+          totalCost = (costNum * qtyNum).toString();
+        }
+      } else if (itemCost === '' || itemCost === null) {
+        totalCost = '';
+      }
+
+      // Only merge follow-up related fields from followUpData
+      const updated = {
+        ...existing,
+        ...followUpData,
+        'Total Cost': totalCost,
+        id: existing.id,
+        party_id: existing.party_id,
+        item: existing.item,
+        quantity: existing.quantity,
+        created_at: existing.created_at
+      };
+
+      const rowData = objectToRow(headers, updated);
+
+      return {
+        range: `${sheetName}!A${actualRow}:AZ${actualRow}`,
+        values: [rowData]
+      };
+    }));
+
+    // Batch update all matching rows
+    await sheets.spreadsheets.values.batchUpdate({
+      spreadsheetId: O2D_SPREADSHEET_ID,
+      requestBody: {
+        valueInputOption: 'RAW',
+        data: updates
+      }
+    });
+
+    return { partyId, ...followUpData };
+  } catch (error) {
+    console.error('Error updating O2D follow-up:', error);
+    throw error;
+  }
+}
+
+// Delete a single O2D item by row ID (for Details view)
+export async function deleteO2DItem(itemId: number) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = SHEETS.O2D;
+
+    // Find the row with this ID
+    const idRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: O2D_SPREADSHEET_ID,
+      range: `${sheetName}!A:A`, // A is id
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+    const ids = idRes.data.values || [];
+
+    const rowIndex = ids.findIndex(row => parseInt(row[0]) === itemId);
+
+    if (rowIndex === -1) throw new Error('O2D Item not found');
+
+    const sheetId = await getSheetId(sheets, O2D_SPREADSHEET_ID, sheetName);
+
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: O2D_SPREADSHEET_ID,
+      requestBody: {
+        requests: [{
+          deleteDimension: {
+            range: {
+              sheetId,
+              dimension: 'ROWS',
+              startIndex: rowIndex,
+              endIndex: rowIndex + 1
+            }
+          }
+        }]
+      }
+    });
+
+    return { itemId };
+  } catch (error) {
+    console.error('Error deleting O2D item:', error);
+    throw error;
+  }
+}
+
+// Update a single O2D item by row ID (for Details view)
+export async function updateO2DItem(itemId: number, itemData: any) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = SHEETS.O2D;
+
+    // Get headers
+    const headersRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: O2D_SPREADSHEET_ID,
+      range: `${sheetName}!A1:AZ1`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+    const headers = headersRes.data.values?.[0];
+    if (!headers) throw new Error('Headers not found');
+
+    // Find the row with this ID
+    const idRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: O2D_SPREADSHEET_ID,
+      range: `${sheetName}!A:A`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+    const ids = idRes.data.values || [];
+    const rowIndex = ids.findIndex(row => parseInt(row[0]) === itemId);
+
+    if (rowIndex === -1) throw new Error('O2D Item not found');
+    const actualRow = rowIndex + 1;
+
+    // Get existing row data
+    const rowRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: O2D_SPREADSHEET_ID,
+      range: `${sheetName}!A${actualRow}:AZ${actualRow}`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+    const existing = rowToObject(headers, rowRes.data.values?.[0] || []);
+
+    // Calculate Total Cost if Item Cost is provided
+    const itemCost = itemData['Item Cost'] || existing['Item Cost'];
+    const qty = existing.quantity || 0;
+    let totalCost = existing['Total Cost'];
+
+    if (itemCost !== undefined && itemCost !== null && itemCost !== '') {
+      const costNum = parseFloat(itemCost);
+      const qtyNum = parseFloat(qty);
+      if (!isNaN(costNum) && !isNaN(qtyNum)) {
+        totalCost = (costNum * qtyNum).toString();
+      }
+    } else if (itemCost === '' || itemCost === null) {
+      totalCost = '';
+    }
+
+    // Update all provided fields, keep id and party_id unchanged
+    const updated = {
+      ...existing,
+      ...itemData,
+      'Total Cost': totalCost,
+      id: existing.id, // Preserve original id
+      party_id: existing.party_id, // Preserve original party_id
+      created_at: existing.created_at, // Preserve original created_at
+      // Map qty to quantity if provided
+      quantity: itemData.qty || itemData.quantity || existing.quantity,
+    };
+
+    const rowData = objectToRow(headers, updated);
+
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: O2D_SPREADSHEET_ID,
+      range: `${sheetName}!A${actualRow}:AZ${actualRow}`,
       valueInputOption: 'RAW',
       requestBody: { values: [rowData] },
     });
 
-    return newOrder;
+    return updated;
   } catch (error) {
-    console.error('Error creating O2D order:', error);
+    console.error('Error updating O2D item:', error);
     throw error;
   }
 }
@@ -3077,6 +3708,28 @@ async function getSheetId(sheets: any, spreadsheetId: string, sheetTitle: string
   const response = await sheets.spreadsheets.get({ spreadsheetId });
   const sheet = response.data.sheets?.find((s: any) => s.properties?.title === sheetTitle);
   return sheet?.properties?.sheetId || 0;
+}
+
+// Get costing items from Costing sheet
+export async function getCostingItems() {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = 'Costing';
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: O2D_SPREADSHEET_ID,
+      range: `${sheetName}!A2:A`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) return [];
+
+    return rows.map(row => row[0]).filter(item => item && item.trim() !== '');
+  } catch (error) {
+    console.error('Error fetching costing items:', error);
+    return [];
+  }
 }
 
 // NBD INCOMING CRUD OPERATIONS
@@ -3089,6 +3742,7 @@ export async function getNBDIncomings() {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: NBD_SPREADSHEET_ID,
       range: `${sheetName}!A:Z`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
     const rows = response.data.values;
@@ -3118,6 +3772,7 @@ export async function createNBDIncoming(data: any) {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: NBD_SPREADSHEET_ID,
       range: `${sheetName}!A1:Z1`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
     let headers = response.data.values?.[0] || [];
@@ -3140,14 +3795,15 @@ export async function createNBDIncoming(data: any) {
     const allData = await sheets.spreadsheets.values.get({
       spreadsheetId: NBD_SPREADSHEET_ID,
       range: `${sheetName}!A:A`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
     const newId = (allData.data.values || []).length;
 
     const newNBD = {
       id: newId,
       ...data,
-      created_at: formatDateTime(new Date()),
-      updated_at: formatDateTime(new Date())
+      created_at: formatToSheetDate(new Date()),
+      updated_at: formatToSheetDate(new Date())
     };
 
     const rowData = objectToRow(headers, newNBD);
@@ -3174,6 +3830,7 @@ export async function updateNBDIncoming(id: number, data: any) {
     const headersRes = await sheets.spreadsheets.values.get({
       spreadsheetId: NBD_SPREADSHEET_ID,
       range: `${sheetName}!A1:Z1`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
     const headers = headersRes.data.values?.[0];
     if (!headers) throw new Error('Headers not found');
@@ -3181,6 +3838,7 @@ export async function updateNBDIncoming(id: number, data: any) {
     const idRes = await sheets.spreadsheets.values.get({
       spreadsheetId: NBD_SPREADSHEET_ID,
       range: `${sheetName}!A:A`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
     const ids = idRes.data.values || [];
     const rowIndex = ids.findIndex(row => parseInt(row[0]) == id);
@@ -3192,13 +3850,14 @@ export async function updateNBDIncoming(id: number, data: any) {
     const rowRes = await sheets.spreadsheets.values.get({
       spreadsheetId: NBD_SPREADSHEET_ID,
       range: `${sheetName}!A${actualRow}:Z${actualRow}`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
     const existing = rowToObject(headers, rowRes.data.values?.[0] || []);
 
     const updated = {
       ...existing,
       ...data,
-      updated_at: formatDateTime(new Date())
+      updated_at: formatToSheetDate(new Date())
     };
 
     const rowData = objectToRow(headers, updated);
@@ -3225,6 +3884,7 @@ export async function deleteNBDIncoming(id: number) {
     const idRes = await sheets.spreadsheets.values.get({
       spreadsheetId: NBD_SPREADSHEET_ID,
       range: `${sheetName}!A:A`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
     const ids = idRes.data.values || [];
     const rowIndex = ids.findIndex(row => parseInt(row[0]) == id);
@@ -3266,6 +3926,7 @@ export async function getCRRs() {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: NBD_SPREADSHEET_ID,
       range: `${sheetName}!A:Z`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
     const rows = response.data.values;
@@ -3295,6 +3956,7 @@ export async function createCRR(data: any) {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: NBD_SPREADSHEET_ID,
       range: `${sheetName}!A1:Z1`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
     let headers = response.data.values?.[0] || [];
@@ -3317,14 +3979,15 @@ export async function createCRR(data: any) {
     const allData = await sheets.spreadsheets.values.get({
       spreadsheetId: NBD_SPREADSHEET_ID,
       range: `${sheetName}!A:A`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
     const newId = (allData.data.values || []).length;
 
     const newCRR = {
       id: newId,
       ...data,
-      created_at: formatDateTime(new Date()),
-      updated_at: formatDateTime(new Date())
+      created_at: formatToSheetDate(new Date()),
+      updated_at: formatToSheetDate(new Date())
     };
 
     const rowData = objectToRow(headers, newCRR);
@@ -3351,6 +4014,7 @@ export async function updateCRR(id: number, data: any) {
     const headersRes = await sheets.spreadsheets.values.get({
       spreadsheetId: NBD_SPREADSHEET_ID,
       range: `${sheetName}!A1:Z1`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
     const headers = headersRes.data.values?.[0];
     if (!headers) throw new Error('Headers not found');
@@ -3358,6 +4022,7 @@ export async function updateCRR(id: number, data: any) {
     const idRes = await sheets.spreadsheets.values.get({
       spreadsheetId: NBD_SPREADSHEET_ID,
       range: `${sheetName}!A:A`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
     const ids = idRes.data.values || [];
     const rowIndex = ids.findIndex(row => parseInt(row[0]) == id);
@@ -3369,13 +4034,14 @@ export async function updateCRR(id: number, data: any) {
     const rowRes = await sheets.spreadsheets.values.get({
       spreadsheetId: NBD_SPREADSHEET_ID,
       range: `${sheetName}!A${actualRow}:Z${actualRow}`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
     const existing = rowToObject(headers, rowRes.data.values?.[0] || []);
 
     const updated = {
       ...existing,
       ...data,
-      updated_at: formatDateTime(new Date())
+      updated_at: formatToSheetDate(new Date())
     };
 
     const rowData = objectToRow(headers, updated);
@@ -3402,6 +4068,7 @@ export async function deleteCRR(id: number) {
     const idRes = await sheets.spreadsheets.values.get({
       spreadsheetId: NBD_SPREADSHEET_ID,
       range: `${sheetName}!A:A`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
     });
     const ids = idRes.data.values || [];
     const rowIndex = ids.findIndex(row => parseInt(row[0]) == id);
@@ -3429,6 +4096,123 @@ export async function deleteCRR(id: number) {
     return { id };
   } catch (error) {
     console.error('Error deleting CRR:', error);
+    throw error;
+  }
+}
+
+// O2D CONFIGURATION OPERATIONS
+
+const O2D_CONFIG_SHEET_NAME = 'Step Configuration';
+
+export async function getO2DStepConfig() {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = O2D_CONFIG_SHEET_NAME;
+
+    // Try to read to ensure sheet exists
+    try {
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId: O2D_SPREADSHEET_ID,
+        range: `${sheetName}!A:E`,
+        valueRenderOption: 'UNFORMATTED_VALUE',
+      });
+
+      const rows = response.data.values;
+      if (!rows || rows.length <= 1) {
+        return [];
+      }
+
+      const headers = rows[0];
+      const dataRows = rows.slice(1);
+
+      // Map row to object using existing helper (implicitly available in scope)
+      // Note: rowToObject is internal function in this file
+      const config = dataRows.map(row => {
+        // Simple mapping based on known columns to avoid snake_case/camelCase confusion
+        // headers: step, step_name, doer_name, tat_value, tat_unit
+        // row indices: 0, 1, 2, 3, 4
+        return {
+          step: parseInt(row[0]),
+          stepName: row[1],
+          doerName: row[2],
+          tatValue: parseInt(row[3]),
+          tatUnit: row[4]
+        };
+      }).sort((a, b) => a.step - b.step);
+
+      return config;
+    } catch (error: any) {
+      if (error.code === 400 || error.message?.includes('Unable to parse range')) {
+        return [];
+      }
+      throw error;
+    }
+  } catch (error) {
+    console.error('Error fetching O2D config step:', error);
+    // Return empty if error to avoid crashing UI
+    return [];
+  }
+}
+
+export async function updateO2DStepConfig(config: any[]) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = O2D_CONFIG_SHEET_NAME;
+
+    // Headers
+    const headers = ['step', 'step_name', 'doer_name', 'tat_value', 'tat_unit'];
+
+    // Check if sheet exists by trying to get A1
+    try {
+      await sheets.spreadsheets.values.get({
+        spreadsheetId: O2D_SPREADSHEET_ID,
+        range: `${sheetName}!A1`,
+      });
+    } catch (error: any) {
+      if (error.code === 400 || error.message?.includes('Unable to parse range')) {
+        // Create sheet
+        await sheets.spreadsheets.batchUpdate({
+          spreadsheetId: O2D_SPREADSHEET_ID,
+          requestBody: {
+            requests: [{
+              addSheet: {
+                properties: {
+                  title: sheetName,
+                  gridProperties: {
+                    frozenRowCount: 1
+                  }
+                }
+              }
+            }]
+          }
+        });
+      } else {
+        throw error;
+      }
+    }
+
+    // Format rows
+    const rows = config.map(c => [
+      c.step,
+      c.stepName,
+      c.doerName,
+      c.tatValue,
+      c.tatUnit
+    ]);
+
+    // Update data
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: O2D_SPREADSHEET_ID,
+      range: `${sheetName}!A1`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [headers, ...rows]
+      }
+    });
+
+    return true;
+  } catch (error) {
+    console.error('Error updating O2D config:', error);
     throw error;
   }
 }

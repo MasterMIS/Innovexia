@@ -147,10 +147,10 @@ export default function DateRangePicker({ fromDate, toDate, onRangeChange }: Dat
                                 type="button"
                                 onClick={() => handleDateClick(date)}
                                 className={`p-2 text-sm rounded-lg transition ${isSelected
-                                        ? 'bg-[var(--theme-primary)] text-gray-900 font-bold shadow-md'
-                                        : isInRange
-                                            ? 'bg-yellow-100 dark:bg-yellow-900/30 text-gray-900 dark:text-white font-semibold'
-                                            : 'hover:bg-[var(--theme-lighter)] dark:hover:bg-gray-700 text-gray-900 dark:text-white'
+                                    ? 'bg-[var(--theme-primary)] text-gray-900 font-bold shadow-md'
+                                    : isInRange
+                                        ? 'bg-yellow-100 dark:bg-yellow-900/30 text-gray-900 dark:text-white font-semibold'
+                                        : 'hover:bg-[var(--theme-lighter)] dark:hover:bg-gray-700 text-gray-900 dark:text-white'
                                     }`}
                             >
                                 {day}
@@ -167,10 +167,10 @@ export default function DateRangePicker({ fromDate, toDate, onRangeChange }: Dat
             <button
                 type="button"
                 onClick={() => setShowPicker(!showPicker)}
-                className="w-full px-3 py-2 bg-[var(--theme-lighter)] dark:bg-gray-700 border-0 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-[var(--theme-primary)] transition text-left flex items-center justify-between"
+                className="w-full px-4 py-2.5 bg-[var(--theme-lighter)] dark:bg-gray-700/50 rounded-xl font-semibold text-gray-900 dark:text-white placeholder:text-gray-400 focus:ring-2 focus:ring-[var(--theme-primary)] transition-all text-sm border-0 flex items-center justify-between"
             >
                 <span>{formatDisplayDate()}</span>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
             </button>
@@ -179,7 +179,7 @@ export default function DateRangePicker({ fromDate, toDate, onRangeChange }: Dat
                 <div className="fixed inset-0 z-[9996] flex items-center justify-center p-4">
                     {/* Backdrop */}
                     <motion.div
-                        className="absolute inset-0 bg-black/50"
+                        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
@@ -188,18 +188,18 @@ export default function DateRangePicker({ fromDate, toDate, onRangeChange }: Dat
 
                     {/* Modal */}
                     <motion.div
-                        className="relative z-[9997] bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 max-w-[90vw]"
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.9 }}
+                        className="relative z-[9997] bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-8 max-w-[90vw] border border-gray-200 dark:border-gray-700"
+                        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 20 }}
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="flex gap-6 flex-wrap justify-center">
+                        <div className="flex gap-10 flex-wrap justify-center">
                             {renderCalendar(currentMonth1, setCurrentMonth1, true)}
                             {renderCalendar(currentMonth2, setCurrentMonth2, false)}
                         </div>
 
-                        <div className="mt-4 flex gap-2 border-t border-gray-200 dark:border-gray-700 pt-4">
+                        <div className="mt-8 flex gap-3 border-t border-gray-100 dark:border-gray-700 pt-6">
                             <button
                                 type="button"
                                 onClick={() => {
@@ -209,17 +209,17 @@ export default function DateRangePicker({ fromDate, toDate, onRangeChange }: Dat
                                     onRangeChange('', '');
                                     setShowPicker(false);
                                 }}
-                                className="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white text-sm font-semibold rounded-lg transition"
+                                className="px-6 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 text-[10px] font-bold text-gray-400 uppercase tracking-widest hover:bg-gray-50 dark:hover:bg-gray-700 transition-all hover:text-gray-600"
                             >
-                                Clear
+                                Clear Range
                             </button>
                             <button
                                 type="button"
                                 onClick={handleApply}
                                 disabled={!startDate || !endDate}
-                                className="flex-1 px-4 py-2 bg-[var(--theme-primary)] hover:bg-[var(--theme-secondary)] text-gray-900 text-sm font-bold rounded-lg transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="flex-1 py-2.5 rounded-xl bg-gray-900 text-white dark:bg-white dark:text-gray-900 text-[10px] font-bold uppercase tracking-widest shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                Apply
+                                Apply Date Range
                             </button>
                         </div>
                     </motion.div>

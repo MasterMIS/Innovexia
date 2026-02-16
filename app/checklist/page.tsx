@@ -8,6 +8,7 @@ import { ensureSessionId } from '@/utils/session';
 import { useToast } from '@/components/ToastProvider';
 import { useLoader } from '@/components/LoaderProvider';
 import DateRangePicker from '@/components/DateRangePicker';
+import { formatDateToLocalTimezone } from '@/utils/timezone';
 
 interface Checklist {
   id: number;
@@ -240,11 +241,7 @@ function ChecklistContent() {
     return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
   };
 
-  const formatDateToLocalTimezone = (dateString: string) => {
-    if (!dateString) return '';
-    // Backend already returns in dd/mm/yyyy HH:mm:ss format, just return as-is
-    return dateString;
-  };
+
 
   // Format date for form input display (uses local time as selected by user)
   const formatDateForInput = (dateString: string) => {
@@ -713,18 +710,18 @@ function ChecklistContent() {
       return;
     }
 
-    // Check if attachment is required but not provided (only for approval_waiting status)
-    if (selectedChecklist.attachment_required && taskStatus === 'approval_waiting' && !attachmentFile) {
-      toast.error('Please attach the required file for Approval Waiting status');
+    // Check if attachment is required but not provided (for approval_waiting OR completed)
+    if (selectedChecklist.attachment_required && (taskStatus === 'approval_waiting' || taskStatus === 'completed') && !attachmentFile) {
+      toast.error(`Please attach the required file for ${taskStatus === 'approval_waiting' ? 'Approval Waiting' : 'Completed'} status`);
       return;
     }
 
     try {
       loader.showLoader();
 
-      // Upload attachment if required and file is selected (only for approval_waiting status)
+      // Upload attachment if file is selected (for ANY status update where file is provided)
       let attachmentUrl = null;
-      if (selectedChecklist.attachment_required && taskStatus === 'approval_waiting' && attachmentFile) {
+      if (attachmentFile) {
         setUploadingAttachment(true);
         const formData = new FormData();
         formData.append('file', attachmentFile);
@@ -4275,37 +4272,8 @@ function ChecklistContent() {
                       </div>
 
                       {/* Existing Attachments */}
-                      {(selectedChecklist as any).attachment_url && (
-                        <div>
-                          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                            📎 Existing Attachment
-                          </label>
-                          <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-200 dark:border-green-700 rounded-xl p-3">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2 flex-1">
-                                <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                </svg>
-                                <div className="flex-1">
-                                  <p className="text-sm font-medium text-gray-900 dark:text-white">Uploaded Document</p>
-                                  <p className="text-xs text-gray-600 dark:text-gray-400">Click to view in new tab</p>
-                                </div>
-                              </div>
-                              <a
-                                href={(selectedChecklist as any).attachment_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="p-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition flex items-center gap-1"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                </svg>
-                                <span className="text-xs font-semibold">Open</span>
-                              </a>
-                            </div>
-                          </div>
-                        </div>
-                      )}
+                      {/* Existing Attachments - REMOVED as we now only track in history */}
+
 
                       {selectedChecklist.attachment_required && (
                         <div>
@@ -4393,7 +4361,7 @@ function ChecklistContent() {
                           <div key={index} className="bg-[var(--theme-lighter)] dark:bg-gray-700 rounded-lg p-4">
                             <div className="flex justify-between items-start mb-2">
                               <p className="font-semibold text-sm text-gray-900 dark:text-white">{remark.username}</p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">{remark.created_at}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">{formatDateToLocalTimezone(remark.created_at)}</p>
                             </div>
                             <p className="text-sm text-gray-700 dark:text-gray-300">{remark.remark}</p>
                           </div>
@@ -4417,7 +4385,7 @@ function ChecklistContent() {
                           <div key={index} className="bg-[var(--theme-light)] dark:bg-gray-700 rounded-lg p-4 border-l-4 border-[var(--theme-primary)]">
                             <div className="flex justify-between items-start mb-2">
                               <p className="font-semibold text-sm text-gray-900 dark:text-white">Status Changed by {history.username}</p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">{history.timestamp}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">{formatDateToLocalTimezone(history.timestamp)}</p>
                             </div>
                             <div className="text-xs space-y-1">
                               <p className="text-gray-700 dark:text-gray-300">
