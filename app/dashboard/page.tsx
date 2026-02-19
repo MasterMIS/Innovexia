@@ -45,6 +45,7 @@ export default function Dashboard() {
   const [recentCheckIns, setRecentCheckIns] = useState<any[]>([]);
   const [upcomingLeaves, setUpcomingLeaves] = useState<any[]>([]);
   const [companyStats, setCompanyStats] = useState({ score: 0, onTime: 0 });
+  const [helpTickets, setHelpTickets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -62,13 +63,14 @@ export default function Dashboard() {
         }
 
         // 2. Fetch Data
-        const [usersRes, delRes, checkRes, o2dRes, configRes, attMasterRes] = await Promise.all([
+        const [usersRes, delRes, checkRes, o2dRes, configRes, attMasterRes, ticketsRes] = await Promise.all([
           fetch('/api/users', { headers }),
           fetch('/api/delegations', { headers }),
           fetch('/api/checklists', { headers }),
           fetch('/api/o2d', { headers }),
           fetch('/api/o2d-config', { headers }),
-          fetch('/api/attendance/master', { headers })
+          fetch('/api/attendance/master', { headers }),
+          fetch('/api/helpdesk', { headers })
         ]);
 
         const usersData = await usersRes.json();
@@ -77,12 +79,21 @@ export default function Dashboard() {
         const o2dData = await o2dRes.json();
         const configData = await configRes.json();
         const attMasterData = await attMasterRes.json();
+        const ticketsData = await ticketsRes.json();
 
         const allUsers = usersData.users || [];
         const allDelegations = delData.delegations || [];
         const allChecklists = checkData.checklists || [];
         const allO2DOrders = Array.isArray(o2dData) ? o2dData : [];
         const o2dConfig = configData.config || [];
+
+        // Filter open tickets (exclude closed/resolved)
+        const allTickets = Array.isArray(ticketsData) ? ticketsData : [];
+        const openTickets = allTickets.filter((t: any) => {
+          const s = (t.status || '').toLowerCase();
+          return s !== 'closed' && s !== 'resolved';
+        });
+        setHelpTickets(openTickets);
 
         // 3. Scoring logic (Current Month)
         const currentMonthStart = new Date();
@@ -569,7 +580,44 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Bottom Section: Activity Feeds & Fast Access */}
+        {/* Quick Actions Row */}
+        <div>
+          <h2 className="text-sm font-black text-slate-800 dark:text-white mb-3 flex items-center gap-2">
+            <span className="p-1 bg-violet-600 rounded text-white text-[10px]">⚡</span>
+            Quick Actions
+          </h2>
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+            {[
+              { label: 'Delegation', icon: '📋', color: 'from-blue-500 to-blue-700', link: '/delegation', desc: 'Task Flow' },
+              { label: 'Sales CRM', icon: '💼', color: 'from-indigo-500 to-indigo-700', link: '/lead-to-sales', desc: 'Leads' },
+              { label: 'NBD Ops', icon: '⚙️', color: 'from-emerald-500 to-teal-700', link: '/nbd', desc: 'Operations' },
+              { label: 'Team', icon: '👥', color: 'from-rose-500 to-pink-700', link: '/users', desc: 'Users' },
+              { label: 'Collection', icon: '💳', color: 'from-amber-500 to-orange-700', link: '/collection', desc: 'Ledger' },
+              { label: 'Orders', icon: '📦', color: 'from-purple-500 to-purple-700', link: '/o2d', desc: 'O2D Log' },
+            ].map((action, i) => (
+              <motion.a
+                key={i}
+                href={action.link}
+                whileHover={{ y: -3, scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                className="group relative rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300"
+              >
+                <div className={`absolute inset-0 bg-gradient-to-br ${action.color} opacity-[0.07] group-hover:opacity-[0.14] transition-opacity duration-300`}></div>
+                <div className="relative bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl p-3 flex flex-col items-center gap-2 text-center h-full">
+                  <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${action.color} flex items-center justify-center text-xl shadow-md group-hover:scale-110 group-hover:rotate-6 transition-all duration-300`}>
+                    {action.icon}
+                  </div>
+                  <div>
+                    <p className="text-xs font-black text-slate-800 dark:text-white leading-tight">{action.label}</p>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{action.desc}</p>
+                  </div>
+                </div>
+              </motion.a>
+            ))}
+          </div>
+        </div>
+
+        {/* Bottom Section: Activity Feeds & Help Tickets */}
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
 
           {/* Live Activity */}
@@ -631,7 +679,7 @@ export default function Dashboard() {
           </div>
 
           {/* Leave Monitor */}
-          <div className="xl:col-span-5">
+          <div className="xl:col-span-4">
             <div className="bg-white dark:bg-slate-800 rounded-[1.25rem] shadow-sm border border-slate-100 dark:border-slate-700/50 overflow-hidden h-64 flex flex-col">
               <div className="p-3 border-b border-slate-50 dark:border-slate-700 bg-slate-50/30 dark:bg-slate-800/50 flex justify-between items-center">
                 <div>
@@ -699,32 +747,73 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Fast Access */}
-          <div className="xl:col-span-3">
-            <div className="grid grid-cols-2 gap-2 h-64 overflow-y-auto custom-scrollbar">
-              {[
-                { label: 'Delegation', icon: '📋', color: 'bg-blue-600', link: '/delegation', desc: 'Flow' },
-                { label: 'Sales', icon: '💼', color: 'bg-indigo-600', link: '/lead-to-sales', desc: 'CRM' },
-                { label: 'Ops', icon: '⚙️', color: 'bg-emerald-600', link: '/nbd', desc: 'Dev' },
-                { label: 'Users', icon: '👥', color: 'bg-rose-600', link: '/users', desc: 'Team' },
-                { label: 'Collection', icon: '💳', color: 'bg-amber-600', link: '/collection', desc: 'Ledger' },
-                { label: 'Order', icon: '📦', color: 'bg-purple-600', link: '/o2d', desc: 'Log' },
-              ].map((action, i) => (
-                <motion.a
-                  key={i}
-                  href={action.link}
-                  whileHover={{ y: -2, scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="group relative h-[78px] rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all"
-                >
-                  <div className={`absolute inset-0 ${action.color} opacity-5 group-hover:opacity-10 transition-opacity`}></div>
-                  <div className="absolute top-1 right-1 text-xl">{action.icon}</div>
-                  <div className="absolute bottom-2 left-2">
-                    <p className="text-xs font-black text-slate-800 dark:text-white leading-none mb-0.5">{action.label}</p>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{action.desc}</p>
-                  </div>
-                </motion.a>
-              ))}
+          {/* Help Tickets */}
+          <div className="xl:col-span-4">
+            <div className="bg-white dark:bg-slate-800 rounded-[1.25rem] shadow-sm border border-slate-100 dark:border-slate-700/50 overflow-hidden h-64 flex flex-col">
+              <div className="p-3 border-b border-slate-50 dark:border-slate-700 bg-slate-50/30 dark:bg-slate-800/50 flex justify-between items-center">
+                <div>
+                  <h2 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                    <span className="w-5 h-5 bg-rose-500 rounded-md flex items-center justify-center text-[10px] text-white shadow-sm">🎫</span>
+                    Help Tickets
+                  </h2>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Open Requests</p>
+                </div>
+                <a href="/helpdesk" className="px-3 py-1 text-[10px] font-black text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all">
+                  View All
+                </a>
+              </div>
+              <div className="overflow-x-auto flex-grow custom-scrollbar">
+                <table className="w-full text-left">
+                  <thead className="text-[10px] font-black uppercase tracking-widest text-slate-400 sticky top-0 bg-white dark:bg-slate-800 z-10">
+                    <tr>
+                      <th className="px-3 py-2">Ticket</th>
+                      <th className="px-3 py-2">Subject</th>
+                      <th className="px-3 py-2">Priority</th>
+                      <th className="px-3 py-2 text-right">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50 dark:divide-slate-700/50">
+                    {helpTickets.slice(0, 8).map((ticket: any, idx: number) => (
+                      <tr key={idx} className="hover:bg-rose-50/30 dark:hover:bg-slate-700/30 transition-colors group">
+                        <td className="px-3 py-2">
+                          <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 whitespace-nowrap">{ticket.ticket_number || `#${idx + 1}`}</span>
+                        </td>
+                        <td className="px-3 py-2">
+                          <p className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate max-w-[130px]" title={ticket.subject}>{ticket.subject || 'N/A'}</p>
+                          <p className="text-[9px] text-slate-400 truncate max-w-[130px]">{ticket.raised_by_name || ticket.raisedByName || ''}</p>
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tighter border ${(ticket.priority || '').toLowerCase() === 'high' || (ticket.priority || '').toLowerCase() === 'critical'
+                            ? 'bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800'
+                            : (ticket.priority || '').toLowerCase() === 'medium'
+                              ? 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800'
+                              : 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-700 dark:text-slate-400 dark:border-slate-600'
+                            }`}>
+                            {ticket.priority || 'Low'}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tighter border ${(ticket.status || '').toLowerCase() === 'in-progress' || (ticket.status || '').toLowerCase() === 'in progress'
+                            ? 'bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-400 dark:border-indigo-800'
+                            : (ticket.status || '').toLowerCase() === 'raised'
+                              ? 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800'
+                              : 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800'
+                            }`}>
+                            {ticket.status || 'Raised'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                    {helpTickets.length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="px-3 py-10 text-center">
+                          <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">No open tickets 🎉</p>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>

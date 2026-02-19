@@ -17,6 +17,7 @@ export const SPREADSHEET_IDS = {
   NBD: '1T6y8oSCZKCcZ50WrXEYyQcsOfh2hAGzZK4hQehCwhS8',
   O2D: '1mKIdZK0ZKNsN7qHY675FN6fjLwD2TxyBowXsHDDWwkc',
   ATTENDANCE: '1oNRk7oTfnXiJWBq0lv6dW60kHcQfEV8WQEixFBOe-CM',
+  IMS_RM: '14LsUe3pIiEciM1WrAmtWn-VHdkCP9-85-RspslJzq00',
 };
 
 // Backward compatibility
@@ -26,6 +27,7 @@ const NOTIFICATIONS_SPREADSHEET_ID = SPREADSHEET_IDS.NOTIFICATIONS;
 const NBD_SPREADSHEET_ID = SPREADSHEET_IDS.NBD;
 const O2D_SPREADSHEET_ID = SPREADSHEET_IDS.O2D;
 const ATTENDANCE_SPREADSHEET_ID = SPREADSHEET_IDS.ATTENDANCE;
+const IMS_RM_SPREADSHEET_ID = SPREADSHEET_IDS.IMS_RM;
 
 // Local wrapper removed in favor of shared formatToSheetDate
 
@@ -3018,6 +3020,144 @@ export async function createNBD(data: any) {
     return newNBD;
   } catch (error) {
     console.error('Error creating NBD:', error);
+    throw error;
+  }
+}
+
+// IMS RM OPERATIONS
+
+export async function getIMSRMData(sheetName: string) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: IMS_RM_SPREADSHEET_ID,
+      range: `${sheetName}!A:Z`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) return [];
+
+    const headers = rows[0];
+    const dataRows = rows.slice(1);
+
+    const data = dataRows
+      .map(row => rowToObject(headers, row))
+      .filter(item => Object.values(item).some(val => val !== null && val !== ''));
+
+    return data;
+  } catch (error) {
+    console.error(`Error fetching IMS RM data for sheet ${sheetName}:`, error);
+    throw error;
+  }
+}
+
+// Cache for headers to speed up submissions
+const imsHeadersCache = new Map<string, string[]>();
+
+export async function submitIMSPartyDetails(data: any) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = 'Submit Party Details';
+
+    let headers = imsHeadersCache.get(sheetName);
+
+    if (!headers) {
+      // Get headers to ensure we match the columns
+      const headerResponse = await sheets.spreadsheets.values.get({
+        spreadsheetId: IMS_RM_SPREADSHEET_ID,
+        range: `${sheetName}!A1:Z1`,
+        valueRenderOption: 'UNFORMATTED_VALUE',
+      });
+
+      headers = headerResponse.data.values?.[0];
+
+      if (!headers || headers.length === 0) {
+        // Define default headers if sheet is empty
+        headers = [
+          'id', 'item_code', 'item_name', 'party_name', 'party_address',
+          'gstin_uin', 'hsn_code_sac_code', 'average_daily_consumption',
+          'lead_time_from_indent_to_receipt', 'safety_factor', 'moq', 'max_level',
+          'submitted_at'
+        ];
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: IMS_RM_SPREADSHEET_ID,
+          range: `${sheetName}!A1`,
+          valueInputOption: 'RAW',
+          requestBody: { values: [headers] },
+        });
+      }
+      imsHeadersCache.set(sheetName, headers);
+    }
+
+    // Prepare the row data
+    const rowData = headers.map(header => data[header] || '');
+
+    // Append to the sheet
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: IMS_RM_SPREADSHEET_ID,
+      range: `${sheetName}!A:Z`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [rowData] },
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error submitting IMS Party Details:', error);
+    throw error;
+  }
+}
+
+export async function confirmIMSRMOrder(data: any) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = 'Confirmed Order';
+
+    let headers = imsHeadersCache.get(sheetName);
+
+    if (!headers) {
+      const headerResponse = await sheets.spreadsheets.values.get({
+        spreadsheetId: IMS_RM_SPREADSHEET_ID,
+        range: `${sheetName}!A1:Z1`,
+        valueRenderOption: 'UNFORMATTED_VALUE',
+      });
+
+      headers = headerResponse.data.values?.[0];
+
+      if (!headers || headers.length === 0) {
+        headers = [
+          'id', 'timestamp', 'sku_code', 'item_name', 'party_name',
+          'average_daily_consumption', 'lead_time_from_indent_to_receipt',
+          'safety_factor', 'moq', 'max_level', 'material_in_transit', 'live_stock'
+        ];
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: IMS_RM_SPREADSHEET_ID,
+          range: `${sheetName}!A1`,
+          valueInputOption: 'RAW',
+          requestBody: { values: [headers] },
+        });
+      }
+      imsHeadersCache.set(sheetName, headers);
+    }
+
+    // Prepare the row data
+    const rowData = headers.map(header => {
+      if (header === 'timestamp') return new Date().toISOString();
+      return data[header] || '';
+    });
+
+    // Append to the sheet
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: IMS_RM_SPREADSHEET_ID,
+      range: `${sheetName}!A:Z`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [rowData] },
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error confirming IMS order:', error);
     throw error;
   }
 }
