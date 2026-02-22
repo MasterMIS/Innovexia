@@ -272,6 +272,8 @@ export default function ScorePage() {
         const dDate = parseDateString(due_date);
         const uDate = parseDateString(updated_at);
         if (!dDate || !uDate) return false;
+        // Allow completion on the due date itself as on-time (set due date to end of day)
+        dDate.setHours(23, 59, 59, 999);
         return uDate.getTime() <= dDate.getTime();
     };
 
@@ -304,10 +306,10 @@ export default function ScorePage() {
             });
 
             const completedDelegations = userDelegations.filter(d => d.status.toLowerCase() === 'completed');
-            const onTimeDelegations = completedDelegations.filter(d => isOnTime(d.due_date, d.updated_at));
+            const onTimeDelegations = userDelegations.filter(d => isOnTime(d.due_date, d.updated_at));
 
             const completedChecklists = userChecklists.filter(c => c.status.toLowerCase() === 'completed');
-            const onTimeChecklists = completedChecklists.filter(c => isOnTime(c.due_date, c.updated_at));
+            const onTimeChecklists = userChecklists.filter(c => isOnTime(c.due_date, c.updated_at));
 
             // Calculate O2D Stats
             const userO2DItems: O2DTaskData[] = [];
@@ -343,7 +345,8 @@ export default function ScorePage() {
                                     status = 'Pending';
                                 } else {
                                     if (plannedDate) {
-                                        status = new Date(actualDate).getTime() <= new Date(plannedDate).getTime() ? 'On Time' : 'Delayed';
+                                        const plannedEnd = new Date(plannedDate); plannedEnd.setHours(23, 59, 59, 999);
+                                        status = new Date(actualDate).getTime() <= plannedEnd.getTime() ? 'On Time' : 'Delayed';
                                     } else {
                                         status = 'On Time';
                                     }
@@ -377,12 +380,12 @@ export default function ScorePage() {
             // Trend calculation
             const periods = getChartPeriods(filterType, dateRange);
             const trendData = periods.map(p => {
-                const pDels = completedDelegations.filter(d => isTaskInRange(d.due_date, d.updated_at, p.from, p.to));
-                const pDelTotal = userDelegations.filter(d => isTaskInRange(d.due_date, d.updated_at, p.from, p.to)).length;
+                const pDels = userDelegations.filter(d => isTaskInRange(d.due_date, d.updated_at, p.from, p.to));
+                const pDelTotal = pDels.length;
                 const pDelOnTime = pDels.filter(d => isOnTime(d.due_date, d.updated_at)).length;
 
-                const pChecks = completedChecklists.filter(c => isTaskInRange(c.due_date, c.updated_at, p.from, p.to));
-                const pCheckTotal = userChecklists.filter(c => isTaskInRange(c.due_date, c.updated_at, p.from, p.to)).length;
+                const pChecks = userChecklists.filter(c => isTaskInRange(c.due_date, c.updated_at, p.from, p.to));
+                const pCheckTotal = pChecks.length;
                 const pCheckOnTime = pChecks.filter(c => isOnTime(c.due_date, c.updated_at)).length;
 
                 const pO2D = completedO2D.filter(o => isTaskInRange(o.planned_date || '', o.actual_date || '', p.from, p.to));
@@ -390,7 +393,7 @@ export default function ScorePage() {
                 const pO2DOnTime = pO2D.filter(o => o.status === 'On Time').length;
 
                 const pTotal = pDelTotal + pCheckTotal + pO2DTotal;
-                const pCompleted = pDels.length + pChecks.length + pO2D.length;
+                const pCompleted = pDels.filter(d => d.status.toLowerCase() === 'completed').length + pChecks.filter(c => c.status.toLowerCase() === 'completed').length + pO2D.length;
                 const pOnTime = pDelOnTime + pCheckOnTime + pO2DOnTime;
 
                 return {

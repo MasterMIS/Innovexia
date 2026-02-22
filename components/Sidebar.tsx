@@ -42,6 +42,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
         { label: 'NBD Incoming', icon: 'clipboard', href: '/nbd-incoming', roles: ['Admin', 'Manager'] },
         { label: 'CRR', icon: 'clipboard', href: '/crr', roles: ['Admin', 'Manager'] },
         { label: 'IMS RM', icon: 'clipboard', href: '/ims-rm', roles: ['Admin', 'Manager'] },
+        { label: 'Purchase FMS', icon: 'clipboard', href: '/purchase-fms', roles: ['Admin', 'Manager'] },
       ]
     },
     { label: 'HelpDesk', icon: 'headset', href: '/helpdesk', roles: ['Admin', 'Manager', 'Employee'] },

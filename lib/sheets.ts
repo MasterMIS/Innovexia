@@ -18,6 +18,7 @@ export const SPREADSHEET_IDS = {
   O2D: '1mKIdZK0ZKNsN7qHY675FN6fjLwD2TxyBowXsHDDWwkc',
   ATTENDANCE: '1oNRk7oTfnXiJWBq0lv6dW60kHcQfEV8WQEixFBOe-CM',
   IMS_RM: '14LsUe3pIiEciM1WrAmtWn-VHdkCP9-85-RspslJzq00',
+  PURCHASE_FMS: '1UUL5IF-Vh2dGNfcDD-BJAgQGSUT5XaQluDPnIyMhaYM',
 };
 
 // Backward compatibility
@@ -4294,6 +4295,265 @@ export async function getO2DStepConfig() {
   }
 }
 
+// PURCHASE FMS OPERATIONS
+
+export async function getPurchaseFMSOrders() {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = 'Purchase FMS';
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_IDS.PURCHASE_FMS,
+      range: `${sheetName}!A:Z`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) return [];
+
+    const headers = rows[0];
+    const dataRows = rows.slice(1);
+
+    return dataRows
+      .map(row => rowToObject(headers, row))
+      .filter(o => o.id)
+      .sort((a, b) => new Date(b.Timestamp || 0).getTime() - new Date(a.Timestamp || 0).getTime());
+  } catch (error) {
+    console.error('Error fetching Purchase FMS orders:', error);
+    throw error;
+  }
+}
+
+export async function createPurchaseFMSOrder(data: any) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = 'Purchase FMS';
+
+    const headerResponse = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_IDS.PURCHASE_FMS,
+      range: `${sheetName}!A1:Z1`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+
+    let headers = headerResponse.data.values?.[0] || [];
+
+    if (headers.length === 0) {
+      const defaultHeaders = [
+        'id', 'Timestamp', 'sku_code', 'Item_name', 'Party_Name',
+        'Average Daily Consumption', 'Lead Time', 'MOQ', 'Po No.',
+        'Planned_1', 'Actual_1', 'Status_1',
+        'Planned_2', 'Actual_2', 'Status_2',
+        'Planned_3', 'Actual_3', 'Status_3',
+        'Next_Follow_Up_Date', 'Remark',
+        'Planned_5', 'Actual_5', 'Status_5'
+      ];
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_IDS.PURCHASE_FMS,
+        range: `${sheetName}!A1`,
+        valueInputOption: 'RAW',
+        requestBody: { values: [defaultHeaders] },
+      });
+      headers = defaultHeaders;
+    }
+
+    const allData = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_IDS.PURCHASE_FMS,
+      range: `${sheetName}!A:A`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+    const newId = (allData.data.values || []).length;
+
+    const newOrder = {
+      id: newId,
+      Timestamp: formatToSheetDate(new Date()),
+      ...data
+    };
+
+    const rowData = objectToRow(headers, newOrder);
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_IDS.PURCHASE_FMS,
+      range: `${sheetName}!A:Z`,
+      valueInputOption: 'RAW',
+      requestBody: { values: [rowData] },
+    });
+
+    return newOrder;
+  } catch (error) {
+    console.error('Error creating Purchase FMS order:', error);
+    throw error;
+  }
+}
+
+export async function updatePurchaseFMSOrder(id: number, data: any) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = 'Purchase FMS';
+
+    const headersRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_IDS.PURCHASE_FMS,
+      range: `${sheetName}!A1:Z1`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+    const headers = headersRes.data.values?.[0];
+    if (!headers) throw new Error('Headers not found');
+
+    const idRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_IDS.PURCHASE_FMS,
+      range: `${sheetName}!A:A`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+    const ids = idRes.data.values || [];
+    const rowIndex = ids.findIndex(row => parseInt(row[0]) === id);
+
+    if (rowIndex === -1) throw new Error('Order not found');
+    const actualRow = rowIndex + 1;
+
+    const getColLetter = (index: number) => {
+      let letter = '';
+      while (index >= 0) {
+        letter = String.fromCharCode((index % 26) + 65) + letter;
+        index = Math.floor(index / 26) - 1;
+      }
+      return letter;
+    };
+
+    // Prepare surgical updates
+    const valueRanges = Object.entries(data).map(([key, value]) => {
+      const colIndex = headers.indexOf(key);
+      if (colIndex === -1) return null;
+
+      return {
+        range: `${sheetName}!${getColLetter(colIndex)}${actualRow}`,
+        values: [[value === null || value === undefined ? '' : value]]
+      };
+    }).filter(req => req !== null) as any[];
+
+    if (valueRanges.length > 0) {
+      await sheets.spreadsheets.values.batchUpdate({
+        spreadsheetId: SPREADSHEET_IDS.PURCHASE_FMS,
+        requestBody: {
+          valueInputOption: 'RAW',
+          data: valueRanges
+        }
+      });
+    }
+
+    return { id, ...data };
+  } catch (error) {
+    console.error('Error updating Purchase FMS order:', error);
+    throw error;
+  }
+}
+
+export async function deletePurchaseFMSOrder(id: number) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = 'Purchase FMS';
+
+    const idRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_IDS.PURCHASE_FMS,
+      range: `${sheetName}!A:A`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+    const ids = idRes.data.values || [];
+    const rowIndex = ids.findIndex(row => parseInt(row[0]) === id);
+
+    if (rowIndex === -1) throw new Error('Order not found');
+    const actualRow = rowIndex + 1;
+
+    const sheetId = await getSheetId(sheets, SPREADSHEET_IDS.PURCHASE_FMS, sheetName);
+
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_IDS.PURCHASE_FMS,
+      requestBody: {
+        requests: [{
+          deleteDimension: {
+            range: {
+              sheetId,
+              dimension: 'ROWS',
+              startIndex: actualRow - 1,
+              endIndex: actualRow
+            }
+          }
+        }]
+      }
+    });
+
+    return { id };
+  } catch (error) {
+    console.error('Error deleting Purchase FMS order:', error);
+    throw error;
+  }
+}
+
+export async function getPurchaseFMSConfig() {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = 'Step Configuration';
+
+    try {
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_IDS.PURCHASE_FMS,
+        range: `${sheetName}!A:E`,
+        valueRenderOption: 'UNFORMATTED_VALUE',
+      });
+
+      const rows = response.data.values;
+      if (!rows || rows.length <= 1) return [];
+
+      const headers = rows[0];
+      const dataRows = rows.slice(1);
+
+      return dataRows.map(row => ({
+        step: parseInt(row[0]),
+        stepName: row[1],
+        doerName: row[2],
+        tatValue: parseInt(row[3]),
+        tatUnit: row[4]
+      })).sort((a, b) => a.step - b.step);
+    } catch (error: any) {
+      if (error.code === 400 || error.message?.includes('Unable to parse range')) {
+        return [];
+      }
+      throw error;
+    }
+  } catch (error) {
+    console.error('Error fetching Purchase FMS step config:', error);
+    return [];
+  }
+}
+
+export async function updatePurchaseFMSConfig(config: any[]) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = 'Step Configuration';
+
+    const headers = ['step', 'step_name', 'doer_name', 'tat_value', 'tat_unit'];
+    const rows = [
+      headers,
+      ...config.map(c => [c.step, c.stepName, c.doerName, c.tatValue, c.tatUnit])
+    ];
+
+    // Clear existing values first to handle decreasing number of steps
+    await sheets.spreadsheets.values.clear({
+      spreadsheetId: SPREADSHEET_IDS.PURCHASE_FMS,
+      range: `${sheetName}!A:E`,
+    });
+
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_IDS.PURCHASE_FMS,
+      range: `${sheetName}!A1`,
+      valueInputOption: 'RAW',
+      requestBody: { values: rows },
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating Purchase FMS step config:', error);
+    throw error;
+  }
+}
 export async function updateO2DStepConfig(config: any[]) {
   try {
     const sheets = await getGoogleSheetsClient();

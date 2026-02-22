@@ -1,6 +1,7 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
+import { parseDateString } from '@/lib/dateUtils';
 
 interface TaskDetailModalProps {
     isOpen: boolean;
@@ -18,12 +19,20 @@ export default function TaskDetailModal({ isOpen, onClose, title, tasks, type }:
         // For O2D
         if (type === 'o2d') {
             if (!task.planned_date || !task.actual_date) return false;
-            return new Date(task.actual_date).getTime() <= new Date(task.planned_date).getTime();
+            const plannedD = parseDateString(task.planned_date);
+            const actualD = parseDateString(task.actual_date);
+            if (!plannedD || !actualD) return false;
+            // Compare date-only (ignore time) so "same day" counts as on time
+            plannedD.setHours(23, 59, 59, 999);
+            return actualD.getTime() <= plannedD.getTime();
         }
         // For Delegation/Checklist
         if (!task.due_date || !task.updated_at) return false;
-        const dDate = new Date(task.due_date);
-        const uDate = new Date(task.updated_at);
+        const dDate = parseDateString(task.due_date);
+        const uDate = parseDateString(task.updated_at);
+        if (!dDate || !uDate) return false;
+        // Allow completion on the due date itself as on-time
+        dDate.setHours(23, 59, 59, 999);
         return uDate.getTime() <= dDate.getTime();
     };
 
@@ -115,13 +124,13 @@ export default function TaskDetailModal({ isOpen, onClose, title, tasks, type }:
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-300 font-mono">
-                                                    {dueDate ? new Date(dueDate).toLocaleDateString() : '-'}
+                                                    {dueDate ? (parseDateString(dueDate)?.toLocaleDateString('en-GB') ?? '-') : '-'}
                                                 </td>
                                                 <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-300 font-mono">
-                                                    {completedDate ? new Date(completedDate).toLocaleDateString() : '-'}
+                                                    {completedDate ? (parseDateString(completedDate)?.toLocaleDateString('en-GB') ?? '-') : '-'}
                                                 </td>
                                                 <td className="px-6 py-4 text-center">
-                                                    {isCompleted ? (
+                                                    {(type === 'o2d' ? (task.planned_date && task.actual_date) : (task.due_date && task.updated_at)) ? (
                                                         onTime || status === 'on time' ? (
                                                             <span className="inline-flex items-center justify-center w-6 h-6 bg-green-100 dark:bg-green-900/30 text-green-600 rounded-full" title="On Time">
                                                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
