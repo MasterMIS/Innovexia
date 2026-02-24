@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDelegations, createDelegation, updateDelegation, deleteDelegation } from '@/lib/sheets';
+import { getDelegations, createDelegation, updateDelegation, deleteDelegation, createMultipleDelegations } from '@/lib/sheets';
 import { formatToSheetDate } from '@/lib/dateUtils';
 
 
@@ -78,27 +78,23 @@ export async function POST(request: NextRequest) {
 
     // Handle multiple doers - create separate delegation for each doer
     const doersArray = doers && doers.length > 0 ? doers : [null];
-    const createdDelegations = [];
 
-    for (const doer of doersArray) {
-      const delegationData = {
-        user_id: userId,
-        delegation_name: delegationName,
-        description: description || null,
-        assigned_to: assignedTo,
-        doer_name: doer,
-        department: department || null,
-        priority: priority || 'medium',
-        due_date: adjustedDueDate,
-        status: status,
-        voice_note_url: voiceNoteUrl || null,
-        reference_docs: referenceDocs || null,
-        evidence_required: evidenceRequired || false,
-      };
+    const delegationsData = doersArray.map(doer => ({
+      user_id: userId,
+      delegation_name: delegationName,
+      description: description || null,
+      assigned_to: assignedTo,
+      doer_name: doer,
+      department: department || null,
+      priority: priority || 'medium',
+      due_date: adjustedDueDate,
+      status: status,
+      voice_note_url: voiceNoteUrl || null,
+      reference_docs: referenceDocs || null,
+      evidence_required: evidenceRequired || false,
+    }));
 
-      const result = await createDelegation(delegationData);
-      createdDelegations.push(result);
-    }
+    const createdDelegations = await createMultipleDelegations(delegationsData);
 
     return NextResponse.json({
       delegation: createdDelegations[0], // Return first one for backward compatibility

@@ -6,6 +6,7 @@ import { ensureSessionId } from '@/utils/session';
 import { useToast } from '@/components/ToastProvider';
 import { useLoader } from '@/components/LoaderProvider';
 import CustomDateTimePicker from '@/components/CustomDateTimePicker';
+import { getIstDateString } from '@/lib/dateUtils';
 
 
 interface Leave {
@@ -251,7 +252,7 @@ export default function AttendancePage() {
         // Empty cells for previous month
         for (let i = 0; i < firstDay; i++) days.push(<div key={`e-${i}`} className="h-24 md:h-32 bg-gray-50/50 dark:bg-slate-900/20" />);
 
-        const todayStr = new Date().toISOString().split('T')[0];
+        const todayStr = getIstDateString();
 
         for (let d = 1; d <= daysInMonth; d++) {
             const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
@@ -367,10 +368,9 @@ export default function AttendancePage() {
                                 <h3 className="text-gray-600 dark:text-gray-400 uppercase text-xs font-black mb-3 tracking-widest">Global Work System</h3>
                                 <div className="text-6xl font-mono font-black text-gray-900 dark:text-white mb-8 tabular-nums drop-shadow-sm tracking-tighter">{elapsedTime}</div>
                                 {(() => {
-                                    const today = new Date();
-                                    const isSunday = today.getDay() === 0;
-                                    const todayISO = today.toISOString().split('T')[0];
-                                    const isOnLeave = leaves.some(l => l.status === 'Approved' && todayISO >= l.startDate && todayISO <= l.endDate);
+                                    const todayStr = getIstDateString();
+                                    const isSunday = new Date().getDay() === 0;
+                                    const isOnLeave = leaves.some(l => l.status === 'Approved' && todayStr >= l.startDate && todayStr <= l.endDate);
                                     const isRestricted = isSunday || isOnLeave;
                                     const restrictionReason = isSunday ? "System Restricted on Sunday" : "System Restricted during Leave";
 
@@ -555,39 +555,43 @@ export default function AttendancePage() {
                                     </thead>
                                     <tbody>
                                         {masterData.users
-                                            .filter(u => user?.role_name === 'Admin' ? true : u.id === user?.id)
+                                            .filter(u => user?.role_name === 'Admin' ? true : String(u.id) === String(user?.id))
                                             .map(u => {
                                                 const year = currentDate.getFullYear();
                                                 const month = currentDate.getMonth();
                                                 const daysInMonth = new Date(year, month + 1, 0).getDate();
-                                                const monthAtt = masterData.attendance.filter(a => a.userId === u.id && a.date.startsWith(`${year}-${String(month + 1).padStart(2, '0')}`));
-                                                const monthLeaves = masterData.leaves.filter(lv => lv.userId === u.id && lv.status === 'Approved');
+                                                const monthAtt = masterData.attendance.filter(a => String(a.userId) === String(u.id) && a.date.startsWith(`${year}-${String(month + 1).padStart(2, '0')}`));
+                                                const monthLeaves = masterData.leaves.filter(lv => String(lv.userId) === String(u.id) && lv.status === 'Approved');
 
                                                 let pCount = 0, aCount = 0, lCount = 0, hCount = 0, totalHours = 0, monthPoints = 0, cumulativePoints = 0, workingDaysInMonth = 0;
                                                 const dailyStats: any[] = [];
-                                                const todayStr = new Date().toISOString().split('T')[0];
+                                                const todayStr = getIstDateString();
                                                 const [sh, sm] = SHIFT_START_TIME.split(':').map(Number);
                                                 const shiftStartTotalMinutes = sh * 60 + sm;
 
-                                                const allUserAtt = masterData.attendance.filter(a => a.userId === u.id);
+                                                const allUserAtt = masterData.attendance.filter(a => String(a.userId) === String(u.id));
                                                 allUserAtt.forEach(att => {
-                                                    if (att.inTime) {
-                                                        const inT = new Date(att.inTime);
-                                                        const inM = inT.getHours() * 60 + inT.getMinutes();
-                                                        const dly = inM - shiftStartTotalMinutes;
-                                                        if (dly <= 10) cumulativePoints += 1;
-                                                        else if (dly <= 20) cumulativePoints += 0.5;
-                                                        else cumulativePoints -= 1;
+                                                    if (att.status === 'COMPLETED' || att.status === 'IN') {
+                                                        const duration = (att.inTime && att.outTime) ? (new Date(att.outTime).getTime() - new Date(att.inTime).getTime()) / 3600000 : 9; // Assume P if only IN
+                                                        if (duration < 5) cumulativePoints += 0.5;
+                                                        else cumulativePoints += 1;
                                                     }
                                                 });
+                                                // Note: Cumulative absents calculation would require full history traversal which might be heavy. 
+                                                // For now, we align the existing record-based cumulative points with the new P/H weights.
 
+                                                let workingDaysPassed = 0;
                                                 for (let d = 1; d <= daysInMonth; d++) {
                                                     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-                                                    const att = monthAtt.find(a => a.date === dateStr);
+                                                    const att = monthAtt.find(a => String(a.date) === String(dateStr));
                                                     const isOnLeave = monthLeaves.find(lv => dateStr >= lv.startDate && dateStr <= lv.endDate);
                                                     const dateObj = new Date(year, month, d);
                                                     const isSunday = dateObj.getDay() === 0;
-                                                    if (!isSunday) workingDaysInMonth++;
+
+                                                    if (!isSunday) {
+                                                        workingDaysInMonth++;
+                                                        if (dateStr <= todayStr) workingDaysPassed++;
+                                                    }
 
                                                     let status = '-';
                                                     let color = 'text-gray-300';
@@ -603,26 +607,21 @@ export default function AttendancePage() {
                                                             if (duration < 5) {
                                                                 status = 'H';
                                                                 hCount++;
+                                                                points = 0.5;
                                                                 color = 'text-orange-500';
                                                             } else {
                                                                 status = 'P';
                                                                 pCount++;
+                                                                points = 1;
                                                                 color = 'text-green-500';
                                                             }
-
-                                                            // Punctuality Scoring
-                                                            const inTime = new Date(att.inTime);
-                                                            const inMinutes = inTime.getHours() * 60 + inTime.getMinutes();
-                                                            const delay = inMinutes - shiftStartTotalMinutes;
-                                                            if (delay <= 10) points = 1;
-                                                            else if (delay <= 20) points = 0.5;
-                                                            else points = -1;
-                                                            monthPoints += points;
                                                         } else {
                                                             status = 'P';
                                                             pCount++;
+                                                            points = 1;
                                                             color = 'text-green-500';
                                                         }
+                                                        monthPoints += points;
                                                     } else if (isOnLeave) {
                                                         status = 'L';
                                                         lCount++;
@@ -630,7 +629,9 @@ export default function AttendancePage() {
                                                     } else if (dateStr < todayStr) {
                                                         status = 'A';
                                                         aCount++;
+                                                        points = -1;
                                                         color = 'text-red-500';
+                                                        monthPoints += points;
                                                     }
                                                     dailyStats.push({ d, status, color, points });
                                                 }
@@ -667,8 +668,8 @@ export default function AttendancePage() {
                                                                 <div className="inline-block px-5 py-2 rounded-full bg-[var(--theme-primary)]/10 dark:bg-[var(--theme-primary)]/20 text-[var(--theme-primary)] text-base font-black shadow-sm">{totalHours.toFixed(1)}h</div>
                                                             </td>
                                                             <td className="px-6 py-4 text-center">
-                                                                <div className={`inline-block px-5 py-2 rounded-full font-black text-base shadow-sm ${Number(monthPoints / (workingDaysInMonth || 1) * 100) >= 60 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                                                    {Math.max(0, (monthPoints / (workingDaysInMonth || 1)) * 100).toFixed(0)}%
+                                                                <div className={`inline-block px-5 py-2 rounded-full font-black text-base shadow-sm ${((pCount + hCount * 0.5) / (workingDaysPassed || 1) * 100) >= 60 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                                                    {((pCount + hCount * 0.5) / (workingDaysPassed || 1) * 100).toFixed(0)}%
                                                                 </div>
                                                             </td>
                                                             <td className="px-6 py-4 text-center rounded-r-2xl">
@@ -695,7 +696,7 @@ export default function AttendancePage() {
                                                                                 </div>
                                                                                 <div className="text-right border-l border-gray-100 dark:border-slate-800 pl-4">
                                                                                     <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Cumulative Score</div>
-                                                                                    <div className="text-xl font-black text-[var(--theme-primary)]">{Math.max(0, (cumulativePoints / (allUserAtt.length || 1)) * 100).toFixed(0)}%</div>
+                                                                                    <div className="text-xl font-black text-[var(--theme-primary)]">{((pCount + hCount * 0.5) / (workingDaysPassed || 1) * 100).toFixed(0)}%</div>
                                                                                 </div>
                                                                             </div>
                                                                         </div>
@@ -705,7 +706,7 @@ export default function AttendancePage() {
                                                                                 <div key={stat.d} className="flex flex-col items-center justify-center p-3 rounded-2xl bg-gray-50/50 dark:bg-slate-800/50 border border-gray-100 dark:border-slate-700 min-w-[55px] transition-all hover:bg-[var(--theme-primary)]/5 hover:border-[var(--theme-primary)]/20 shadow-sm relative group/cell">
                                                                                     <div className="text-xs font-black text-gray-900 dark:text-white mb-1">{stat.d}</div>
                                                                                     <div className={`font-black text-sm ${stat.color}`}>{stat.status}</div>
-                                                                                    {stat.status !== 'SUN' && stat.status !== '-' && stat.status !== 'A' && (
+                                                                                    {stat.status !== 'SUN' && stat.status !== '-' && (
                                                                                         <div className={`absolute -top-1 -right-1 px-1.5 py-0.5 rounded-md text-[8px] font-black shadow-sm ${stat.points > 0 ? 'bg-green-500 text-white' : stat.points < 0 ? 'bg-red-500 text-white' : 'bg-gray-400 text-white'}`}>
                                                                                             {stat.points > 0 ? `+${stat.points}` : stat.points}
                                                                                         </div>
@@ -799,19 +800,19 @@ export default function AttendancePage() {
                                 </thead>
                                 <tbody>
                                     {masterData.users
-                                        .filter(u => user?.role_name === 'Admin' ? true : u.id === user?.id)
+                                        .filter(u => user?.role_name === 'Admin' ? true : String(u.id) === String(user?.id))
                                         .filter(u => (u.full_name || u.username || '').toLowerCase().includes(reportSearch.toLowerCase()))
                                         .map(u => {
                                             const year = currentDate.getFullYear();
                                             const month = currentDate.getMonth();
                                             const daysInMonth = new Date(year, month + 1, 0).getDate();
-                                            const todayStr = new Date().toISOString().split('T')[0];
+                                            const todayStr = getIstDateString();
 
                                             // Calculate Cumulative Score & Averages
                                             const [sh, sm] = SHIFT_START_TIME.split(':').map(Number);
                                             const shiftStartTotalMinutes = sh * 60 + sm;
                                             let cumulativePoints = 0;
-                                            const allUserAtt = masterData.attendance.filter(a => a.userId === u.id);
+                                            const allUserAtt = masterData.attendance.filter(a => String(a.userId) === String(u.id));
 
                                             // Monthly average calculations
                                             const currentMonthAtt = allUserAtt.filter(a => {
@@ -822,14 +823,15 @@ export default function AttendancePage() {
                                             let totalInMinutes = 0, totalOutMinutes = 0;
                                             let inCount = 0, outCount = 0;
 
-                                            allUserAtt.forEach(att => {
+                                            let monthPositivePoints = 0;
+                                            currentMonthAtt.forEach(att => {
                                                 if (att.inTime) {
-                                                    const inT = new Date(att.inTime);
-                                                    const inM = inT.getHours() * 60 + inT.getMinutes();
-                                                    const dly = inM - shiftStartTotalMinutes;
-                                                    if (dly <= 10) cumulativePoints += 1;
-                                                    else if (dly <= 20) cumulativePoints += 0.5;
-                                                    else cumulativePoints -= 1;
+                                                    if (att.inTime && att.outTime) {
+                                                        const duration = (new Date(att.outTime).getTime() - new Date(att.inTime).getTime()) / 3600000;
+                                                        monthPositivePoints += (duration < 5) ? 0.5 : 1;
+                                                    } else {
+                                                        monthPositivePoints += 1;
+                                                    }
                                                 }
                                             });
 
@@ -856,7 +858,17 @@ export default function AttendancePage() {
                                                 return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
                                             };
 
-                                            const cumScore = Math.max(0, (cumulativePoints / (allUserAtt.length || 1)) * 100).toFixed(0);
+                                            // Calculate working days passed in the selected month
+                                            let workingDaysPassedValue = 0;
+                                            for (let d = 1; d <= daysInMonth; d++) {
+                                                const dStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                                                const dObj = new Date(year, month, d);
+                                                if (dObj.getDay() !== 0 && dStr <= todayStr) {
+                                                    workingDaysPassedValue++;
+                                                }
+                                            }
+
+                                            const cumScore = ((monthPositivePoints / (workingDaysPassedValue || 1)) * 100).toFixed(0);
 
                                             return (
                                                 <tr key={u.id} className="group hover:bg-gray-50 dark:hover:bg-slate-700/20 transition-all border-b border-gray-50 dark:border-slate-800">
@@ -891,8 +903,8 @@ export default function AttendancePage() {
                                                         const dateObj = new Date(year, month, d);
                                                         const isSunday = dateObj.getDay() === 0;
 
-                                                        const att = masterData.attendance.find(a => a.userId === u.id && a.date === dateStr);
-                                                        const monthLeaves = masterData.leaves.filter(lv => lv.userId === u.id && lv.status === 'Approved');
+                                                        const att = masterData.attendance.find(a => String(a.userId) === String(u.id) && a.date === dateStr);
+                                                        const monthLeaves = masterData.leaves.filter(lv => String(lv.userId) === String(u.id) && lv.status === 'Approved');
                                                         const isOnLeave = monthLeaves.find(lv => dateStr >= lv.startDate && dateStr <= lv.endDate);
 
                                                         let status = '-';
@@ -904,31 +916,21 @@ export default function AttendancePage() {
                                                             colorClass = 'text-gray-900 dark:text-white font-black';
                                                         } else if (att) {
                                                             if (att.inTime && att.outTime) {
-                                                                const inTimeObj = new Date(att.inTime);
-                                                                const inMinutes = inTimeObj.getHours() * 60 + inTimeObj.getMinutes();
-                                                                const delay = inMinutes - shiftStartTotalMinutes;
-                                                                if (delay <= 10) points = 1;
-                                                                else if (delay <= 20) points = 0.5;
-                                                                else points = -1;
-
                                                                 const duration = (new Date(att.outTime).getTime() - new Date(att.inTime).getTime()) / 3600000;
                                                                 if (duration < 5) {
                                                                     status = 'H';
+                                                                    points = 0.5;
                                                                     colorClass = 'text-orange-500 font-black';
                                                                 } else {
                                                                     status = 'P';
+                                                                    points = 1;
                                                                     colorClass = 'text-green-500 font-black';
                                                                 }
-                                                            } else if (att.inTime) { // Only inTime recorded, assume present but calculate points
-                                                                const inTimeObj = new Date(att.inTime);
-                                                                const inMinutes = inTimeObj.getHours() * 60 + inTimeObj.getMinutes();
-                                                                const delay = inMinutes - shiftStartTotalMinutes;
-                                                                if (delay <= 10) points = 1;
-                                                                else if (delay <= 20) points = 0.5;
-                                                                else points = -1;
+                                                            } else if (att.inTime) { // Only inTime recorded, assume present
+                                                                points = 1;
                                                                 status = 'P';
                                                                 colorClass = 'text-green-500 font-black';
-                                                            } else { // No inTime or outTime, but att record exists (shouldn't happen with current data structure, but for safety)
+                                                            } else { // No inTime or outTime, but att record exists
                                                                 status = '-';
                                                                 colorClass = 'text-gray-300 dark:text-slate-700';
                                                             }
@@ -937,6 +939,7 @@ export default function AttendancePage() {
                                                             colorClass = 'text-yellow-500 font-black';
                                                         } else if (dateStr < todayStr) {
                                                             status = 'A';
+                                                            points = -1;
                                                             colorClass = 'text-red-500 font-black';
                                                         }
 

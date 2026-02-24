@@ -181,6 +181,7 @@ export default function O2DPage() {
         dateTo: '',
     });
     const [activeStepFilter, setActiveStepFilter] = useState<number | null>(null);
+    const [activeTimeFilter, setActiveTimeFilter] = useState<string | null>(null);
 
     const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
 
@@ -280,6 +281,47 @@ export default function O2DPage() {
     const representativeOptions = useMemo(() => {
         return systemUsers.map(u => ({ id: u.username, name: u.username }));
     }, [systemUsers]);
+
+    const getCurrentStep = (item: OrderItem) => {
+        if (!item.Actual_1) return 1;
+        if (!item.Actual_2) return 2;
+        if (!item.Actual_3 && item['Stock Availability'] !== 'Stock Available') return 3;
+        if (!item.Actual_4) return 4;
+        if (!item.Actual_5 && item.Destination !== 'Local') return 5;
+        if (!item.Actual_6) return 6;
+        if (!item.Actual_7) return 7;
+        if (!item.Actual_8) return 8;
+        return null;
+    };
+
+    const matchesTimeFilter = (item: OrderItem, filter: string | null) => {
+        if (!filter) return true;
+
+        const step = getCurrentStep(item);
+        if (!step) return false;
+
+        const plannedTime = (item as any)[`Planned_${step}`];
+        if (!plannedTime) return false;
+
+        const plannedDate = new Date(plannedTime);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const plannedDay = new Date(plannedTime);
+        plannedDay.setHours(0, 0, 0, 0);
+
+        const diffDays = Math.ceil((plannedDay.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+        if (filter === 'Delayed') return plannedDate < new Date();
+        if (filter === 'Today') return diffDays === 0;
+        if (filter === 'Tomorrow') return diffDays === 1;
+        if (filter === 'Next 3') return diffDays >= 0 && diffDays <= 3;
+        if (filter === 'Next 5') return diffDays >= 0 && diffDays <= 5;
+        if (filter === 'Next 7') return diffDays >= 0 && diffDays <= 7;
+        if (filter === 'Next 15') return diffDays >= 0 && diffDays <= 15;
+
+        return true;
+    };
 
     const statusStats = useMemo(() => {
         const allItems = orders.flatMap(o => o.items || []);
@@ -778,6 +820,7 @@ export default function O2DPage() {
             const matchesCancellation = viewMode === 'cancelled' ? hasCancelledItems : hasActiveItems;
 
             const matchesStep = !activeStepFilter || (order.items || []).some(item => matchesStepFilter(item as any, activeStepFilter));
+            const matchesTime = !activeTimeFilter || (order.items || []).some(item => matchesTimeFilter(item as any, activeTimeFilter));
 
             let matchesDelayed = true;
             if (showDelayedOnly) {
@@ -792,7 +835,7 @@ export default function O2DPage() {
                 });
             }
 
-            return matchesSearch && matchesParty && matchesType && matchesStatus && matchesLocation && matchesState && matchesDate && matchesRep && matchesContactPerson && matchesEmail && matchesPhone && matchesStep && matchesCancellation && matchesDelayed;
+            return matchesSearch && matchesParty && matchesType && matchesStatus && matchesLocation && matchesState && matchesDate && matchesRep && matchesContactPerson && matchesEmail && matchesPhone && matchesStep && matchesTime && matchesCancellation && matchesDelayed;
         });
 
         // Apply sorting
@@ -814,7 +857,7 @@ export default function O2DPage() {
                 return aVal < bVal ? 1 : -1;
             }
         });
-    }, [orders, searchQuery, filters, sortField, sortDirection, activeStepFilter]);
+    }, [orders, searchQuery, filters, sortField, sortDirection, activeStepFilter, activeTimeFilter]);
 
     const paginatedOrders = useMemo(() => {
         const startIndex = (currentPage - 1) * itemsPerPage;
@@ -839,7 +882,7 @@ export default function O2DPage() {
                     });
                 }
 
-                if (matchesCancellation && matchesDelayed && (!activeStepFilter || matchesStepFilter(item as any, activeStepFilter))) {
+                if (matchesCancellation && matchesDelayed && (!activeStepFilter || matchesStepFilter(item as any, activeStepFilter)) && (!activeTimeFilter || matchesTimeFilter(item as any, activeTimeFilter))) {
                     rows.push({
                         ...order,
                         ...item, // Bring item-specific follow-up fields (Actual_1, etc.) to top level
@@ -849,7 +892,7 @@ export default function O2DPage() {
             });
         });
         return rows;
-    }, [filteredOrders, activeStepFilter, viewMode, showDelayedOnly]);
+    }, [filteredOrders, activeStepFilter, viewMode, showDelayedOnly, activeTimeFilter]);
 
     const paginatedDetailsRows = useMemo(() => {
         const startIndex = (currentPage - 1) * itemsPerPage;
@@ -1030,9 +1073,9 @@ export default function O2DPage() {
                     </div>
                 </div>
 
-                <div className="max-w-[1920px] mx-auto p-4 sm:p-6 lg:px-8 space-y-6">
+                <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 space-y-2">
                     {/* Stats Highlights */}
-                    <div className="overflow-x-auto pb-4 custom-scrollbar-horizontal scroll-smooth -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+                    <div className="overflow-x-auto pb-2 custom-scrollbar-horizontal scroll-smooth -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
                         <div className="flex gap-2 min-w-max pr-8">
                             {[
                                 { step: null, label: 'All Items', value: statusStats.Total, gradient: 'from-gray-50 to-gray-100 dark:from-gray-900/20 dark:to-gray-800/20', border: 'border-gray-200 dark:border-gray-700', text: 'text-gray-700 dark:text-gray-400', iconBg: 'from-gray-500 to-gray-600', icon: 'M4 6h16M4 10h16M4 14h16M4 18h16' },
@@ -1051,7 +1094,14 @@ export default function O2DPage() {
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: i * 0.03 }}
                                     whileHover={activeStepFilter === stat.step ? {} : { y: -1 }}
-                                    onClick={() => setActiveStepFilter(stat.step)}
+                                    onClick={() => {
+                                        setActiveStepFilter(stat.step);
+                                        if (stat.step === null) {
+                                            setActiveTimeFilter(null);
+                                            setShowDelayedOnly(false);
+                                            setSearchQuery('');
+                                        }
+                                    }}
                                     className={`bg-gradient-to-br ${stat.gradient} p-2 rounded-lg border ${stat.border} shadow-sm flex items-center gap-2 group transition-all min-w-[140px] cursor-pointer ${activeStepFilter === stat.step ? 'bg-white dark:bg-gray-800 border-[var(--theme-primary)] shadow-md' : 'opacity-80 hover:opacity-100'}`}
                                 >
                                     <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${stat.iconBg} flex items-center justify-center flex-shrink-0 shadow-sm ${activeStepFilter !== stat.step ? 'group-hover:scale-105' : ''} transition-transform text-white`}>
@@ -1174,39 +1224,72 @@ export default function O2DPage() {
                             </>
                         ) : (
                             <>
-                                {/* Pagination Controls */}
-                                {totalPages > 1 && (
-                                    <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100 dark:border-gray-700 bg-gray-50/30 dark:bg-gray-800/30">
-                                        <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">
-                                            Showing <span className="text-gray-900 dark:text-white">{(currentPage - 1) * itemsPerPage + 1}</span>- <span className="text-gray-900 dark:text-white">{Math.min(currentPage * itemsPerPage, viewMode === 'group' ? filteredOrders.length : detailsRows.length)}</span> of <span className="text-gray-900 dark:text-white">{viewMode === 'group' ? filteredOrders.length : detailsRows.length}</span>
-                                        </p>
-                                        <div className="flex items-center gap-1.5">
-                                            <button
-                                                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                                                disabled={currentPage === 1}
-                                                className="p-1 px-2 rounded-lg border border-gray-200 dark:border-gray-700 disabled:opacity-30 hover:bg-white dark:hover:bg-gray-700 transition-all text-[10px] font-medium"
-                                            >
-                                                PREV
-                                            </button>
+                                {/* Filter & Pagination Row */}
+                                {(filteredOrders.length > 0 || detailsRows.length > 0) && (
+                                    <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-1.5 border-b border-gray-100 dark:border-gray-700 bg-gray-50/30 dark:bg-gray-800/30 gap-2">
+                                        <div className="flex items-center gap-3 w-full sm:w-auto overflow-x-auto no-scrollbar">
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider whitespace-nowrap">
+                                                Showing <span className="text-gray-900 dark:text-white">{(currentPage - 1) * itemsPerPage + 1}</span>- <span className="text-gray-900 dark:text-white">{Math.min(currentPage * itemsPerPage, viewMode === 'group' ? filteredOrders.length : detailsRows.length)}</span> of <span className="text-gray-900 dark:text-white">{viewMode === 'group' ? filteredOrders.length : detailsRows.length}</span>
+                                            </p>
+
+                                            <div className="h-4 w-px bg-gray-200 dark:bg-gray-700 hidden sm:block mx-1" />
+
                                             <div className="flex items-center gap-1">
-                                                {[...Array(totalPages)].map((_, i) => (
+                                                {['Delayed', 'Today', 'Tomorrow', 'Next 3', 'Next 5', 'Next 7', 'Next 15'].map((filter) => (
                                                     <button
-                                                        key={i}
-                                                        onClick={() => setCurrentPage(i + 1)}
-                                                        className={`w-6 h-6 rounded-lg text-[10px] font-medium transition-all ${currentPage === i + 1 ? 'bg-[var(--theme-primary)] text-gray-900' : 'text-gray-500 hover:bg-white dark:hover:bg-gray-700'}`}
+                                                        key={filter}
+                                                        onClick={() => setActiveTimeFilter(activeTimeFilter === filter ? null : filter)}
+                                                        className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all whitespace-nowrap border ${activeTimeFilter === filter
+                                                            ? 'bg-[var(--theme-primary)] text-gray-900 border-[var(--theme-primary)] shadow-sm'
+                                                            : 'bg-white dark:bg-gray-800 text-gray-500 border-gray-200 dark:border-gray-700 hover:border-[var(--theme-primary)] hover:text-[var(--theme-primary)]'
+                                                            }`}
                                                     >
-                                                        {i + 1}
+                                                        {filter}
                                                     </button>
                                                 ))}
                                             </div>
-                                            <button
-                                                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                                                disabled={currentPage === totalPages}
-                                                className="p-1 px-2 rounded-lg border border-gray-200 dark:border-gray-700 disabled:opacity-30 hover:bg-white dark:hover:bg-gray-700 transition-all text-[10px] font-medium"
-                                            >
-                                                NEXT
-                                            </button>
                                         </div>
+
+                                        {totalPages > 1 && (
+                                            <div className="flex items-center gap-1">
+                                                <button
+                                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                                    disabled={currentPage === 1}
+                                                    className="p-1 px-2 rounded-lg border border-gray-200 dark:border-gray-700 disabled:opacity-30 hover:bg-white dark:hover:bg-gray-700 transition-all text-[10px] font-medium"
+                                                >
+                                                    PREV
+                                                </button>
+                                                <div className="flex items-center gap-1">
+                                                    {(() => {
+                                                        const pages = [];
+                                                        const maxVisible = 5;
+                                                        let start = Math.max(1, currentPage - 2);
+                                                        let end = Math.min(totalPages, start + maxVisible - 1);
+                                                        if (end === totalPages) start = Math.max(1, end - maxVisible + 1);
+
+                                                        for (let i = start; i <= end; i++) {
+                                                            pages.push(
+                                                                <button
+                                                                    key={i}
+                                                                    onClick={() => setCurrentPage(i)}
+                                                                    className={`w-6 h-6 rounded-lg text-[10px] font-medium transition-all ${currentPage === i ? 'bg-[var(--theme-primary)] text-gray-900' : 'text-gray-500 hover:bg-white dark:hover:bg-gray-700'}`}
+                                                                >
+                                                                    {i}
+                                                                </button>
+                                                            );
+                                                        }
+                                                        return pages;
+                                                    })()}
+                                                </div>
+                                                <button
+                                                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                                    disabled={currentPage === totalPages}
+                                                    className="p-1 px-2 rounded-lg border border-gray-200 dark:border-gray-700 disabled:opacity-30 hover:bg-white dark:hover:bg-gray-700 transition-all text-[10px] font-medium"
+                                                >
+                                                    NEXT
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
 

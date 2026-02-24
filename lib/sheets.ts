@@ -2,6 +2,11 @@ import { google } from 'googleapis';
 import { getGoogleSheetsClient as getOAuthSheetsClient } from './oauth';
 import { parseSheetDate, ensureIsoDate, formatToSheetDate } from './dateUtils';
 
+const parseSafeInt = (val: any): number | null => {
+  const id = parseInt(String(val));
+  return isNaN(id) ? null : id;
+};
+
 // Spreadsheet IDs for different features
 export const SPREADSHEET_IDS = {
   DELEGATION: '1xlKmalbpTniv37Umd1iKmB02AhtNlURQ5LrzQsHYhAA',
@@ -224,7 +229,16 @@ export async function createDelegation(delegationData: any) {
       valueRenderOption: 'UNFORMATTED_VALUE',
     });
     const allRows = allDataResponse.data.values || [];
-    const newId = allRows.length; // Row number serves as ID
+
+    let newId = 1;
+    if (allRows.length > 1) {
+      const ids = allRows.slice(1)
+        .map(row => parseSafeInt(row[0]))
+        .filter(id => id !== null) as number[];
+      if (ids.length > 0) {
+        newId = Math.max(...ids) + 1;
+      }
+    }
 
     // Prepare delegation data with ID
     const delegation = {
@@ -250,6 +264,57 @@ export async function createDelegation(delegationData: any) {
     return delegation;
   } catch (error) {
     console.error('Error creating delegation in Google Sheets:', error);
+    throw error;
+  }
+}
+
+export async function createMultipleDelegations(delegationsData: any[]) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = SHEETS.DELEGATION;
+
+    // Get all data to get headers and max ID safely
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: DELEGATION_SPREADSHEET_ID,
+      range: `${sheetName}!A:Z`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+
+    const rows = response.data.values || [];
+    const headers = rows[0] || [];
+
+    let nextId = 1;
+    if (rows.length > 1) {
+      const ids = rows.slice(1)
+        .map(row => parseSafeInt(row[0]))
+        .filter(id => id !== null) as number[];
+      if (ids.length > 0) {
+        nextId = Math.max(...ids) + 1;
+      }
+    }
+
+    const now = formatToSheetDate(new Date());
+    const newDelegations = delegationsData.map((data, index) => ({
+      id: nextId + index,
+      ...data,
+      created_at: now,
+      updated_at: now
+    }));
+
+    const rowsToAppend = newDelegations.map(d => objectToRow(headers, d));
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: DELEGATION_SPREADSHEET_ID,
+      range: `${sheetName}!A:Z`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: rowsToAppend,
+      },
+    });
+
+    return newDelegations;
+  } catch (error) {
+    console.error('Error creating multiple delegations in Google Sheets:', error);
     throw error;
   }
 }
@@ -465,7 +530,16 @@ export async function createDelegationRemark(remarkData: any) {
       valueRenderOption: 'UNFORMATTED_VALUE',
     });
     const allRows = allDataResponse.data.values || [];
-    const newId = allRows.length;
+
+    let newId = 1;
+    if (allRows.length > 1) {
+      const ids = allRows.slice(1)
+        .map(row => parseSafeInt(row[0]))
+        .filter(id => id !== null) as number[];
+      if (ids.length > 0) {
+        newId = Math.max(...ids) + 1;
+      }
+    }
 
     const remark = {
       id: newId,
@@ -564,7 +638,16 @@ export async function createDelegationHistory(historyData: any) {
       valueRenderOption: 'UNFORMATTED_VALUE',
     });
     const allRows = allDataResponse.data.values || [];
-    const newId = allRows.length;
+
+    let newId = 1;
+    if (allRows.length > 1) {
+      const ids = allRows.slice(1)
+        .map(row => parseSafeInt(row[0]))
+        .filter(id => id !== null) as number[];
+      if (ids.length > 0) {
+        newId = Math.max(...ids) + 1;
+      }
+    }
 
     const history = {
       id: newId,

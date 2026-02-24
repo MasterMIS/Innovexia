@@ -1904,12 +1904,7 @@ function DelegationContent() {
                             <SortIcon field="doer_name" />
                           </button>
                         </th>
-                        <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 dark:text-white">
-                          <button onClick={() => handleSort('department')} className="flex items-center gap-1">
-                            <span>Department</span>
-                            <SortIcon field="department" />
-                          </button>
-                        </th>
+
                         <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 dark:text-white">
                           <button onClick={() => handleSort('priority')} className="flex items-center gap-1">
                             <span>Priority</span>
@@ -1928,7 +1923,7 @@ function DelegationContent() {
                             <SortIcon field="status" />
                           </button>
                         </th>
-                        <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 dark:text-white">Evidence</th>
+
                         <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 dark:text-white">Actions</th>
                       </tr>
                     </thead>
@@ -1982,7 +1977,7 @@ function DelegationContent() {
                                 <span className="text-gray-900 dark:text-white">N/A</span>
                               )}
                             </td>
-                            <td className="px-6 py-4 text-gray-900 dark:text-white">{delegation.department || 'N/A'}</td>
+
                             <td className="px-6 py-4">
                               <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getPriorityColor(delegation.priority)}`}>
                                 {delegation.priority?.toUpperCase()}
@@ -2004,13 +1999,7 @@ function DelegationContent() {
                                 {displayStatus.toUpperCase().replace('_', ' ')}
                               </span>
                             </td>
-                            <td className="px-6 py-4">
-                              {delegation.evidence_required ? (
-                                <span className="text-green-600 dark:text-green-400 font-semibold text-sm">Required</span>
-                              ) : (
-                                <span className="text-gray-400 text-sm">Not Required</span>
-                              )}
-                            </td>
+
                             <td className="px-6 py-4">
                               <div className="flex gap-2">
                                 <button
@@ -2362,18 +2351,7 @@ function DelegationContent() {
                                 </div>
                               </div>
 
-                              {/* Department */}
-                              <div className="flex items-center gap-2 bg-green-50 dark:bg-green-900/20 p-2 rounded-lg">
-                                <div className="w-8 h-8 rounded-lg bg-green-500 flex items-center justify-center flex-shrink-0">
-                                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                                  </svg>
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-[10px] font-semibold text-green-600 dark:text-green-400 uppercase tracking-wide">Department</p>
-                                  <p className="text-xs font-bold text-gray-900 dark:text-white truncate">{delegation.department || 'N/A'}</p>
-                                </div>
-                              </div>
+
 
                               {/* Priority */}
                               <div className="flex items-center gap-2 bg-orange-50 dark:bg-orange-900/20 p-2 rounded-lg">
@@ -2412,29 +2390,7 @@ function DelegationContent() {
                                 </div>
                               </div>
 
-                              {/* Evidence Required */}
-                              <div className="flex items-center gap-1.5">
-                                <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${delegation.evidence_required
-                                  ? 'bg-green-100 dark:bg-green-900/30'
-                                  : 'bg-gray-100 dark:bg-gray-700'
-                                  }`}>
-                                  <svg className={`w-4 h-4 ${delegation.evidence_required
-                                    ? 'text-green-600 dark:text-green-400'
-                                    : 'text-gray-400'
-                                    }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                  </svg>
-                                </div>
-                                <div>
-                                  <p className="text-[10px] text-gray-500 dark:text-gray-400 font-semibold">Evidence</p>
-                                  <p className={`text-xs font-bold ${delegation.evidence_required
-                                    ? 'text-green-600 dark:text-green-400'
-                                    : 'text-gray-400'
-                                    }`}>
-                                    {delegation.evidence_required ? 'Required' : 'Not Required'}
-                                  </p>
-                                </div>
-                              </div>
+
 
 
                             </div>

@@ -1,76 +1,23 @@
-import { google } from 'googleapis';
 import { NextRequest, NextResponse } from 'next/server';
-import { getGoogleSheetsClient } from '@/lib/sheets';
-import { SPREADSHEET_IDS } from '@/lib/sheets';
+import { getGoogleSheetsClient, SPREADSHEET_IDS } from '@/lib/sheets';
+import { normalizeDate, parseSheetDate, getIstDateString } from '@/lib/dateUtils';
 
-// Helper to format date as YYYY-MM-DD
-const formatDate = (date: Date) => {
-    return date.toISOString().split('T')[0];
-};
-
-// Helper to format Date to YYYY-MM-DD HH:mm:ss for Sheets (prevents locale confusion)
-const formatToSheetDate = (date: Date) => {
-    const d = date.getDate().toString().padStart(2, '0');
-    const m = (date.getMonth() + 1).toString().padStart(2, '0');
-    const y = date.getFullYear();
-    const h = date.getHours().toString().padStart(2, '0');
-    const min = date.getMinutes().toString().padStart(2, '0');
-    const s = date.getSeconds().toString().padStart(2, '0');
-    // Using YYYY-MM-DD ensures Google Sheets parses it correctly regardless of locale (usually)
-    return `${y}-${m}-${d} ${h}:${min}:${s}`;
-};
-
-// Helper to parse DD/MM/YYYY HH:mm:ss back to ISO string for frontend
-const parseSheetDate = (dateStr: string) => {
-    if (!dateStr) return null;
-    try {
-        if (dateStr.includes('T')) return new Date(dateStr).toISOString(); // Already ISO
-
-        const [datePart, timePart] = dateStr.split(' ');
-        if (!datePart) return null;
-
-        const [d, m, y] = datePart.split('/').map(Number);
-
-        let h = 0, min = 0, s = 0;
-        if (timePart) {
-            [h, min, s] = timePart.split(':').map(Number);
-        }
-
-        // Month is 0-indexed in JS Date
-        const dateObj = new Date(y, m - 1, d, h || 0, min || 0, s || 0);
-        return isNaN(dateObj.getTime()) ? null : dateObj.toISOString();
-    } catch (e) {
-        return null;
-    }
-};
-
-// Helper to normalize date string to YYYY-MM-DD
-const normalizeDate = (dateStr: string) => {
-    if (!dateStr) return '';
-    const cleanStr = dateStr.trim();
-    // If it's the new Full format, extract just the date part for comparison
-    if (cleanStr.includes(' ')) {
-        const parts = cleanStr.split(' ')[0].split('/');
-        if (parts.length === 3) {
-            return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-        }
-    }
-
-    // Handle DD/MM/YYYY or DD-MM-YYYY
-    if (cleanStr.includes('/') || cleanStr.includes('-')) {
-        const parts = cleanStr.split(/[\/\-]/);
-        if (parts.length === 3) {
-            // Check if it looks like DD/MM/YYYY (day is first part)
-            if (parts[0].length <= 2 && parts[2].length === 4) {
-                return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-            }
-            // Check if it looks like YYYY-MM-DD
-            if (parts[0].length === 4) {
-                return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
-            }
-        }
-    }
-    return cleanStr;
+// Helper to get full timestamp in IST
+const getIstTimestamp = () => {
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+    });
+    const parts = formatter.formatToParts(now);
+    const getPart = (type: string) => parts.find(p => p.type === type)?.value;
+    return `${getPart('year')}-${getPart('month')}-${getPart('day')} ${getPart('hour')}:${getPart('minute')}:${getPart('second')}`;
 };
 
 const SHEET_NAME = 'Sheet1';
@@ -94,11 +41,10 @@ export async function GET(request: NextRequest) {
         });
 
         const rows = response.data.values || [];
-        const headers = rows[0];
         const dataRows = rows.slice(1);
 
-        // Filter for this user
-        const userRecords = dataRows.filter((row: any[]) => row[1] === userId);
+        // Filter for this user - ensure robust comparison
+        const userRecords = dataRows.filter((row: any[]) => String(row[1]).trim() === String(userId).trim());
 
         const history = userRecords.map((row: any[]) => {
             const inTimeParsed = parseSheetDate(row[4]);
@@ -111,8 +57,8 @@ export async function GET(request: NextRequest) {
             };
         });
 
-        // Determine current status
-        const todayStr = new Date().toISOString().split('T')[0];
+        // Determine current status using IST date
+        const todayStr = getIstDateString();
         const todayRecord = history.find((h: any) => h.date === todayStr);
 
         let currentStatus = 'IDLE';
@@ -157,34 +103,37 @@ export async function POST(request: NextRequest) {
         });
 
         const rows = getResponse.data.values || [];
-        const todayStr = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+        const todayStr = getIstDateString();
+
+        // Convert search parameters to string and trim for reliable comparison
+        const searchUserId = String(userId).trim();
 
         // Find today's row index for this user
         let userRowIndex = -1;
 
-        // Parsing logic for finding today's row manually since we might have mixed formats
         for (let i = 1; i < rows.length; i++) {
             const row = rows[i];
-            const rowDateRaw = row[3]; // Date column
+            const rowUserId = String(row[1]).trim();
+            const rowDateRaw = row[3];
             const rowNormalized = normalizeDate(rowDateRaw);
 
-            if (row[1] === userId && rowNormalized === todayStr) {
+            if (rowUserId === searchUserId && rowNormalized === todayStr) {
                 userRowIndex = i;
                 break;
             }
         }
 
-        const timestamp = formatToSheetDate(new Date());
+        const timestamp = getIstTimestamp();
 
         if (action === 'CHECK_IN') {
             if (userRowIndex !== -1) {
                 return NextResponse.json({ error: 'Already checked in for today' }, { status: 400 });
             }
 
-            const id = `${userId}_${todayStr.replace(/\//g, '-')}`;
+            const id = `${searchUserId}_${todayStr}`;
             const newRow = [
                 id,
-                userId,
+                searchUserId,
                 userName,
                 todayStr, // Date
                 timestamp, // In Time
@@ -205,6 +154,9 @@ export async function POST(request: NextRequest) {
 
         } else if (action === 'CHECK_OUT') {
             if (userRowIndex === -1) {
+                // If not found for "today" IST, maybe they checked in yesterday (night shift)
+                // However, the current logic is daily based. Let's stick to daily for now but log failure.
+                console.warn(`[Attendance] Check-out failed: No row found for user ${searchUserId} on ${todayStr}`);
                 return NextResponse.json({ error: 'No check-in record found for today' }, { status: 400 });
             }
 

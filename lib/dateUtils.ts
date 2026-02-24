@@ -164,3 +164,16 @@ export const formatDateToString = (date: Date | null | undefined): string => {
 
     return `${d}/${m}/${y} ${h}:${min}:${s}`;
 };
+
+// Helper to get today's date in IST (UTC+5:30) as YYYY-MM-DD
+export const getIstDateString = () => {
+    const now = new Date();
+    // Use Intl to get formatted date in Asia/Kolkata
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    });
+    return formatter.format(now); // Returns YYYY-MM-DD
+};
