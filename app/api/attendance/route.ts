@@ -88,8 +88,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
     try {
-        const body = await request.json();
-        const { action, userId, userName, latitude, longitude } = body;
+        const { action, userId, userName, latitude, longitude, accuracy, isMobile } = await request.json();
 
         if (!['CHECK_IN', 'CHECK_OUT'].includes(action)) {
             return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
@@ -113,9 +112,11 @@ export async function POST(request: NextRequest) {
                     registeredLoc.long
                 );
 
-                if (distance > 20) {
+                const threshold = isMobile ? 10 : 20;
+
+                if (distance > threshold) {
                     return NextResponse.json({
-                        error: `You are not in range (${Math.round(distance)}m). Please go to your registered location.`
+                        error: `You are not in range (${Math.round(distance)}m). ${isMobile ? 'Mobile' : 'Desktop'} limit is ${threshold}m.`
                     }, { status: 403 });
                 }
             }

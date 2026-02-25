@@ -77,9 +77,12 @@ export default function AttendancePage() {
     const [liveLocation, setLiveLocation] = useState<{ lat: number, lng: number, accuracy?: number } | null>(null);
     const [locationError, setLocationError] = useState<string | null>(null);
     const [isApple, setIsApple] = useState(false);
+    const [isMobile, setIsMobile] = useState(false);
 
     useEffect(() => {
-        setIsApple(/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent));
+        const ua = navigator.userAgent;
+        setIsApple(/iPad|iPhone|iPod|Macintosh/.test(ua));
+        setIsMobile(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua));
     }, []);
 
     // Derived Location Metrics
@@ -87,10 +90,37 @@ export default function AttendancePage() {
     const distance = liveLocation && registered
         ? calculateDistance(liveLocation.lat, liveLocation.lng, registered.lat, registered.long)
         : null;
-    const isInRange = distance !== null && distance <= 20;
+
+    // Dynamic Range: 10m for mobile, 20m for desktop
+    const rangeThreshold = isMobile ? 10 : 20;
+    const isInRange = distance !== null && distance <= rangeThreshold;
+
     const bearing = liveLocation && registered
         ? calculateBearing(liveLocation.lat, liveLocation.lng, registered.lat, registered.long)
         : null;
+
+    const refreshLocationManual = () => {
+        showLoader();
+        setLocationError(null);
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                setLiveLocation({
+                    lat: pos.coords.latitude,
+                    lng: pos.coords.longitude,
+                    accuracy: pos.coords.accuracy
+                });
+                hideLoader();
+                success("Location updated successfully");
+            },
+            (err) => {
+                hideLoader();
+                const msg = err.code === 1 ? "Permission denied" : "Lookup failed";
+                error(`Location refresh failed: ${msg}`);
+                setLocationError(err.message);
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
+    };
 
     useEffect(() => {
         const init = async () => {
@@ -251,7 +281,8 @@ export default function AttendancePage() {
                     userName: user.username,
                     latitude,
                     longitude,
-                    accuracy: liveLocation?.accuracy
+                    accuracy: liveLocation?.accuracy,
+                    isMobile // Send platform info to API for server-side validation
                 })
             });
 
@@ -488,7 +519,9 @@ export default function AttendancePage() {
                                                         Check In System
                                                     </button>
                                                     {currentStatus === 'IDLE' && !isInRange && !isRestricted && (
-                                                        <p className="text-[10px] font-black text-red-500 uppercase tracking-widest animate-pulse">Out of range: Reach registered zone to unlock</p>
+                                                        <p className="text-[10px] font-black text-red-500 uppercase tracking-widest animate-pulse">
+                                                            {isMobile ? 'Mobile: ' : 'Desktop: '} Reach {rangeThreshold}m zone to unlock
+                                                        </p>
                                                     )}
                                                 </div>
                                             )}
@@ -546,21 +579,27 @@ export default function AttendancePage() {
                                                 )}
                                             </div>
 
-                                            {/* Distance and Status */}
-                                            <div className="flex-grow flex flex-col items-center justify-center py-4">
-                                                {distance !== null ? (
-                                                    <div className="text-center">
-                                                        <div className={`text-5xl font-black mb-1 tabular-nums ${isInRange ? 'text-green-500' : 'text-red-500 text-6xl scale-110'}`}>
-                                                            {Math.round(distance)}m
-                                                        </div>
-                                                        <div className={`text-[10px] font-black uppercase tracking-[0.2em] ${isInRange ? 'text-green-600' : 'text-red-600'}`}>
-                                                            {isInRange ? 'In Range' : 'Out of Bounds'}
-                                                        </div>
+                                            {distance !== null ? (
+                                                <div className="text-center group cursor-pointer" onClick={refreshLocationManual}>
+                                                    <div className={`text-5xl font-black mb-1 tabular-nums transition-all ${isInRange ? 'text-green-500' : 'text-red-500 text-6xl scale-110 group-hover:scale-125'}`}>
+                                                        {Math.round(distance)}m
                                                     </div>
-                                                ) : (
-                                                    <div className="text-gray-300 font-black animate-pulse uppercase text-xs tracking-widest">Calculating Gap...</div>
-                                                )}
-                                            </div>
+                                                    <div className={`text-[10px] font-black uppercase tracking-[0.2em] ${isInRange ? 'text-green-600' : 'text-red-600'}`}>
+                                                        {isInRange ? 'In Range' : 'Out of Bounds'}
+                                                    </div>
+                                                    {!isInRange && <div className="text-[8px] font-bold text-gray-400 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">Tap to re-sync location</div>}
+                                                </div>
+                                            ) : (
+                                                <div className="text-center">
+                                                    <button
+                                                        onClick={refreshLocationManual}
+                                                        className="p-4 bg-gray-50 dark:bg-slate-900/50 rounded-2xl border-2 border-dashed border-gray-200 dark:border-slate-700 hover:border-[var(--theme-primary)] transition-all group"
+                                                    >
+                                                        <div className="text-gray-300 font-black animate-pulse uppercase text-xs tracking-widest mb-2">Calculating Gap...</div>
+                                                        <div className="text-[10px] text-[var(--theme-primary)] font-bold opacity-0 group-hover:opacity-100 transition-all font-black">Tap to Start Tracker</div>
+                                                    </button>
+                                                </div>
+                                            )}
 
                                             {/* Guidance Directions */}
                                             {!isInRange && distance !== null && bearing !== null && (
