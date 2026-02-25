@@ -42,7 +42,9 @@ export async function GET(request: NextRequest) {
                 id: u.id ? String(u.id).trim() : null,
                 username: u.username,
                 full_name: u.full_name,
-                image_url: u.image_url
+                image_url: u.image_url,
+                late_long: u.late_long,
+                role_name: u.role_name
             })),
             attendance: attendanceData,
             leaves: leaveData

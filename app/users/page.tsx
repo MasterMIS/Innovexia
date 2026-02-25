@@ -16,14 +16,15 @@ interface User {
   phone: string;
   role_name: string;
   image_url?: string;
+  late_long?: string;
   created_at: string;
-  
+
   // Personal Details
   dob?: string;
   uan_number?: string;
   aadhaar_number?: string;
   pan_number?: string;
-  
+
   // Address Details
   present_address_line1?: string;
   present_address_line2?: string;
@@ -38,7 +39,7 @@ interface User {
   permanent_country?: string;
   permanent_state?: string;
   permanent_postal_code?: string;
-  
+
   // Professional Details
   experience?: string;
   source_of_hire?: string;
@@ -51,10 +52,10 @@ interface User {
   department?: string;
   offer_letter_url?: string;
   tentative_joining_date?: string;
-  
+
   // Education (JSON string)
   education?: string;
-  
+
   // Work Experience (JSON string)
   work_experience?: string;
 }
@@ -83,11 +84,11 @@ export default function UsersPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [visiblePasswords, setVisiblePasswords] = useState<Set<number>>(new Set());
-  
+
   // Multi-step form
   const [currentStep, setCurrentStep] = useState(1);
   const [offerLetterFile, setOfferLetterFile] = useState<File | null>(null);
-  
+
   // Education & Experience arrays
   const [educationList, setEducationList] = useState<any[]>([{ school_name: '', degree: '', field_of_study: '', completion_date: '', notes: '' }]);
   const [experienceList, setExperienceList] = useState<any[]>([{ occupation: '', company: '', summary: '', duration: '', currently_working: false }]);
@@ -104,13 +105,14 @@ export default function UsersPage() {
     phone: '',
     roleName: 'Admin',
     imageUrl: '',
-    
+    late_long: '',
+
     // Personal Details
     dob: '',
     uan_number: '',
     aadhaar_number: '',
     pan_number: '',
-    
+
     // Address Details
     present_address_line1: '',
     present_address_line2: '',
@@ -125,7 +127,7 @@ export default function UsersPage() {
     permanent_country: 'India',
     permanent_state: '',
     permanent_postal_code: '',
-    
+
     // Professional Details
     experience: '',
     source_of_hire: '',
@@ -299,7 +301,7 @@ export default function UsersPage() {
       loader.showLoader();
       let imageUrl = formData.imageUrl;
       let offerLetterUrl = formData.offer_letter_url;
-      
+
       // Upload profile image
       if (imageFile) {
         imageUrl = await uploadImage();
@@ -308,7 +310,7 @@ export default function UsersPage() {
           return;
         }
       }
-      
+
       // Upload offer letter
       if (offerLetterFile) {
         offerLetterUrl = await uploadOfferLetter();
@@ -321,13 +323,13 @@ export default function UsersPage() {
         roleName: formData.roleName,
         imageUrl: imageUrl,
         ...(formData.password && { password: formData.password }),
-        
+
         // Personal details
         dob: formData.dob,
         uanNumber: formData.uan_number,
         aadhaarNumber: formData.aadhaar_number,
         panNumber: formData.pan_number,
-        
+
         // Address details
         presentAddressLine1: formData.present_address_line1,
         presentAddressLine2: formData.present_address_line2,
@@ -342,7 +344,7 @@ export default function UsersPage() {
         permanentCountry: formData.permanent_country,
         permanentState: formData.permanent_state,
         permanentPostalCode: formData.permanent_postal_code,
-        
+
         // Professional details
         experience: formData.experience,
         sourceOfHire: formData.source_of_hire,
@@ -355,10 +357,11 @@ export default function UsersPage() {
         department: formData.department,
         offerLetterUrl: offerLetterUrl,
         tentativeJoiningDate: formData.tentative_joining_date,
-        
+
         // Education and Experience as JSON
         education: JSON.stringify(educationList),
         workExperience: JSON.stringify(experienceList),
+        lateLong: formData.late_long,
       };
 
       const method = editingUserId ? 'PUT' : 'POST';
@@ -375,7 +378,7 @@ export default function UsersPage() {
       const isUpdate = !!editingUserId;
       const actionType = isUpdate ? 'user_updated' : 'user_created';
       const actionTitle = isUpdate ? 'Profile Updated' : 'Welcome!';
-      const actionMessage = isUpdate 
+      const actionMessage = isUpdate
         ? `Your profile has been updated by an administrator`
         : `Welcome ${formData.username}! Your account has been created`;
 
@@ -474,11 +477,12 @@ export default function UsersPage() {
       department: user.department || '',
       offer_letter_url: user.offer_letter_url || '',
       tentative_joining_date: user.tentative_joining_date || '',
+      late_long: user.late_long || '',
     });
     setImagePreview(user.image_url || '');
     setImageFile(null);
     setOfferLetterFile(null);
-    
+
     // Parse education and experience JSON
     try {
       const eduStr = typeof user.education === 'string' ? user.education : JSON.stringify(user.education || []);
@@ -492,7 +496,7 @@ export default function UsersPage() {
       console.error('Error parsing education:', e, 'Value:', user.education);
       setEducationList([{ school_name: '', degree: '', field_of_study: '', completion_date: '', notes: '' }]);
     }
-    
+
     try {
       const expStr = typeof user.work_experience === 'string' ? user.work_experience : JSON.stringify(user.work_experience || []);
       if (expStr && expStr !== '[]' && expStr !== 'null') {
@@ -505,7 +509,7 @@ export default function UsersPage() {
       console.error('Error parsing work_experience:', e, 'Value:', user.work_experience);
       setExperienceList([{ occupation: '', company: '', summary: '', duration: '', currently_working: false }]);
     }
-    
+
     setShowModal(true);
   };
 
@@ -521,7 +525,7 @@ export default function UsersPage() {
       const user = users.find(u => u.id === deleteId);
       const response = await fetch(`/api/users?id=${deleteId}`, { method: 'DELETE' });
       if (!response.ok) throw new Error('Failed to delete user');
-      
+
       // Send notification to the deleted user (they won't see it but for records)
       if (user) {
         await createNotificationForUser(
@@ -531,7 +535,7 @@ export default function UsersPage() {
           `Your account has been deleted by an administrator`
         );
       }
-      
+
       fetchUsers();
       addToast('User deleted successfully', 'success');
     } catch (error) {
@@ -581,6 +585,7 @@ export default function UsersPage() {
       department: '',
       offer_letter_url: '',
       tentative_joining_date: '',
+      late_long: '',
     });
     setImageFile(null);
     setImagePreview('');
@@ -785,10 +790,10 @@ export default function UsersPage() {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           {user.image_url ? (
-                            <img 
+                            <img
                               src={`/api/image-proxy?url=${encodeURIComponent(user.image_url)}`}
-                              alt={user.username} 
-                              className="w-10 h-10 rounded-full object-cover border-2 border-[var(--theme-primary)]" 
+                              alt={user.username}
+                              className="w-10 h-10 rounded-full object-cover border-2 border-[var(--theme-primary)]"
                               onError={(e) => {
                                 const target = e.target as HTMLImageElement;
                                 target.style.display = 'none';
@@ -897,11 +902,10 @@ export default function UsersPage() {
               <motion.button
                 key={page}
                 onClick={() => setCurrentPage(page)}
-                className={`px-4 py-2 rounded-xl transition font-semibold shadow-sm ${
-                  currentPage === page
+                className={`px-4 py-2 rounded-xl transition font-semibold shadow-sm ${currentPage === page
                     ? 'bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-secondary)] text-gray-900'
                     : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white'
-                }`}
+                  }`}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >

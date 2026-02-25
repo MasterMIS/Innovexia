@@ -148,11 +148,10 @@ export default function UserFormModal({
                   <div key={step.id} className="flex items-center flex-1">
                     <div className="flex flex-col items-center flex-1">
                       <motion.div
-                        className={`w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold transition-all ${
-                          currentStep >= step.id
+                        className={`w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold transition-all ${currentStep >= step.id
                             ? 'bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-secondary)] text-gray-900 shadow-lg'
                             : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500'
-                        }`}
+                          }`}
                         whileHover={{ scale: 1.05 }}
                       >
                         {step.icon}
@@ -258,20 +257,35 @@ export default function UserFormModal({
                       </div>
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                        Role *
-                      </label>
-                      <select
-                        value={formData.roleName}
-                        onChange={(e) => setFormData({ ...formData, roleName: e.target.value })}
-                        className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent"
-                        required
-                      >
-                        <option value="Admin">Admin</option>
-                        <option value="TL">TL</option>
-                        <option value="User">User</option>
-                      </select>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="flex-1">
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                          Role *
+                        </label>
+                        <select
+                          value={formData.roleName}
+                          onChange={(e) => setFormData({ ...formData, roleName: e.target.value })}
+                          className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent"
+                          required
+                        >
+                          <option value="Admin">Admin</option>
+                          <option value="TL">TL</option>
+                          <option value="User">User</option>
+                        </select>
+                      </div>
+
+                      <div className="flex-1">
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                          Late/Long
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.late_long || ''}
+                          onChange={(e) => setFormData({ ...formData, late_long: e.target.value })}
+                          className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent"
+                          placeholder="e.g., 28.6139, 77.2090"
+                        />
+                      </div>
                     </div>
 
                     <div>
@@ -377,7 +391,7 @@ export default function UserFormModal({
                         <span className="bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-secondary)] text-gray-900 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold">1</span>
                         Present Address
                       </h4>
-                      
+
                       <div className="space-y-4">
                         <div>
                           <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
@@ -482,7 +496,7 @@ export default function UserFormModal({
                           <span className="bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-secondary)] text-gray-900 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold">2</span>
                           Permanent Address
                         </h4>
-                        
+
                         <div className="space-y-4">
                           <div>
                             <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
@@ -914,7 +928,7 @@ export default function UserFormModal({
                     ← Previous
                   </motion.button>
                 )}
-                
+
                 <motion.button
                   type="button"
                   onClick={onClose}

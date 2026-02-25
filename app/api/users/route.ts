@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { username, email, password, phone, roleName, imageUrl } = body;
+    const { username, email, password, phone, roleName, imageUrl, lateLong } = body;
 
     if (!username || !email || !password) {
       return NextResponse.json(
@@ -34,13 +34,13 @@ export async function POST(request: NextRequest) {
       phone: phone || '',
       roleName: roleName || 'User',
       imageUrl: imageUrl || '',
-      
+
       // Personal Details
       dob: body.dob || '',
       uanNumber: body.uanNumber || '',
       aadhaarNumber: body.aadhaarNumber || '',
       panNumber: body.panNumber || '',
-      
+
       // Address Details
       presentAddressLine1: body.presentAddressLine1 || '',
       presentAddressLine2: body.presentAddressLine2 || '',
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
       permanentCountry: body.permanentCountry || '',
       permanentState: body.permanentState || '',
       permanentPostalCode: body.permanentPostalCode || '',
-      
+
       // Professional Details
       experience: body.experience || '',
       sourceOfHire: body.sourceOfHire || '',
@@ -68,10 +68,11 @@ export async function POST(request: NextRequest) {
       department: body.department || '',
       offerLetterUrl: body.offerLetterUrl || '',
       tentativeJoiningDate: body.tentativeJoiningDate || '',
-      
+
       // Education and Experience (JSON strings)
       education: body.education || '[]',
       workExperience: body.workExperience || '[]',
+      lateLong: lateLong || '',
     };
 
     const user = await createUser(userData);
@@ -88,7 +89,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, email, phone, roleName, imageUrl, password } = body;
+    const { id, email, phone, roleName, imageUrl, password, lateLong } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -102,13 +103,13 @@ export async function PUT(request: NextRequest) {
       phone,
       roleName: roleName || 'User',
       imageUrl,
-      
+
       // Personal Details
       dob: body.dob,
       uanNumber: body.uanNumber,
       aadhaarNumber: body.aadhaarNumber,
       panNumber: body.panNumber,
-      
+
       // Address Details
       presentAddressLine1: body.presentAddressLine1,
       presentAddressLine2: body.presentAddressLine2,
@@ -123,7 +124,7 @@ export async function PUT(request: NextRequest) {
       permanentCountry: body.permanentCountry,
       permanentState: body.permanentState,
       permanentPostalCode: body.permanentPostalCode,
-      
+
       // Professional Details
       experience: body.experience,
       sourceOfHire: body.sourceOfHire,
@@ -136,10 +137,11 @@ export async function PUT(request: NextRequest) {
       department: body.department,
       offerLetterUrl: body.offerLetterUrl,
       tentativeJoiningDate: body.tentativeJoiningDate,
-      
+
       // Education and Experience
       education: body.education,
       workExperience: body.workExperience,
+      lateLong: lateLong,
     };
 
     // Only update password if provided

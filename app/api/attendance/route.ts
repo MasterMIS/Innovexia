@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getGoogleSheetsClient, SPREADSHEET_IDS } from '@/lib/sheets';
+import { getGoogleSheetsClient, SPREADSHEET_IDS, getUserById } from '@/lib/sheets';
 import { normalizeDate, parseSheetDate, getIstDateString } from '@/lib/dateUtils';
+import { calculateDistance, parseLatLong } from '@/lib/locationUtils';
 
 // Helper to get full timestamp in IST
 const getIstTimestamp = () => {
@@ -87,10 +88,37 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
     try {
-        const { action, userId, userName } = await request.json();
+        const body = await request.json();
+        const { action, userId, userName, latitude, longitude } = body;
 
         if (!['CHECK_IN', 'CHECK_OUT'].includes(action)) {
             return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+        }
+
+        // Geofencing Validation
+        const user = await getUserById(userId);
+        if (user && user.late_long) {
+            const registeredLoc = parseLatLong(user.late_long);
+            if (registeredLoc) {
+                if (latitude === null || longitude === null) {
+                    return NextResponse.json({
+                        error: 'Location access is required for attendance. Please enable location permissions.'
+                    }, { status: 403 });
+                }
+
+                const distance = calculateDistance(
+                    latitude,
+                    longitude,
+                    registeredLoc.lat,
+                    registeredLoc.long
+                );
+
+                if (distance > 10) {
+                    return NextResponse.json({
+                        error: `You are not in range (${Math.round(distance)}m). Please go to your registered location.`
+                    }, { status: 403 });
+                }
+            }
         }
 
         const sheets = await getGoogleSheetsClient();

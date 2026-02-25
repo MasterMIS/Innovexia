@@ -739,6 +739,16 @@ export async function getAllUsers() {
   }
 }
 
+export async function getUserById(id: number | string) {
+  try {
+    const users = await getAllUsers();
+    return users.find((u: any) => String(u.id) === String(id)) || null;
+  } catch (error) {
+    console.error(`Error fetching user ${id} from Google Sheets:`, error);
+    throw error;
+  }
+}
+
 export async function createUser(userData: any) {
   try {
     const sheets = await getGoogleSheetsClient();
@@ -763,7 +773,7 @@ export async function createUser(userData: any) {
       'permanent_same_as_present', 'permanent_address_line1', 'permanent_address_line2', 'permanent_city', 'permanent_country', 'permanent_state', 'permanent_postal_code',
       'experience', 'source_of_hire', 'skill_set', 'highest_qualification', 'additional_information',
       'location', 'title', 'current_salary', 'department', 'offer_letter_url', 'tentative_joining_date',
-      'education', 'work_experience', 'created_at'
+      'late_long', 'education', 'work_experience', 'created_at'
     ];
 
     // If sheet is empty, create headers
@@ -840,6 +850,7 @@ export async function createUser(userData: any) {
       department: userData.department || '',
       offer_letter_url: userData.offerLetterUrl || '',
       tentative_joining_date: userData.tentativeJoiningDate || '',
+      late_long: userData.lateLong || '',
       education: userData.education || '[]',
       work_experience: userData.workExperience || '[]',
       created_at: formatToSheetDate(new Date())
@@ -929,6 +940,7 @@ export async function updateUser(id: number, userData: any) {
       department: userData.department !== undefined ? userData.department : existingUser.department,
       offer_letter_url: userData.offerLetterUrl !== undefined ? userData.offerLetterUrl : existingUser.offer_letter_url,
       tentative_joining_date: userData.tentativeJoiningDate !== undefined ? userData.tentativeJoiningDate : existingUser.tentative_joining_date,
+      late_long: userData.lateLong !== undefined ? userData.lateLong : existingUser.late_long,
       education: userData.education !== undefined ? userData.education : existingUser.education,
       work_experience: userData.workExperience !== undefined ? userData.workExperience : existingUser.work_experience,
     };

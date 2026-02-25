@@ -59,6 +59,7 @@ export async function POST(request: NextRequest) {
       email: user.email,
       full_name: user.full_name || user.username,
       role_name: user.role_name || 'User',
+      late_long: user.late_long || '',
     };
 
     // Create response with auth cookie keyed by sessionId so tabs are isolated

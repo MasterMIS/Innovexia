@@ -7,6 +7,7 @@ import { useToast } from '@/components/ToastProvider';
 import { useLoader } from '@/components/LoaderProvider';
 import CustomDateTimePicker from '@/components/CustomDateTimePicker';
 import { getIstDateString } from '@/lib/dateUtils';
+import { calculateDistance, calculateBearing, getCompassDirection, parseLatLong } from '@/lib/locationUtils';
 
 
 interface Leave {
@@ -72,6 +73,10 @@ export default function AttendancePage() {
     const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
     const { showLoader, hideLoader } = useLoader();
 
+    // Real-time Location State
+    const [liveLocation, setLiveLocation] = useState<{ lat: number, lng: number } | null>(null);
+    const [locationError, setLocationError] = useState<string | null>(null);
+
     useEffect(() => {
         const init = async () => {
             // Initial load logic - maybe loader here too? User asked for "when taking action".
@@ -98,6 +103,42 @@ export default function AttendancePage() {
         };
         init();
     }, []);
+
+    // Real-time location watcher
+    useEffect(() => {
+        if (!navigator.geolocation) {
+            setLocationError('Geolocation not supported');
+            return;
+        }
+
+        const watchId = navigator.geolocation.watchPosition(
+            (pos) => {
+                setLiveLocation({
+                    lat: pos.coords.latitude,
+                    lng: pos.coords.longitude
+                });
+                setLocationError(null);
+            },
+            (err) => {
+                console.warn('Location watch error:', err.message);
+                setLocationError(err.message);
+            },
+            { enableHighAccuracy: true }
+        );
+
+        return () => navigator.geolocation.clearWatch(watchId);
+    }, []);
+
+    // Sync user data with master list to avoid stale sessions missing late_long
+    useEffect(() => {
+        if (masterData?.users && user?.id) {
+            const freshUser = masterData.users.find(u => String(u.id) === String(user.id));
+            if (freshUser && freshUser.late_long !== user.late_long) {
+                console.log('[Location Debug] Syncing user coordinates from master data');
+                setUser((prev: any) => prev ? ({ ...prev, late_long: freshUser.late_long }) : prev);
+            }
+        }
+    }, [masterData, user?.id]);
 
     // Timer Logic 
     useEffect(() => {
@@ -152,20 +193,55 @@ export default function AttendancePage() {
     const handleAction = async (action: 'CHECK_IN' | 'CHECK_OUT') => {
         showLoader();
         try {
+            // Get current location
+            const getLocation = () => {
+                return new Promise<GeolocationPosition>((resolve, reject) => {
+                    if (!navigator.geolocation) {
+                        reject(new Error('Geolocation is not supported by your browser'));
+                    } else {
+                        navigator.geolocation.getCurrentPosition(resolve, reject);
+                    }
+                });
+            };
+
+            let latitude: number | null = null;
+            let longitude: number | null = null;
+
+            try {
+                const position = await getLocation();
+                latitude = position.coords.latitude;
+                longitude = position.coords.longitude;
+            } catch (err: any) {
+                console.warn('Geolocation failed:', err.message);
+                // We'll let the API decide if location is required
+            }
+
             // Optimistic update
             if (action === 'CHECK_IN') { setCurrentStatus('CHECKED_IN'); setCheckInTime(new Date()); }
             else { setCurrentStatus('COMPLETED'); }
 
             const res = await fetch('/api/attendance', {
                 method: 'POST',
-                body: JSON.stringify({ action, userId: user.id, userName: user.username })
+                body: JSON.stringify({
+                    action,
+                    userId: user.id,
+                    userName: user.username,
+                    latitude,
+                    longitude
+                })
             });
-            if (!res.ok) throw new Error('Action failed');
+
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.error || 'Action failed');
+            }
 
             await fetchAttendance(user.id);
             success(action === 'CHECK_IN' ? 'Checked in successfully!' : 'Checked out successfully!');
-        } catch (e) {
-            error('Failed to update attendance status');
+        } catch (e: any) {
+            error(e.message || 'Failed to update attendance status');
+            // Revert optimistic update if needed
+            fetchAttendance(user.id);
         } finally {
             hideLoader();
         }
@@ -397,27 +473,102 @@ export default function AttendancePage() {
                                 })()}
                             </div>
 
-                            <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-lg p-6 flex-grow border border-gray-100 dark:border-slate-700">
-                                <h3 className="text-lg font-black mb-6 flex items-center gap-2 text-gray-800 dark:text-white"><StatusIcon status="Pending" /> Upcoming Leaves</h3>
-                                {leaves.filter(l => new Date(l.endDate) >= new Date()).length === 0 ? <p className="text-gray-400 text-sm italic">No upcoming leaves.</p> :
-                                    leaves.filter(l => new Date(l.endDate) >= new Date()).slice(0, 5).map((l, i) => (
-                                        <div key={i} className="mb-3 p-3 bg-gray-50 rounded-xl border border-gray-100 dark:bg-slate-900/50 dark:border-slate-700 flex justify-between items-center gap-3">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-full bg-[var(--theme-primary)]/10 text-[var(--theme-primary)] flex items-center justify-center font-bold overflow-hidden shrink-0">
-                                                    {l.userImage ? (
-                                                        <img src={l.userImage} alt={l.userName} className="w-full h-full object-cover" />
-                                                    ) : (
-                                                        <UserIcon />
-                                                    )}
+                            {/* Location Intelligence Dashboard */}
+                            <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-lg p-6 flex-grow border border-gray-100 dark:border-slate-700 relative overflow-hidden flex flex-col">
+                                <div className="absolute top-0 right-0 p-3 opacity-10">
+                                    <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 0 1 0-5 2.5 2.5 0 0 1 0 5z" /></svg>
+                                </div>
+                                <h3 className="text-lg font-black mb-6 flex items-center gap-2 text-gray-800 dark:text-white uppercase tracking-tight italic">
+                                    <span className="w-2 h-2 rounded-full bg-[var(--theme-primary)] animate-ping"></span>
+                                    Location Intelligence
+                                </h3>
+
+                                {user?.late_long ? (() => {
+                                    const registered = parseLatLong(user.late_long);
+                                    if (!registered) return <div className="text-red-500 text-xs font-bold">Invalid registered location format.</div>;
+
+                                    const distance = liveLocation
+                                        ? calculateDistance(liveLocation.lat, liveLocation.lng, registered.lat, registered.long)
+                                        : null;
+
+                                    const bearing = liveLocation
+                                        ? calculateBearing(liveLocation.lat, liveLocation.lng, registered.lat, registered.long)
+                                        : null;
+
+                                    const isInRange = distance !== null && distance <= 10;
+
+                                    return (
+                                        <div className="space-y-6 flex-grow flex flex-col">
+                                            {/* Coordinates Comparison */}
+                                            <div className="grid grid-cols-1 gap-4">
+                                                <div className="p-4 bg-gray-50 dark:bg-slate-900/50 rounded-2xl border border-gray-100 dark:border-slate-700">
+                                                    <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Registered Base</div>
+                                                    <div className="text-sm font-black text-gray-800 dark:text-gray-200 font-mono">
+                                                        {registered.lat.toFixed(6)}, {registered.long.toFixed(6)}
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <div className="text-xs text-gray-400 font-bold uppercase">{l.status}</div>
-                                                    <div className="text-sm font-bold">{formatToDDMMYYYY(l.startDate)}</div>
+
+                                                <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center justify-between">
+                                                    <span>Current Actual</span>
+                                                    {liveLocation && <span className="text-[8px] bg-green-500 text-white px-1 rounded animate-pulse">LIVE</span>}
                                                 </div>
+                                                {locationError ? (
+                                                    <div className="text-xs text-red-500 font-bold p-2 bg-red-100/50 rounded-lg">{locationError}</div>
+                                                ) : liveLocation ? (
+                                                    <div className="space-y-1">
+                                                        <div className="text-sm font-black text-[var(--theme-primary)] font-mono">
+                                                            LAT: {liveLocation.lat.toFixed(6)}
+                                                        </div>
+                                                        <div className="text-sm font-black text-[var(--theme-primary)] font-mono">
+                                                            LNG: {liveLocation.lng.toFixed(6)}
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-2 h-2 rounded-full bg-gray-300 animate-bounce"></div>
+                                                        <div className="text-xs text-gray-400 font-bold animate-pulse">Detecting Satellite...</div>
+                                                    </div>
+                                                )}
                                             </div>
-                                            <div className="h-2 w-2 rounded-full bg-[var(--theme-primary)]"></div>
+
+                                            {/* Distance and Status */}
+                                            <div className="flex-grow flex flex-col items-center justify-center py-4">
+                                                {distance !== null ? (
+                                                    <div className="text-center">
+                                                        <div className={`text-5xl font-black mb-1 tabular-nums ${isInRange ? 'text-green-500' : 'text-red-500 text-6xl scale-110'}`}>
+                                                            {Math.round(distance)}m
+                                                        </div>
+                                                        <div className={`text-[10px] font-black uppercase tracking-[0.2em] ${isInRange ? 'text-green-600' : 'text-red-600'}`}>
+                                                            {isInRange ? 'In Range' : 'Out of Bounds'}
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-gray-300 font-black animate-pulse uppercase text-xs tracking-widest">Calculating Gap...</div>
+                                                )}
+                                            </div>
+
+                                            {/* Guidance Directions */}
+                                            {!isInRange && distance !== null && bearing !== null && (
+                                                <div className="mt-auto p-4 bg-orange-50 dark:bg-orange-900/20 border-2 border-dashed border-orange-200 dark:border-orange-800 rounded-2xl animate-in fade-in slide-in-from-bottom-2">
+                                                    <div className="text-[10px] font-bold text-orange-600 dark:text-orange-400 uppercase mb-2 flex items-center justify-between">
+                                                        <span>Navigation Guide</span>
+                                                        <span className="bg-orange-600 text-white px-2 py-0.5 rounded text-[8px]">{getCompassDirection(bearing)}</span>
+                                                    </div>
+                                                    <p className="text-xs font-black text-orange-800 dark:text-orange-300 leading-tight">
+                                                        Move {Math.round(distance)} meters {getCompassDirection(bearing).replace('N', 'North').replace('S', 'South').replace('E', 'East').replace('W', 'West')} to reach your registered attendance zone.
+                                                    </p>
+                                                </div>
+                                            )}
                                         </div>
-                                    ))}
+                                    );
+                                })() : (
+                                    <div className="flex flex-col items-center justify-center p-8 text-center opacity-50 flex-grow">
+                                        <div className="p-4 bg-gray-100 rounded-full mb-4">
+                                            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                        </div>
+                                        <p className="text-sm font-bold text-gray-500 italic">No Location registered. Please contact your manager to set your base coordinates.</p>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
