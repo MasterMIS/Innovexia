@@ -76,6 +76,11 @@ export default function AttendancePage() {
     // Real-time Location State
     const [liveLocation, setLiveLocation] = useState<{ lat: number, lng: number, accuracy?: number } | null>(null);
     const [locationError, setLocationError] = useState<string | null>(null);
+    const [isApple, setIsApple] = useState(false);
+
+    useEffect(() => {
+        setIsApple(/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent));
+    }, []);
 
     // Derived Location Metrics
     const registered = parseLatLong(user?.late_long);
@@ -132,9 +137,16 @@ export default function AttendancePage() {
             },
             (err) => {
                 console.warn('Location watch error:', err.message);
-                setLocationError(err.message);
+                let msg = err.message;
+                if (err.code === 1) msg = "Location access denied. Please enable 'Location Services' in your iPhone Settings > Privacy.";
+                if (err.code === 3) msg = "Location lookup timed out. Move to an area with better signal.";
+                setLocationError(msg);
             },
-            { enableHighAccuracy: true }
+            {
+                enableHighAccuracy: true,
+                timeout: 15000,
+                maximumAge: 10000
+            }
         );
 
         return () => navigator.geolocation.clearWatch(watchId);
@@ -575,11 +587,16 @@ export default function AttendancePage() {
                                                         </div>
                                                     </div>
                                                     <button
-                                                        onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${registered.lat},${registered.long}`, '_blank')}
+                                                        onClick={() => {
+                                                            const url = isApple
+                                                                ? `https://maps.apple.com/?daddr=${registered.lat},${registered.long}&dirflg=d`
+                                                                : `https://www.google.com/maps/dir/?api=1&destination=${registered.lat},${registered.long}`;
+                                                            window.open(url, '_blank');
+                                                        }}
                                                         className="w-full py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-md transition-all flex items-center justify-center gap-2"
                                                     >
                                                         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" /></svg>
-                                                        Show on Google Maps
+                                                        Show on {isApple ? 'Apple Maps' : 'Google Maps'}
                                                     </button>
                                                 </div>
                                             )}
