@@ -189,7 +189,7 @@ export default function ScorePage() {
 
 
 
-    const isTaskInRange = (due_date?: string, updated_at?: string, customFrom?: Date, customTo?: Date) => {
+    const isTaskInRange = (due_date?: string, updated_at?: string, status?: string, customFrom?: Date, customTo?: Date) => {
         if ((!dateRange.from || !dateRange.to) && !customFrom) return true;
         const fromDate = customFrom || new Date(dateRange.from);
         const toDate = customTo || new Date(dateRange.to);
@@ -200,7 +200,8 @@ export default function ScorePage() {
             const dDate = parseDateString(due_date);
             if (dDate && dDate >= fromDate && dDate <= toDate) return true;
         }
-        if (updated_at) {
+        // Only check updated_at if the task is Completed
+        if (updated_at && status?.toLowerCase() === 'completed') {
             const uDate = parseDateString(updated_at);
             if (uDate && uDate >= fromDate && uDate <= toDate) return true;
         }
@@ -267,8 +268,8 @@ export default function ScorePage() {
         return periods;
     };
 
-    const isOnTime = (due_date?: string, updated_at?: string) => {
-        if (!due_date || !updated_at) return false;
+    const isOnTime = (due_date?: string, updated_at?: string, status?: string) => {
+        if (!due_date || !updated_at || status?.toLowerCase() !== 'completed') return false;
         const dDate = parseDateString(due_date);
         const uDate = parseDateString(updated_at);
         if (!dDate || !uDate) return false;
@@ -296,20 +297,20 @@ export default function ScorePage() {
             const userDelegations = delegationsList.filter(d => {
                 const isAssigned = (d.doer_name?.toLowerCase() === user.username.toLowerCase()) ||
                     (!d.doer_name && d.assigned_to?.toLowerCase() === user.username.toLowerCase());
-                return isAssigned && isTaskInRange(d.due_date, d.updated_at);
+                return isAssigned && isTaskInRange(d.due_date, d.updated_at, d.status);
             });
 
             const userChecklists = checklistsList.filter(c => {
                 const isAssigned = (c.assignee?.toLowerCase() === user.username.toLowerCase()) ||
                     (c.doer_name?.toLowerCase() === user.username.toLowerCase());
-                return isAssigned && isTaskInRange(c.due_date, c.updated_at);
+                return isAssigned && isTaskInRange(c.due_date, c.updated_at, c.status);
             });
 
             const completedDelegations = userDelegations.filter(d => d.status.toLowerCase() === 'completed');
-            const onTimeDelegations = userDelegations.filter(d => isOnTime(d.due_date, d.updated_at));
+            const onTimeDelegations = userDelegations.filter(d => isOnTime(d.due_date, d.updated_at, d.status));
 
             const completedChecklists = userChecklists.filter(c => c.status.toLowerCase() === 'completed');
-            const onTimeChecklists = userChecklists.filter(c => isOnTime(c.due_date, c.updated_at));
+            const onTimeChecklists = userChecklists.filter(c => isOnTime(c.due_date, c.updated_at, c.status));
 
             // Calculate O2D Stats
             const userO2DItems: O2DTaskData[] = [];
@@ -380,16 +381,16 @@ export default function ScorePage() {
             // Trend calculation
             const periods = getChartPeriods(filterType, dateRange);
             const trendData = periods.map(p => {
-                const pDels = userDelegations.filter(d => isTaskInRange(d.due_date, d.updated_at, p.from, p.to));
+                const pDels = userDelegations.filter(d => isTaskInRange(d.due_date, d.updated_at, d.status, p.from, p.to));
                 const pDelTotal = pDels.length;
-                const pDelOnTime = pDels.filter(d => isOnTime(d.due_date, d.updated_at)).length;
+                const pDelOnTime = pDels.filter(d => isOnTime(d.due_date, d.updated_at, d.status)).length;
 
-                const pChecks = userChecklists.filter(c => isTaskInRange(c.due_date, c.updated_at, p.from, p.to));
+                const pChecks = userChecklists.filter(c => isTaskInRange(c.due_date, c.updated_at, c.status, p.from, p.to));
                 const pCheckTotal = pChecks.length;
-                const pCheckOnTime = pChecks.filter(c => isOnTime(c.due_date, c.updated_at)).length;
+                const pCheckOnTime = pChecks.filter(c => isOnTime(c.due_date, c.updated_at, c.status)).length;
 
-                const pO2D = completedO2D.filter(o => isTaskInRange(o.planned_date || '', o.actual_date || '', p.from, p.to));
-                const pO2DTotal = userO2DItems.filter(o => isTaskInRange(o.planned_date || '', o.actual_date || '', p.from, p.to)).length;
+                const pO2D = completedO2D.filter(o => isTaskInRange(o.planned_date || '', o.actual_date || '', 'Completed', p.from, p.to));
+                const pO2DTotal = userO2DItems.filter(o => isTaskInRange(o.planned_date || '', o.actual_date || '', 'Completed', p.from, p.to)).length;
                 const pO2DOnTime = pO2D.filter(o => o.status === 'On Time').length;
 
                 const pTotal = pDelTotal + pCheckTotal + pO2DTotal;
