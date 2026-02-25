@@ -74,7 +74,7 @@ export default function AttendancePage() {
     const { showLoader, hideLoader } = useLoader();
 
     // Real-time Location State
-    const [liveLocation, setLiveLocation] = useState<{ lat: number, lng: number } | null>(null);
+    const [liveLocation, setLiveLocation] = useState<{ lat: number, lng: number, accuracy?: number } | null>(null);
     const [locationError, setLocationError] = useState<string | null>(null);
 
     useEffect(() => {
@@ -115,7 +115,8 @@ export default function AttendancePage() {
             (pos) => {
                 setLiveLocation({
                     lat: pos.coords.latitude,
-                    lng: pos.coords.longitude
+                    lng: pos.coords.longitude,
+                    accuracy: pos.coords.accuracy
                 });
                 setLocationError(null);
             },
@@ -227,7 +228,8 @@ export default function AttendancePage() {
                     userId: user.id,
                     userName: user.username,
                     latitude,
-                    longitude
+                    longitude,
+                    accuracy: liveLocation?.accuracy
                 })
             });
 
@@ -495,7 +497,7 @@ export default function AttendancePage() {
                                         ? calculateBearing(liveLocation.lat, liveLocation.lng, registered.lat, registered.long)
                                         : null;
 
-                                    const isInRange = distance !== null && distance <= 10;
+                                    const isInRange = distance !== null && distance <= 20;
 
                                     return (
                                         <div className="space-y-6 flex-grow flex flex-col">
