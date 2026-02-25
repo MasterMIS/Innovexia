@@ -77,6 +77,16 @@ export default function AttendancePage() {
     const [liveLocation, setLiveLocation] = useState<{ lat: number, lng: number, accuracy?: number } | null>(null);
     const [locationError, setLocationError] = useState<string | null>(null);
 
+    // Derived Location Metrics
+    const registered = parseLatLong(user?.late_long);
+    const distance = liveLocation && registered
+        ? calculateDistance(liveLocation.lat, liveLocation.lng, registered.lat, registered.long)
+        : null;
+    const isInRange = distance !== null && distance <= 20;
+    const bearing = liveLocation && registered
+        ? calculateBearing(liveLocation.lat, liveLocation.lng, registered.lat, registered.long)
+        : null;
+
     useEffect(() => {
         const init = async () => {
             // Initial load logic - maybe loader here too? User asked for "when taking action".
@@ -452,22 +462,24 @@ export default function AttendancePage() {
                                     const isRestricted = isSunday || isOnLeave;
                                     const restrictionReason = isSunday ? "System Restricted on Sunday" : "System Restricted during Leave";
 
-                                    if (isRestricted && currentStatus !== 'COMPLETED') {
-                                        return (
-                                            <div className="mt-4 p-5 bg-gray-50 dark:bg-slate-900/50 rounded-2xl border-2 border-dashed border-gray-200 dark:border-slate-700">
-                                                <div className="text-[var(--theme-primary)] mb-2 group-hover:animate-bounce">
-                                                    <svg className="w-8 h-8 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m0 0v2m0-2h2m-2-2h-2m8-3V7a4 4 0 00-8 0v4M5 11h14a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2z" /></svg>
-                                                </div>
-                                                <div className="font-black text-xs text-gray-400 uppercase tracking-widest leading-relaxed">
-                                                    {restrictionReason}
-                                                </div>
-                                            </div>
-                                        );
-                                    }
+                                    const checkInDisabled = isRestricted || (currentStatus === 'IDLE' && !isInRange);
 
                                     return (
                                         <>
-                                            {currentStatus === 'IDLE' && <button onClick={() => handleAction('CHECK_IN')} className="w-full py-5 bg-green-500 hover:bg-green-600 text-white rounded-2xl font-black text-lg shadow-lg shadow-green-500/30 transition-all transform hover:scale-[1.02] active:scale-95">Check In System</button>}
+                                            {currentStatus === 'IDLE' && (
+                                                <div className="space-y-2">
+                                                    <button
+                                                        onClick={() => handleAction('CHECK_IN')}
+                                                        disabled={checkInDisabled}
+                                                        className={`w-full py-5 rounded-2xl font-black text-lg transition-all transform ${checkInDisabled ? 'bg-gray-300 text-gray-500 cursor-not-allowed scale-100' : 'bg-green-500 hover:bg-green-600 text-white shadow-lg shadow-green-500/30 hover:scale-[1.02] active:scale-95'}`}
+                                                    >
+                                                        Check In System
+                                                    </button>
+                                                    {currentStatus === 'IDLE' && !isInRange && !isRestricted && (
+                                                        <p className="text-[10px] font-black text-red-500 uppercase tracking-widest animate-pulse">Out of range: Reach registered zone to unlock</p>
+                                                    )}
+                                                </div>
+                                            )}
                                             {currentStatus === 'CHECKED_IN' && <button onClick={() => handleAction('CHECK_OUT')} className="w-full py-5 bg-red-500 hover:bg-red-600 text-white rounded-2xl font-black text-lg shadow-lg shadow-red-500/30 transition-all transform hover:scale-[1.02] active:scale-95 animate-pulse">Deactivate Link</button>}
                                             {currentStatus === 'COMPLETED' && <div className="mt-4 text-green-600 font-black text-lg bg-green-50 py-4 rounded-xl border border-green-100 dark:bg-green-900/20 dark:border-green-800">Mission Accomplished ✅</div>}
                                         </>
@@ -486,18 +498,7 @@ export default function AttendancePage() {
                                 </h3>
 
                                 {user?.late_long ? (() => {
-                                    const registered = parseLatLong(user.late_long);
                                     if (!registered) return <div className="text-red-500 text-xs font-bold">Invalid registered location format.</div>;
-
-                                    const distance = liveLocation
-                                        ? calculateDistance(liveLocation.lat, liveLocation.lng, registered.lat, registered.long)
-                                        : null;
-
-                                    const bearing = liveLocation
-                                        ? calculateBearing(liveLocation.lat, liveLocation.lng, registered.lat, registered.long)
-                                        : null;
-
-                                    const isInRange = distance !== null && distance <= 20;
 
                                     return (
                                         <div className="space-y-6 flex-grow flex flex-col">
@@ -551,14 +552,35 @@ export default function AttendancePage() {
 
                                             {/* Guidance Directions */}
                                             {!isInRange && distance !== null && bearing !== null && (
-                                                <div className="mt-auto p-4 bg-orange-50 dark:bg-orange-900/20 border-2 border-dashed border-orange-200 dark:border-orange-800 rounded-2xl animate-in fade-in slide-in-from-bottom-2">
-                                                    <div className="text-[10px] font-bold text-orange-600 dark:text-orange-400 uppercase mb-2 flex items-center justify-between">
-                                                        <span>Navigation Guide</span>
-                                                        <span className="bg-orange-600 text-white px-2 py-0.5 rounded text-[8px]">{getCompassDirection(bearing)}</span>
+                                                <div className="mt-auto space-y-3">
+                                                    <div className="p-4 bg-orange-50 dark:bg-orange-900/20 border-2 border-dashed border-orange-200 dark:border-orange-800 rounded-2xl animate-in fade-in slide-in-from-bottom-2 flex items-center gap-4">
+                                                        <div className="shrink-0 w-12 h-12 bg-white dark:bg-slate-800 rounded-full shadow-md flex items-center justify-center border border-orange-200 dark:border-orange-700">
+                                                            <div
+                                                                className="transition-transform duration-500 ease-out"
+                                                                style={{ transform: `rotate(${bearing}deg)` }}
+                                                            >
+                                                                <svg className="w-6 h-6 text-orange-600" fill="currentColor" viewBox="0 0 24 24">
+                                                                    <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z" />
+                                                                </svg>
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-[10px] font-bold text-orange-600 dark:text-orange-400 uppercase mb-1 flex items-center justify-between">
+                                                                <span>Navigation Guide</span>
+                                                                <span className="bg-orange-600 text-white px-2 py-0.5 rounded text-[8px]">{getCompassDirection(bearing)}</span>
+                                                            </div>
+                                                            <p className="text-xs font-black text-orange-800 dark:text-orange-300 leading-tight">
+                                                                Move {Math.round(distance)}m towards the arrow to reach your zone.
+                                                            </p>
+                                                        </div>
                                                     </div>
-                                                    <p className="text-xs font-black text-orange-800 dark:text-orange-300 leading-tight">
-                                                        Move {Math.round(distance)} meters {getCompassDirection(bearing).replace('N', 'North').replace('S', 'South').replace('E', 'East').replace('W', 'West')} to reach your registered attendance zone.
-                                                    </p>
+                                                    <button
+                                                        onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${registered.lat},${registered.long}`, '_blank')}
+                                                        className="w-full py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-md transition-all flex items-center justify-center gap-2"
+                                                    >
+                                                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" /></svg>
+                                                        Show on Google Maps
+                                                    </button>
                                                 </div>
                                             )}
                                         </div>
