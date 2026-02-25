@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
     // Handle multiple doers - create separate delegation for each doer
     const doersArray = doers && doers.length > 0 ? doers : [null];
 
-    const delegationsData = doersArray.map(doer => ({
+    const delegationsData = doersArray.map((doer: string | null) => ({
       user_id: userId,
       delegation_name: delegationName,
       description: description || null,
