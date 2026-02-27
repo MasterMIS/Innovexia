@@ -43,6 +43,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
         { label: 'CRR', icon: 'clipboard', href: '/crr', roles: ['Admin', 'Manager'] },
         { label: 'IMS RM', icon: 'clipboard', href: '/ims-rm', roles: ['Admin', 'Manager'] },
         { label: 'Purchase FMS', icon: 'clipboard', href: '/purchase-fms', roles: ['Admin', 'Manager'] },
+        { label: 'Factory Requirement', icon: 'clipboard', href: '/factory-requirements', roles: ['Admin', 'Manager'] },
       ]
     },
     { label: 'HelpDesk', icon: 'headset', href: '/helpdesk', roles: ['Admin', 'Manager', 'Employee'] },

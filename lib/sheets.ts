@@ -24,6 +24,7 @@ export const SPREADSHEET_IDS = {
   ATTENDANCE: '1oNRk7oTfnXiJWBq0lv6dW60kHcQfEV8WQEixFBOe-CM',
   IMS_RM: '14LsUe3pIiEciM1WrAmtWn-VHdkCP9-85-RspslJzq00',
   PURCHASE_FMS: '1UUL5IF-Vh2dGNfcDD-BJAgQGSUT5XaQluDPnIyMhaYM',
+  FACTORY_REQUIREMENT: '1YuE6M_kD6iZwB6XT-gdj6ki8MHON5L_Rp2D7Mlw3IXc',
 };
 
 // Backward compatibility
@@ -49,7 +50,8 @@ const SHEETS = {
   CRR: 'CRR',
   O2D: 'O2D',
   ATTENDANCE: 'Sheet1',
-  LEAVE_REMARK: 'leave_remark'
+  LEAVE_REMARK: 'leave_remark',
+  FACTORY_REQUIREMENT: 'Factory Requirement',
 };
 
 // Initialize Google Sheets API client with OAuth
@@ -4649,6 +4651,74 @@ export async function updatePurchaseFMSConfig(config: any[]) {
     throw error;
   }
 }
+
+export async function getFactoryRequirementConfig() {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = 'Step Configuration';
+
+    try {
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_IDS.FACTORY_REQUIREMENT,
+        range: `${sheetName}!A:E`,
+        valueRenderOption: 'UNFORMATTED_VALUE',
+      });
+
+      const rows = response.data.values;
+      if (!rows || rows.length <= 1) return [];
+
+      const headers = rows[0];
+      const dataRows = rows.slice(1);
+
+      return dataRows.map(row => ({
+        step: parseInt(row[0]),
+        stepName: row[1],
+        doerName: row[2],
+        tatValue: parseInt(row[3]),
+        tatUnit: row[4]
+      })).sort((a, b) => a.step - b.step);
+    } catch (error: any) {
+      if (error.code === 400 || error.message?.includes('Unable to parse range')) {
+        return [];
+      }
+      throw error;
+    }
+  } catch (error) {
+    console.error('Error fetching Factory Requirement step config:', error);
+    return [];
+  }
+}
+
+export async function updateFactoryRequirementConfig(config: any[]) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = 'Step Configuration';
+
+    const headers = ['step', 'step_name', 'doer_name', 'tat_value', 'tat_unit'];
+    const rows = [
+      headers,
+      ...config.map(c => [c.step, c.stepName, c.doerName, c.tatValue, c.tatUnit])
+    ];
+
+    // Clear existing values first
+    await sheets.spreadsheets.values.clear({
+      spreadsheetId: SPREADSHEET_IDS.FACTORY_REQUIREMENT,
+      range: `${sheetName}!A:E`,
+    });
+
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_IDS.FACTORY_REQUIREMENT,
+      range: `${sheetName}!A1`,
+      valueInputOption: 'RAW',
+      requestBody: { values: rows },
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating Factory Requirement step config:', error);
+    throw error;
+  }
+}
 export async function updateO2DStepConfig(config: any[]) {
   try {
     const sheets = await getGoogleSheetsClient();
@@ -4708,6 +4778,242 @@ export async function updateO2DStepConfig(config: any[]) {
     return true;
   } catch (error) {
     console.error('Error updating O2D config:', error);
+    throw error;
+  }
+}
+
+// FACTORY REQUIREMENT OPERATIONS
+
+export async function getFactoryRequirements() {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = SHEETS.FACTORY_REQUIREMENT;
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_IDS.FACTORY_REQUIREMENT,
+      range: `${sheetName}!A:Z`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) return [];
+
+    const headers = rows[0];
+    const dataRows = rows.slice(1);
+
+    return dataRows
+      .map(row => rowToObject(headers, row))
+      .filter(o => o.id)
+      .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+  } catch (error) {
+    console.error('Error fetching Factory Requirements:', error);
+    throw error;
+  }
+}
+
+export async function createFactoryRequirement(data: any) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = SHEETS.FACTORY_REQUIREMENT;
+
+    // Fire all reads in parallel to avoid sequential round-trips
+    const [headerResponse, allData, configRes] = await Promise.all([
+      sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_IDS.FACTORY_REQUIREMENT,
+        range: `${sheetName}!A1:Z1`,
+        valueRenderOption: 'UNFORMATTED_VALUE',
+      }),
+      sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_IDS.FACTORY_REQUIREMENT,
+        range: `${sheetName}!A:A`,
+        valueRenderOption: 'UNFORMATTED_VALUE',
+      }),
+      sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_IDS.FACTORY_REQUIREMENT,
+        range: `Step Configuration!A:E`,
+        valueRenderOption: 'UNFORMATTED_VALUE',
+      }).catch(() => ({ data: { values: [] } })), // graceful fallback if config sheet missing
+    ]);
+
+    let headers = headerResponse.data.values?.[0] || [];
+
+    if (headers.length === 0) {
+      const defaultHeaders = [
+        'id', 'requirement_type', 'requirement', 'new_product', 'created_at', 'updated_at',
+        'Planned_1', 'Actual_1', 'Status_1',
+        'Planned_2', 'Actual_2', 'Status_2', 'lead_time_2',
+        'Planned_3', 'Actual_3', 'Status_3',
+        'Planned_4', 'Actual_4', 'Status_4', 'Next_Follow_Up_Date_4', 'remark_4',
+        'Planned_5', 'Actual_5', 'Status_5',
+        'Next_Follow_Up_Date', 'Remark', 'Cancelled'
+      ];
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_IDS.FACTORY_REQUIREMENT,
+        range: `${sheetName}!A1`,
+        valueInputOption: 'RAW',
+        requestBody: { values: [defaultHeaders] },
+      });
+      headers = defaultHeaders;
+    }
+
+    const rows = allData.data.values || [];
+    const maxId = rows.length > 1 ? Math.max(...rows.slice(1).map(row => parseInt(row[0]) || 0)) : 0;
+    const newId = maxId + 1;
+
+    const nowDate = new Date();
+    const now = formatToSheetDate(nowDate);
+
+    // Compute Planned_1 from Step 1 config (already fetched in parallel)
+    let planned1: string | undefined = undefined;
+    try {
+      const configRows = (configRes as any).data.values || [];
+      if (configRows.length > 1) {
+        const step1Row = configRows.slice(1).find((r: any) => parseInt(r[0]) === 1);
+        if (step1Row) {
+          const tatValue = parseInt(step1Row[3]) || 0;
+          const tatUnit = (step1Row[4] || 'hours').toLowerCase();
+          if (tatValue > 0) {
+            const planned = new Date(nowDate);
+            if (tatUnit === 'hours') {
+              planned.setTime(planned.getTime() + tatValue * 60 * 60 * 1000);
+            } else if (tatUnit === 'days') {
+              planned.setTime(planned.getTime() + tatValue * 24 * 60 * 60 * 1000);
+            }
+            planned1 = formatToSheetDate(planned);
+          }
+        }
+      }
+    } catch (configErr) {
+      console.warn('Could not compute Planned_1:', configErr);
+    }
+
+    const newRequirement = {
+      id: newId,
+      ...data,
+      created_at: now,
+      updated_at: now,
+      ...(planned1 ? { Planned_1: planned1 } : {}),
+    };
+
+    const rowData = objectToRow(headers, newRequirement);
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_IDS.FACTORY_REQUIREMENT,
+      range: `${sheetName}!A:Z`,
+      valueInputOption: 'RAW',
+      requestBody: { values: [rowData] },
+    });
+
+    return newRequirement;
+  } catch (error) {
+    console.error('Error creating Factory Requirement:', error);
+    throw error;
+  }
+}
+
+export async function updateFactoryRequirement(id: number, data: any) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = SHEETS.FACTORY_REQUIREMENT;
+
+    const headersRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_IDS.FACTORY_REQUIREMENT,
+      range: `${sheetName}!A1:Z1`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+    const headers = headersRes.data.values?.[0];
+    if (!headers) throw new Error('Headers not found');
+
+    const idRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_IDS.FACTORY_REQUIREMENT,
+      range: `${sheetName}!A:A`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+    const ids = idRes.data.values || [];
+    const rowIndex = ids.findIndex(row => parseInt(row[0]) === id);
+
+    if (rowIndex === -1) throw new Error('Requirement not found');
+    const actualRow = rowIndex + 1;
+
+    const getColLetter = (index: number) => {
+      let letter = '';
+      while (index >= 0) {
+        letter = String.fromCharCode((index % 26) + 65) + letter;
+        index = Math.floor(index / 26) - 1;
+      }
+      return letter;
+    };
+
+    const updateData = {
+      ...data,
+      updated_at: formatToSheetDate(new Date())
+    };
+
+    // Prepare surgical updates
+    const valueRanges = Object.entries(updateData).map(([key, value]) => {
+      const colIndex = headers.indexOf(key);
+      if (colIndex === -1) return null;
+
+      return {
+        range: `${sheetName}!${getColLetter(colIndex)}${actualRow}`,
+        values: [[value === null || value === undefined ? '' : value]]
+      };
+    }).filter(req => req !== null) as any[];
+
+    if (valueRanges.length > 0) {
+      await sheets.spreadsheets.values.batchUpdate({
+        spreadsheetId: SPREADSHEET_IDS.FACTORY_REQUIREMENT,
+        requestBody: {
+          valueInputOption: 'RAW',
+          data: valueRanges
+        }
+      });
+    }
+
+    return { id, ...updateData };
+  } catch (error) {
+    console.error('Error updating Factory Requirement:', error);
+    throw error;
+  }
+}
+
+export async function deleteFactoryRequirement(id: number) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = SHEETS.FACTORY_REQUIREMENT;
+
+    const idRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_IDS.FACTORY_REQUIREMENT,
+      range: `${sheetName}!A:A`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+    const ids = idRes.data.values || [];
+    const rowIndex = ids.findIndex(row => parseInt(row[0]) === id);
+
+    if (rowIndex === -1) throw new Error('Requirement not found');
+    const actualRow = rowIndex + 1;
+
+    const sheetId = await getSheetId(sheets, SPREADSHEET_IDS.FACTORY_REQUIREMENT, sheetName);
+
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_IDS.FACTORY_REQUIREMENT,
+      requestBody: {
+        requests: [{
+          deleteDimension: {
+            range: {
+              sheetId,
+              dimension: 'ROWS',
+              startIndex: actualRow - 1,
+              endIndex: actualRow
+            }
+          }
+        }]
+      }
+    });
+
+    return { id };
+  } catch (error) {
+    console.error('Error deleting Factory Requirement:', error);
     throw error;
   }
 }
