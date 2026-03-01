@@ -87,6 +87,7 @@ function DelegationContent() {
   const [sortField, setSortField] = useState<'id' | 'created_at' | 'delegation_name' | 'assigned_to' | 'doer_name' | 'department' | 'priority' | 'due_date' | 'status'>('created_at');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
+  const [activeTimeFilter, setActiveTimeFilter] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -1308,9 +1309,60 @@ function DelegationContent() {
         }
       }
 
+      // Time-Based Filter (Quick Filters)
+      if (activeTimeFilter) {
+        if (!delegation.due_date || delegation.status?.toLowerCase() === 'completed') return false;
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const oneDayMs = 24 * 60 * 60 * 1000;
+
+        const pDate = parseDateString(delegation.due_date);
+        if (!pDate) return false;
+        const pTime = pDate.getTime();
+        const pDayStart = new Date(pDate.getFullYear(), pDate.getMonth(), pDate.getDate()).getTime();
+        const diffDays = Math.round((pDayStart - todayStart) / oneDayMs);
+
+        switch (activeTimeFilter) {
+          case 'Delayed': if (pTime >= now.getTime()) return false; break;
+          case 'Today': if (diffDays !== 0) return false; break;
+          case 'Tomorrow': if (diffDays !== 1) return false; break;
+          case 'Next 3': if (!(diffDays >= 0 && diffDays <= 3)) return false; break;
+          case 'Next 7': if (!(diffDays >= 0 && diffDays <= 7)) return false; break;
+          case 'Next 15': if (!(diffDays >= 0 && diffDays <= 15)) return false; break;
+        }
+      }
+
       return true;
     });
-  }, [delegations, filters, showOpenTasks, targetTagId]);
+  }, [delegations, filters, showOpenTasks, targetTagId, activeTimeFilter]);
+
+  const timeStats = useMemo(() => {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const oneDayMs = 24 * 60 * 60 * 1000;
+
+    const stats = { 'Delayed': 0, 'Today': 0, 'Tomorrow': 0, 'Next 3': 0, 'Next 7': 0, 'Next 15': 0 };
+
+    delegations.forEach(d => {
+      if (d.status?.toLowerCase() === 'completed') return;
+      if (!d.due_date) return;
+
+      const pDate = parseDateString(d.due_date);
+      if (!pDate) return;
+      const pTime = pDate.getTime();
+      const pDayStart = new Date(pDate.getFullYear(), pDate.getMonth(), pDate.getDate()).getTime();
+      const diffDays = Math.round((pDayStart - todayStart) / oneDayMs);
+
+      if (pTime < now.getTime()) stats['Delayed']++;
+      if (diffDays === 0) stats['Today']++;
+      if (diffDays === 1) stats['Tomorrow']++;
+      if (diffDays >= 0 && diffDays <= 3) stats['Next 3']++;
+      if (diffDays >= 0 && diffDays <= 7) stats['Next 7']++;
+      if (diffDays >= 0 && diffDays <= 15) stats['Next 15']++;
+    });
+
+    return stats;
+  }, [delegations]);
 
   const sortedDelegations = useMemo(() => {
     const arr = [...filteredDelegations];
@@ -1876,6 +1928,53 @@ function DelegationContent() {
               {/* List View */}
               {viewMode === 'list' && (
                 <div className="overflow-x-auto">
+                  {/* Pagination */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-6 py-4 border-b border-gray-200 dark:border-gray-700 overflow-x-auto no-scrollbar">
+                    <div className="flex items-center gap-4">
+                      <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest whitespace-nowrap">
+                        Showing <span className="text-gray-900 dark:text-white">{startItem}</span>-<span className="text-gray-900 dark:text-white">{endItem}</span> of <span className="text-gray-900 dark:text-white">{sortedDelegations.length}</span>
+                      </p>
+                      <div className="h-4 w-px bg-gray-200 dark:bg-gray-700 hidden sm:block" />
+                      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                        {(['Delayed', 'Today', 'Tomorrow', 'Next 3', 'Next 7', 'Next 15'] as const).map((filter) => (
+                          <button
+                            key={filter}
+                            onClick={() => { setActiveTimeFilter(activeTimeFilter === filter ? null : filter); setCurrentPage(1); }}
+                            className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all whitespace-nowrap relative border ${activeTimeFilter === filter
+                              ? 'bg-[var(--theme-primary)] text-white border-[var(--theme-primary)] shadow-sm'
+                              : 'bg-white dark:bg-gray-800 text-gray-500 border-gray-200 dark:border-gray-700 hover:border-[var(--theme-primary)] hover:text-[var(--theme-primary)]'
+                              }`}
+                          >
+                            {filter}
+                            {timeStats[filter] > 0 && (
+                              <sup className={`ml-1 text-[8px] ${activeTimeFilter === filter ? 'text-white/80' : (filter === 'Delayed' ? 'text-red-500' : 'text-[var(--theme-primary)]')}`}>
+                                {timeStats[filter]}
+                              </sup>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage === 1}
+                        className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Previous
+                      </button>
+                      <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                        Page {currentPage} of {totalPages}
+                      </span>
+                      <button
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                        className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
                   <table className="w-full">
                     <thead className="bg-[var(--theme-lighter)] dark:bg-gray-700">
                       <tr>
@@ -2042,31 +2141,6 @@ function DelegationContent() {
                     </tbody>
                   </table>
 
-                  {/* Pagination */}
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
-                    <p className="text-sm text-gray-600 dark:text-gray-300">
-                      Showing {startItem}-{endItem} of {sortedDelegations.length}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handlePageChange(currentPage - 1)}
-                        disabled={currentPage === 1}
-                        className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Previous
-                      </button>
-                      <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                        Page {currentPage} of {totalPages}
-                      </span>
-                      <button
-                        onClick={() => handlePageChange(currentPage + 1)}
-                        disabled={currentPage === totalPages}
-                        className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Next
-                      </button>
-                    </div>
-                  </div>
                 </div>
               )}
 

@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import LayoutWrapper from '@/components/LayoutWrapper';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Filter, RefreshCcw, X, Calendar, User, Tag, Hash, ArrowUpDown, Pencil, History, Save, Loader2, Clock, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, LayoutGrid, List as ListIcon, Calendar as CalendarIcon } from 'lucide-react';
 import CustomDateTimePicker from '@/components/CustomDateTimePicker';
 import SearchableDropdown from '@/components/SearchableDropdown';
+import { parseDateString } from '@/lib/dateUtils';
 
 interface CollectionData {
     Name: string;
@@ -34,6 +35,7 @@ export default function CollectionPage() {
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [statusFilter, setStatusFilter] = useState<string>('all');
+    const [activeTimeFilter, setActiveTimeFilter] = useState<string | null>(null);
 
     // Filter States
     const [filters, setFilters] = useState({
@@ -132,6 +134,45 @@ export default function CollectionPage() {
         }
     };
 
+    const timeStats = useMemo(() => {
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const oneDayMs = 24 * 60 * 60 * 1000;
+
+        const stats = { 'Delayed': 0, 'Today': 0, 'Tomorrow': 0, 'Next 3': 0, 'Next 7': 0, 'Next 15': 0 };
+
+        data.forEach(item => {
+            const pendingAmount = parseFloat(item.PendingAmount || '0');
+            if (pendingAmount <= 0) return;
+
+            const history = Array.isArray(item['Follow Up']) ? item['Follow Up'] : [];
+            const sortedHistory = [...history].sort((a: any, b: any) => {
+                const tA = a.timestamp === 'Legacy' ? 0 : new Date(a.timestamp).getTime();
+                const tB = b.timestamp === 'Legacy' ? 0 : new Date(b.timestamp).getTime();
+                return tB - tA;
+            });
+            const latestWithDate = sortedHistory.find((h: any) => h.next_followup);
+            const effectiveDateStr = latestWithDate?.next_followup || item['1 Day Before Due Date'];
+
+            if (!effectiveDateStr) return;
+
+            const pDate = parseDateString(effectiveDateStr);
+            if (!pDate) return;
+            const pTime = pDate.getTime();
+            const pDayStart = new Date(pDate.getFullYear(), pDate.getMonth(), pDate.getDate()).getTime();
+            const diffDays = Math.round((pDayStart - todayStart) / oneDayMs);
+
+            if (pTime < now.getTime()) stats['Delayed']++;
+            if (diffDays === 0) stats['Today']++;
+            if (diffDays === 1) stats['Tomorrow']++;
+            if (diffDays >= 0 && diffDays <= 3) stats['Next 3']++;
+            if (diffDays >= 0 && diffDays <= 7) stats['Next 7']++;
+            if (diffDays >= 0 && diffDays <= 15) stats['Next 15']++;
+        });
+
+        return stats;
+    }, [data]);
+
     useEffect(() => {
         let result = [...data];
 
@@ -169,6 +210,45 @@ export default function CollectionPage() {
             result = result.filter(item => {
                 const status = getDueDateStatus(item['1 Day Before Due Date']).status;
                 return status === 'Overdue' || status === 'Pending';
+            });
+        }
+
+        // Time-Based Filter (Quick Filters)
+        if (activeTimeFilter) {
+            result = result.filter(item => {
+                const pendingAmount = parseFloat(item.PendingAmount || '0');
+                if (pendingAmount <= 0) return false;
+
+                const history = Array.isArray(item['Follow Up']) ? item['Follow Up'] : [];
+                const sortedHistory = [...history].sort((a: any, b: any) => {
+                    const tA = a.timestamp === 'Legacy' ? 0 : new Date(a.timestamp).getTime();
+                    const tB = b.timestamp === 'Legacy' ? 0 : new Date(b.timestamp).getTime();
+                    return tB - tA;
+                });
+                const latestWithDate = sortedHistory.find((h: any) => h.next_followup);
+                const effectiveDateStr = latestWithDate?.next_followup || item['1 Day Before Due Date'];
+
+                if (!effectiveDateStr) return false;
+
+                const now = new Date();
+                const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+                const oneDayMs = 24 * 60 * 60 * 1000;
+
+                const pDate = parseDateString(effectiveDateStr);
+                if (!pDate) return false;
+                const pTime = pDate.getTime();
+                const pDayStart = new Date(pDate.getFullYear(), pDate.getMonth(), pDate.getDate()).getTime();
+                const diffDays = Math.round((pDayStart - todayStart) / oneDayMs);
+
+                switch (activeTimeFilter) {
+                    case 'Delayed': if (pTime >= now.getTime()) return false; break;
+                    case 'Today': if (diffDays !== 0) return false; break;
+                    case 'Tomorrow': if (diffDays !== 1) return false; break;
+                    case 'Next 3': if (!(diffDays >= 0 && diffDays <= 3)) return false; break;
+                    case 'Next 7': if (!(diffDays >= 0 && diffDays <= 7)) return false; break;
+                    case 'Next 15': if (!(diffDays >= 0 && diffDays <= 15)) return false; break;
+                }
+                return true;
             });
         }
 
@@ -210,7 +290,7 @@ export default function CollectionPage() {
         setTotalPages(Math.ceil(result.length / ITEMS_PER_PAGE));
         const start = (currentPage - 1) * ITEMS_PER_PAGE;
         setPaginatedData(result.slice(start, start + ITEMS_PER_PAGE));
-    }, [data, searchQuery, filters, statusFilter, currentPage, sortConfig]);
+    }, [data, searchQuery, filters, statusFilter, currentPage, sortConfig, activeTimeFilter]);
 
     const handleSort = (key: keyof CollectionData | 'status') => {
         let direction: 'asc' | 'desc' = 'asc';
@@ -231,6 +311,7 @@ export default function CollectionPage() {
             partyId: ''
         });
         setStatusFilter('all');
+        setActiveTimeFilter(null);
         setSortConfig(null);
     };
 
@@ -346,6 +427,7 @@ export default function CollectionPage() {
                             Open Followup
                             <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[9px] ${filters.openTasksOnly ? 'bg-white text-orange-600' : 'bg-gray-900/20 text-gray-900'}`}>
                                 {data.filter(item => {
+                                    if (parseFloat(item.PendingAmount || '0') <= 0) return false;
                                     const status = getDueDateStatus(item['1 Day Before Due Date']).status;
                                     return status === 'Overdue' || status === 'Pending';
                                 }).length}
@@ -400,8 +482,11 @@ export default function CollectionPage() {
 
                         return statusConfigs.map((status) => {
                             const count = status.label === 'Total'
-                                ? data.length
-                                : data.filter(item => getDueDateStatus(item['1 Day Before Due Date']).status === status.label).length;
+                                ? data.filter(item => parseFloat(item.PendingAmount || '0') > 0).length
+                                : data.filter(item => {
+                                    if (parseFloat(item.PendingAmount || '0') <= 0) return false;
+                                    return getDueDateStatus(item['1 Day Before Due Date']).status === status.label;
+                                }).length;
                             const config = getColorConfig(status.color);
                             const filterVal = status.label === 'Total' ? 'all' : status.label;
                             const isActive = statusFilter === filterVal;
@@ -434,12 +519,34 @@ export default function CollectionPage() {
 
                 {/* Table Content */}
                 <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-                    <div className="p-2.5 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50/50 dark:bg-gray-800/80">
-                        <span className="text-[11px] font-black text-gray-500 uppercase tracking-widest">
-                            {filteredData.length} Records Found
-                        </span>
+                    <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex flex-col sm:flex-row justify-between items-center bg-gray-50/50 dark:bg-gray-800/80 gap-4 overflow-x-auto no-scrollbar">
+                        <div className="flex items-center gap-4">
+                            <span className="text-[11px] font-black text-gray-500 uppercase tracking-widest whitespace-nowrap">
+                                {filteredData.length} Records Found
+                            </span>
+                            <div className="h-4 w-px bg-gray-200 dark:bg-gray-700 hidden sm:block" />
+                            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                                {(['Delayed', 'Today', 'Tomorrow', 'Next 3', 'Next 7', 'Next 15'] as const).map((filter) => (
+                                    <button
+                                        key={filter}
+                                        onClick={() => { setActiveTimeFilter(activeTimeFilter === filter ? null : filter); setCurrentPage(1); }}
+                                        className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all whitespace-nowrap relative border ${activeTimeFilter === filter
+                                            ? 'bg-[var(--theme-primary)] text-white border-[var(--theme-primary)] shadow-sm'
+                                            : 'bg-white dark:bg-gray-800 text-gray-500 border-gray-200 dark:border-gray-700 hover:border-[var(--theme-primary)] hover:text-[var(--theme-primary)]'
+                                            }`}
+                                    >
+                                        {filter}
+                                        {timeStats[filter] > 0 && (
+                                            <sup className={`ml-1 text-[8px] ${activeTimeFilter === filter ? 'text-white/80' : (filter === 'Delayed' ? 'text-red-500' : 'text-[var(--theme-primary)]')}`}>
+                                                {timeStats[filter]}
+                                            </sup>
+                                        )}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-shrink-0">
                             <div className="flex bg-gray-200/50 dark:bg-gray-700 p-0.5 rounded-lg">
                                 <button
                                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
@@ -448,8 +555,8 @@ export default function CollectionPage() {
                                 >
                                     <ChevronLeft size={14} />
                                 </button>
-                                <span className="px-2 self-center text-[10px] font-black text-gray-700 dark:text-gray-300">
-                                    {currentPage} / {totalPages || 1}
+                                <span className="px-2 self-center text-[10px] font-black text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                                    PAGE {currentPage} / {totalPages || 1}
                                 </span>
                                 <button
                                     onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}

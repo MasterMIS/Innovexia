@@ -9,6 +9,7 @@ import { useToast } from '@/components/ToastProvider';
 import { useLoader } from '@/components/LoaderProvider';
 import DateRangePicker from '@/components/DateRangePicker';
 import { formatDateToLocalTimezone } from '@/utils/timezone';
+import { parseDateString } from '@/lib/dateUtils';
 
 interface Checklist {
   id: number;
@@ -73,6 +74,7 @@ function ChecklistContent() {
   const [sortColumn, setSortColumn] = useState<string>('due_date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [currentPage, setCurrentPage] = useState(1);
+  const [activeTimeFilter, setActiveTimeFilter] = useState<string | null>(null);
   const [itemsPerPage] = useState(10);
 
   // Dropdown search states
@@ -1237,6 +1239,34 @@ function ChecklistContent() {
     return counts;
   }, [checklists]);
 
+  const timeStats = useMemo(() => {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const oneDayMs = 24 * 60 * 60 * 1000;
+
+    const stats = { 'Delayed': 0, 'Today': 0, 'Tomorrow': 0, 'Next 3': 0, 'Next 7': 0, 'Next 15': 0 };
+
+    checklists.forEach(c => {
+      if (c.status?.toLowerCase() === 'completed') return;
+      if (!c.due_date) return;
+
+      const pDate = parseDateString(c.due_date);
+      if (!pDate) return;
+      const pTime = pDate.getTime();
+      const pDayStart = new Date(pDate.getFullYear(), pDate.getMonth(), pDate.getDate()).getTime();
+      const diffDays = Math.round((pDayStart - todayStart) / oneDayMs);
+
+      if (pTime < now.getTime()) stats['Delayed']++;
+      if (diffDays === 0) stats['Today']++;
+      if (diffDays === 1) stats['Tomorrow']++;
+      if (diffDays >= 0 && diffDays <= 3) stats['Next 3']++;
+      if (diffDays >= 0 && diffDays <= 7) stats['Next 7']++;
+      if (diffDays >= 0 && diffDays <= 15) stats['Next 15']++;
+    });
+
+    return stats;
+  }, [checklists]);
+
   const filteredChecklists = useMemo(() => {
     // Priority 1: Deep Link Filter
     // If targetId is present, only show the checklist matching that ID
@@ -1361,8 +1391,31 @@ function ChecklistContent() {
 
         if (filters.dueDateTo) {
           const toDate = new Date(filters.dueDateTo);
-          toDate.setHours(0, 0, 0, 0);
+          toDate.setHours(23, 59, 59, 999); // End of day
           if (dueDate > toDate) return false;
+        }
+      }
+
+      // Time-Based Filter (Quick Filters)
+      if (activeTimeFilter) {
+        if (!checklist.due_date || checklist.status?.toLowerCase() === 'completed') return false;
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const oneDayMs = 24 * 60 * 60 * 1000;
+
+        const pDate = parseDateString(checklist.due_date);
+        if (!pDate) return false;
+        const pTime = pDate.getTime();
+        const pDayStart = new Date(pDate.getFullYear(), pDate.getMonth(), pDate.getDate()).getTime();
+        const diffDays = Math.round((pDayStart - todayStart) / oneDayMs);
+
+        switch (activeTimeFilter) {
+          case 'Delayed': if (pTime >= now.getTime()) return false; break;
+          case 'Today': if (diffDays !== 0) return false; break;
+          case 'Tomorrow': if (diffDays !== 1) return false; break;
+          case 'Next 3': if (!(diffDays >= 0 && diffDays <= 3)) return false; break;
+          case 'Next 7': if (!(diffDays >= 0 && diffDays <= 7)) return false; break;
+          case 'Next 15': if (!(diffDays >= 0 && diffDays <= 15)) return false; break;
         }
       }
 
@@ -1406,7 +1459,7 @@ function ChecklistContent() {
     });
 
     return filtered;
-  }, [checklists, searchTerm, sortColumn, sortDirection, showOpenTasks, filters, targetId]);
+  }, [checklists, searchTerm, sortColumn, sortDirection, showOpenTasks, filters, targetId, activeTimeFilter]);
 
   // Group view - show only first checklist per group_id
   const groupedChecklists = useMemo(() => {
@@ -1639,6 +1692,56 @@ function ChecklistContent() {
           {/* List View */}
           {viewMode === 'list' && (
             <>
+              {/* Pagination Row Above Table */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-6 py-4 border-b border-gray-200 dark:border-gray-700 overflow-x-auto no-scrollbar">
+                <div className="flex items-center gap-4">
+                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest whitespace-nowrap">
+                    Showing <span className="text-gray-900 dark:text-white">{((currentPage - 1) * itemsPerPage) + 1}</span>-<span className="text-gray-900 dark:text-white">{Math.min(currentPage * itemsPerPage, filteredChecklists.length)}</span> of <span className="text-gray-900 dark:text-white">{filteredChecklists.length}</span>
+                  </p>
+                  <div className="h-4 w-px bg-gray-200 dark:bg-gray-700 hidden sm:block" />
+                  <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                    {(['Delayed', 'Today', 'Tomorrow', 'Next 3', 'Next 7', 'Next 15'] as const).map((filter) => (
+                      <button
+                        key={filter}
+                        onClick={() => { setActiveTimeFilter(activeTimeFilter === filter ? null : filter); setCurrentPage(1); }}
+                        className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all whitespace-nowrap relative border ${activeTimeFilter === filter
+                          ? 'bg-[var(--theme-primary)] text-white border-[var(--theme-primary)] shadow-sm'
+                          : 'bg-white dark:bg-gray-800 text-gray-500 border-gray-200 dark:border-gray-700 hover:border-[var(--theme-primary)] hover:text-[var(--theme-primary)]'
+                          }`}
+                      >
+                        {filter}
+                        {timeStats[filter] > 0 && (
+                          <sup className={`ml-1 text-[8px] ${activeTimeFilter === filter ? 'text-white/80' : (filter === 'Delayed' ? 'text-red-500' : 'text-[var(--theme-primary)]')}`}>
+                            {timeStats[filter]}
+                          </sup>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="p-1 px-3 rounded-lg border border-gray-300 dark:border-gray-600 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
+                  >
+                    PREV
+                  </button>
+                  <div className="h-4 w-px bg-gray-200 dark:bg-gray-700" />
+                  <span className="text-[10px] font-black text-gray-900 dark:text-white uppercase tracking-tighter">
+                    PAGE {currentPage} / {totalPages}
+                  </span>
+                  <div className="h-4 w-px bg-gray-200 dark:bg-gray-700" />
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    className="p-1 px-3 rounded-lg border border-gray-300 dark:border-gray-600 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
+                  >
+                    NEXT
+                  </button>
+                </div>
+              </div>
+
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
@@ -1854,33 +1957,7 @@ function ChecklistContent() {
                 </table>
               </div>
 
-              {/* Pagination Controls */}
-              {filteredChecklists.length > 0 && (
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
-                    Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredChecklists.length)} of {filteredChecklists.length} checklists
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                      className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Previous
-                    </button>
-                    <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                      Page {currentPage} of {totalPages}
-                    </span>
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                      disabled={currentPage === totalPages}
-                      className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Next
-                    </button>
-                  </div>
-                </div>
-              )}
+              {/* Pagination Controls Removed from bottom */}
             </>
           )}
 
@@ -2041,6 +2118,56 @@ function ChecklistContent() {
           {/* Tile View */}
           {viewMode === 'tile' && (
             <div className="p-4">
+              {/* Pagination Row Above Tiles */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-2 py-4 border-b border-gray-200 dark:border-gray-700 overflow-x-auto no-scrollbar mb-4">
+                <div className="flex items-center gap-4">
+                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest whitespace-nowrap">
+                    Showing <span className="text-gray-900 dark:text-white">{((currentPage - 1) * itemsPerPage) + 1}</span>-<span className="text-gray-900 dark:text-white">{Math.min(currentPage * itemsPerPage, filteredChecklists.length)}</span> of <span className="text-gray-900 dark:text-white">{filteredChecklists.length}</span>
+                  </p>
+                  <div className="h-4 w-px bg-gray-200 dark:bg-gray-700 hidden sm:block" />
+                  <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                    {(['Delayed', 'Today', 'Tomorrow', 'Next 3', 'Next 7', 'Next 15'] as const).map((filter) => (
+                      <button
+                        key={filter}
+                        onClick={() => { setActiveTimeFilter(activeTimeFilter === filter ? null : filter); setCurrentPage(1); }}
+                        className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all whitespace-nowrap relative border ${activeTimeFilter === filter
+                          ? 'bg-[var(--theme-primary)] text-white border-[var(--theme-primary)] shadow-sm'
+                          : 'bg-white dark:bg-gray-800 text-gray-500 border-gray-200 dark:border-gray-700 hover:border-[var(--theme-primary)] hover:text-[var(--theme-primary)]'
+                          }`}
+                      >
+                        {filter}
+                        {timeStats[filter] > 0 && (
+                          <sup className={`ml-1 text-[8px] ${activeTimeFilter === filter ? 'text-white/80' : (filter === 'Delayed' ? 'text-red-500' : 'text-[var(--theme-primary)]')}`}>
+                            {timeStats[filter]}
+                          </sup>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="p-1 px-3 rounded-lg border border-gray-300 dark:border-gray-600 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
+                  >
+                    PREV
+                  </button>
+                  <div className="h-4 w-px bg-gray-200 dark:bg-gray-700" />
+                  <span className="text-[10px] font-black text-gray-900 dark:text-white uppercase tracking-tighter">
+                    PAGE {currentPage} / {totalPages}
+                  </span>
+                  <div className="h-4 w-px bg-gray-200 dark:bg-gray-700" />
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    className="p-1 px-3 rounded-lg border border-gray-300 dark:border-gray-600 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
+                  >
+                    NEXT
+                  </button>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {paginatedChecklists.map((checklist, index) => (
                   <motion.div
@@ -2199,39 +2326,63 @@ function ChecklistContent() {
                 ))}
               </div>
 
-              {/* Pagination for Tile View */}
-              {filteredChecklists.length > 0 && (
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4 px-2">
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
-                    Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredChecklists.length)} of {filteredChecklists.length} checklists
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                      className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Previous
-                    </button>
-                    <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                      Page {currentPage} of {totalPages}
-                    </span>
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                      disabled={currentPage === totalPages}
-                      className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Next
-                    </button>
-                  </div>
-                </div>
-              )}
+              {/* Pagination Controls Removed from bottom */}
             </div>
           )}
 
           {/* Group View */}
           {viewMode === 'group' && (
             <>
+              {/* Pagination Row Above Table (Group View) */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-6 py-4 border-b border-gray-200 dark:border-gray-700 overflow-x-auto no-scrollbar">
+                <div className="flex items-center gap-4">
+                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest whitespace-nowrap">
+                    Showing <span className="text-gray-900 dark:text-white">{((currentPage - 1) * itemsPerPage) + 1}</span>-<span className="text-gray-900 dark:text-white">{Math.min(currentPage * itemsPerPage, groupedChecklists.length)}</span> of <span className="text-gray-900 dark:text-white">{groupedChecklists.length}</span>
+                  </p>
+                  <div className="h-4 w-px bg-gray-200 dark:bg-gray-700 hidden sm:block" />
+                  <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                    {(['Delayed', 'Today', 'Tomorrow', 'Next 3', 'Next 7', 'Next 15'] as const).map((filter) => (
+                      <button
+                        key={filter}
+                        onClick={() => { setActiveTimeFilter(activeTimeFilter === filter ? null : filter); setCurrentPage(1); }}
+                        className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all whitespace-nowrap relative border ${activeTimeFilter === filter
+                          ? 'bg-[var(--theme-primary)] text-white border-[var(--theme-primary)] shadow-sm'
+                          : 'bg-white dark:bg-gray-800 text-gray-500 border-gray-200 dark:border-gray-700 hover:border-[var(--theme-primary)] hover:text-[var(--theme-primary)]'
+                          }`}
+                      >
+                        {filter}
+                        {timeStats[filter] > 0 && (
+                          <sup className={`ml-1 text-[8px] ${activeTimeFilter === filter ? 'text-white/80' : (filter === 'Delayed' ? 'text-red-500' : 'text-[var(--theme-primary)]')}`}>
+                            {timeStats[filter]}
+                          </sup>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="p-1 px-3 rounded-lg border border-gray-300 dark:border-gray-600 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
+                  >
+                    PREV
+                  </button>
+                  <div className="h-4 w-px bg-gray-200 dark:bg-gray-700" />
+                  <span className="text-[10px] font-black text-gray-900 dark:text-white uppercase tracking-tighter">
+                    PAGE {currentPage} / {totalPages}
+                  </span>
+                  <div className="h-4 w-px bg-gray-200 dark:bg-gray-700" />
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    className="p-1 px-3 rounded-lg border border-gray-300 dark:border-gray-600 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
+                  >
+                    NEXT
+                  </button>
+                </div>
+              </div>
+
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
@@ -2413,33 +2564,7 @@ function ChecklistContent() {
                 </table>
               </div>
 
-              {/* Pagination Controls for Group View */}
-              {groupedChecklists.length > 0 && (
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
-                    Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, groupedChecklists.length)} of {groupedChecklists.length} groups
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                      className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Previous
-                    </button>
-                    <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                      Page {currentPage} of {totalPages}
-                    </span>
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                      disabled={currentPage === totalPages}
-                      className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Next
-                    </button>
-                  </div>
-                </div>
-              )}
+              {/* Pagination Controls Removed from bottom */}
             </>
           )}
         </motion.div>
