@@ -25,6 +25,7 @@ export const SPREADSHEET_IDS = {
   IMS_RM: '14LsUe3pIiEciM1WrAmtWn-VHdkCP9-85-RspslJzq00',
   PURCHASE_FMS: '1UUL5IF-Vh2dGNfcDD-BJAgQGSUT5XaQluDPnIyMhaYM',
   FACTORY_REQUIREMENT: '1YuE6M_kD6iZwB6XT-gdj6ki8MHON5L_Rp2D7Mlw3IXc',
+  CRM: '1oJZWpxo1cgNc20lr8aPIZMMp_W1MaPchPYajRIexnT0',
 };
 
 // Backward compatibility
@@ -52,6 +53,8 @@ const SHEETS = {
   ATTENDANCE: 'Sheet1',
   LEAVE_REMARK: 'leave_remark',
   FACTORY_REQUIREMENT: 'Factory Requirement',
+  CRM: 'CRM',
+  CRM_CONFIG: 'Step Configuration',
 };
 
 // Initialize Google Sheets API client with OAuth
@@ -5018,3 +5021,227 @@ export async function deleteFactoryRequirement(id: number) {
   }
 }
 
+// CRM OPERATIONS
+export async function getCRMData() {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const spreadsheetId = SPREADSHEET_IDS.CRM;
+    const sheetName = SHEETS.CRM;
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `${sheetName}!A:AZ`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) return [];
+
+    const headers = rows[0];
+    const dataRows = rows.slice(1);
+
+    return dataRows
+      .map(row => rowToObject(headers, row))
+      .filter(item => item.id || item.party_name);
+  } catch (error) {
+    console.error('Error fetching CRM data:', error);
+    throw error;
+  }
+}
+
+export async function updateCRMCancelledStatus(id: string | number, status: string) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const spreadsheetId = SPREADSHEET_IDS.CRM;
+    const sheetName = SHEETS.CRM;
+
+    // First find the row
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `${sheetName}!A:A`,
+    });
+
+    const rows = response.data.values;
+    if (!rows) throw new Error('No data found');
+
+    const rowIndex = rows.findIndex(row => row[0]?.toString() === id.toString());
+    if (rowIndex === -1) throw new Error('Record not found');
+
+    const actualRow = rowIndex + 1;
+    // Cancelled column is K (index 11 in 1-based indexing for range)
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: `${sheetName}!K${actualRow}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [[status]]
+      }
+    });
+
+    return { id, status };
+  } catch (error) {
+    console.error('Error updating CRM Cancelled status:', error);
+    throw error;
+  }
+}
+
+export async function updateCRMData(id: string | number, updates: Record<string, any>) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const spreadsheetId = SPREADSHEET_IDS.CRM;
+    const sheetName = SHEETS.CRM;
+
+    // 1. Get Headers
+    const headerResponse = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `${sheetName}!A1:AZ1`,
+    });
+    const headers = headerResponse.data.values?.[0];
+    if (!headers) throw new Error('Headers not found');
+
+    // 2. Find the row index
+    const idResponse = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `${sheetName}!A:A`,
+    });
+    const rows = idResponse.data.values;
+    if (!rows) throw new Error('No data found');
+
+    const rowIndex = rows.findIndex(row => row[0]?.toString() === id.toString());
+    if (rowIndex === -1) throw new Error('Record not found');
+
+    const actualRow = rowIndex + 1;
+
+    // 3. Prepare updates
+    const requests = Object.entries(updates).map(([key, value]) => {
+      const colIndex = headers.indexOf(key);
+      if (colIndex === -1) return null;
+
+      const colLetter = String.fromCharCode(65 + colIndex);
+      // For columns beyond Z, we'd need more complex logic, but A-Z covers 26 columns.
+      // Let's use a helper for column letter if needed, or just handle AZ.
+      let range = `${sheetName}!${getColLetter(colIndex)}${actualRow}`;
+
+      return {
+        range,
+        values: [[value]]
+      };
+    }).filter(r => r !== null);
+
+    if (requests.length === 0) return { id, updates };
+
+    // 4. Batch update
+    await sheets.spreadsheets.values.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        valueInputOption: 'USER_ENTERED',
+        data: requests as any[]
+      }
+    });
+
+    return { id, updates };
+  } catch (error) {
+    console.error('Error updating CRM data:', error);
+    throw error;
+  }
+}
+
+// Helper to get column letter (A, B, ... Z, AA, AB, ...)
+function getColLetter(index: number): string {
+  let letter = '';
+  while (index >= 0) {
+    letter = String.fromCharCode((index % 26) + 65) + letter;
+    index = Math.floor(index / 26) - 1;
+  }
+  return letter;
+}
+
+export async function getCRMStepConfig() {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const spreadsheetId = SPREADSHEET_IDS.CRM;
+    const sheetName = SHEETS.CRM_CONFIG;
+
+    try {
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: `${sheetName}!A:E`,
+        valueRenderOption: 'UNFORMATTED_VALUE',
+      });
+
+      const rows = response.data.values;
+      if (!rows || rows.length <= 1) return [];
+
+      const dataRows = rows.slice(1);
+
+      return dataRows.map(row => ({
+        step: parseInt(row[0]),
+        stepName: row[1],
+        doerName: row[2],
+        tatValue: parseInt(row[3]),
+        tatUnit: row[4]
+      })).sort((a, b) => a.step - b.step);
+    } catch (error: any) {
+      if (error.code === 400 || error.message?.includes('Unable to parse range')) {
+        return [];
+      }
+      throw error;
+    }
+  } catch (error) {
+    console.error('Error fetching CRM step config:', error);
+    return [];
+  }
+}
+
+export async function updateCRMStepConfig(config: any[]) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const spreadsheetId = SPREADSHEET_IDS.CRM;
+    const sheetName = SHEETS.CRM_CONFIG;
+
+    const headers = ['step', 'step_name', 'doer_name', 'tat_value', 'tat_unit'];
+    const rows = [
+      headers,
+      ...config.map(c => [c.step, c.stepName, c.doerName, c.tatValue, c.tatUnit])
+    ];
+
+    // Check if sheet exists or create it
+    try {
+      await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: `${sheetName}!A1`,
+      });
+    } catch (error: any) {
+      if (error.code === 400 || error.message?.includes('Unable to parse range')) {
+        // Add sheet
+        await sheets.spreadsheets.batchUpdate({
+          spreadsheetId,
+          requestBody: {
+            requests: [{
+              addSheet: {
+                properties: { title: sheetName }
+              }
+            }]
+          }
+        });
+      }
+    }
+
+    await sheets.spreadsheets.values.clear({
+      spreadsheetId,
+      range: `${sheetName}!A:E`,
+    });
+
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: `${sheetName}!A1`,
+      valueInputOption: 'RAW',
+      requestBody: { values: rows },
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating CRM step config:', error);
+    throw error;
+  }
+}

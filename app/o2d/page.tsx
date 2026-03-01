@@ -329,15 +329,36 @@ export default function O2DPage() {
         return {
             Total: allItems.length,
             Step1: allItems.filter(item => !item.Actual_1).length,
-            Step2: allItems.filter(item => item.Actual_1 && !item.Actual_2).length,
-            Step3: allItems.filter(item => item.Actual_2 && !item.Actual_3 && item['Stock Availability'] !== 'Stock Available').length,
-            Step4: allItems.filter(item => (item.Actual_3 || item['Stock Availability'] === 'Stock Available') && !item.Actual_4).length,
-            Step5: allItems.filter(item => item.Actual_4 && !item.Actual_5 && item.Destination !== 'Local').length,
-            Step6: allItems.filter(item => (item.Actual_5 || (item.Actual_4 && item.Destination === 'Local')) && !item.Actual_6).length,
-            Step7: allItems.filter(item => item.Actual_6 && !item.Actual_7).length,
-            Step8: allItems.filter(item => item.Actual_7 && !item.Actual_8).length,
+            Step2: allItems.filter(item => !!item.Actual_1 && !item.Actual_2).length,
+            Step3: allItems.filter(item => !!item.Actual_2 && !item.Actual_3 && item['Stock Availability'] !== 'Stock Available').length,
+            Step4: allItems.filter(item => (!!item.Actual_3 || item['Stock Availability'] === 'Stock Available') && !item.Actual_4).length,
+            Step5: allItems.filter(item => !!item.Actual_4 && !item.Actual_5 && item.Destination !== 'Local').length,
+            Step6: allItems.filter(item => (!!item.Actual_5 || (!!item.Actual_4 && item.Destination === 'Local')) && !item.Actual_6).length,
+            Step7: allItems.filter(item => !!item.Actual_6 && !item.Actual_7).length,
+            Step8: allItems.filter(item => !!item.Actual_7 && !item.Actual_8).length,
         };
     }, [orders]);
+
+    const timeStats = useMemo(() => {
+        const allItems = orders.flatMap(o => o.items || []).filter(item => {
+            const isItemCancelled = item.Cancelled === 'Cancelled';
+            return viewMode === 'cancelled' ? isItemCancelled : !isItemCancelled;
+        });
+
+        const stats = { 'Delayed': 0, 'Today': 0, 'Tomorrow': 0, 'Next 3': 0, 'Next 5': 0, 'Next 7': 0, 'Next 15': 0 };
+
+        allItems.forEach(item => {
+            if (matchesTimeFilter(item as any, 'Delayed')) stats['Delayed']++;
+            if (matchesTimeFilter(item as any, 'Today')) stats['Today']++;
+            if (matchesTimeFilter(item as any, 'Tomorrow')) stats['Tomorrow']++;
+            if (matchesTimeFilter(item as any, 'Next 3')) stats['Next 3']++;
+            if (matchesTimeFilter(item as any, 'Next 5')) stats['Next 5']++;
+            if (matchesTimeFilter(item as any, 'Next 7')) stats['Next 7']++;
+            if (matchesTimeFilter(item as any, 'Next 15')) stats['Next 15']++;
+        });
+
+        return stats;
+    }, [orders, viewMode]);
 
     const matchesStepFilter = (item: OrderItem, step: number) => {
         switch (step) {
@@ -1225,73 +1246,76 @@ export default function O2DPage() {
                         ) : (
                             <>
                                 {/* Filter & Pagination Row */}
-                                {(filteredOrders.length > 0 || detailsRows.length > 0) && (
-                                    <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-1.5 border-b border-gray-100 dark:border-gray-700 bg-gray-50/30 dark:bg-gray-800/30 gap-2">
-                                        <div className="flex items-center gap-3 w-full sm:w-auto overflow-x-auto no-scrollbar">
-                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider whitespace-nowrap">
-                                                Showing <span className="text-gray-900 dark:text-white">{(currentPage - 1) * itemsPerPage + 1}</span>- <span className="text-gray-900 dark:text-white">{Math.min(currentPage * itemsPerPage, viewMode === 'group' ? filteredOrders.length : detailsRows.length)}</span> of <span className="text-gray-900 dark:text-white">{viewMode === 'group' ? filteredOrders.length : detailsRows.length}</span>
-                                            </p>
+                                <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-1.5 border-b border-gray-100 dark:border-gray-700 bg-gray-50/30 dark:bg-gray-800/30 gap-2">
+                                    <div className="flex items-center gap-3 w-full sm:w-auto overflow-x-auto no-scrollbar">
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider whitespace-nowrap">
+                                            Showing <span className="text-gray-900 dark:text-white">{Math.max(0, (currentPage - 1) * itemsPerPage + (viewMode === 'group' ? (filteredOrders.length > 0 ? 1 : 0) : (detailsRows.length > 0 ? 1 : 0)))}</span>- <span className="text-gray-900 dark:text-white">{Math.min(currentPage * itemsPerPage, viewMode === 'group' ? filteredOrders.length : detailsRows.length)}</span> of <span className="text-gray-900 dark:text-white">{viewMode === 'group' ? filteredOrders.length : detailsRows.length}</span>
+                                        </p>
 
-                                            <div className="h-4 w-px bg-gray-200 dark:bg-gray-700 hidden sm:block mx-1" />
+                                        <div className="h-4 w-px bg-gray-200 dark:bg-gray-700 hidden sm:block mx-1" />
 
-                                            <div className="flex items-center gap-1">
-                                                {['Delayed', 'Today', 'Tomorrow', 'Next 3', 'Next 5', 'Next 7', 'Next 15'].map((filter) => (
-                                                    <button
-                                                        key={filter}
-                                                        onClick={() => setActiveTimeFilter(activeTimeFilter === filter ? null : filter)}
-                                                        className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all whitespace-nowrap border ${activeTimeFilter === filter
-                                                            ? 'bg-[var(--theme-primary)] text-gray-900 border-[var(--theme-primary)] shadow-sm'
-                                                            : 'bg-white dark:bg-gray-800 text-gray-500 border-gray-200 dark:border-gray-700 hover:border-[var(--theme-primary)] hover:text-[var(--theme-primary)]'
-                                                            }`}
-                                                    >
-                                                        {filter}
-                                                    </button>
-                                                ))}
-                                            </div>
+                                        <div className="flex items-center gap-1">
+                                            {(['Delayed', 'Today', 'Tomorrow', 'Next 3', 'Next 5', 'Next 7', 'Next 15'] as const).map((filter) => (
+                                                <button
+                                                    key={filter}
+                                                    onClick={() => setActiveTimeFilter(activeTimeFilter === filter ? null : filter)}
+                                                    className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all whitespace-nowrap border relative ${activeTimeFilter === filter
+                                                        ? 'bg-[var(--theme-primary)] text-gray-900 border-[var(--theme-primary)] shadow-sm'
+                                                        : 'bg-white dark:bg-gray-800 text-gray-500 border-gray-200 dark:border-gray-700 hover:border-[var(--theme-primary)] hover:text-[var(--theme-primary)]'
+                                                        }`}
+                                                >
+                                                    {filter}
+                                                    {timeStats[filter] > 0 && (
+                                                        <sup className={`ml-1 text-[8px] ${activeTimeFilter === filter ? 'text-gray-900/80' : (filter === 'Delayed' ? 'text-red-500' : 'text-[var(--theme-primary)]')}`}>
+                                                            {timeStats[filter]}
+                                                        </sup>
+                                                    )}
+                                                </button>
+                                            ))}
                                         </div>
-
-                                        {totalPages > 1 && (
-                                            <div className="flex items-center gap-1">
-                                                <button
-                                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                                                    disabled={currentPage === 1}
-                                                    className="p-1 px-2 rounded-lg border border-gray-200 dark:border-gray-700 disabled:opacity-30 hover:bg-white dark:hover:bg-gray-700 transition-all text-[10px] font-medium"
-                                                >
-                                                    PREV
-                                                </button>
-                                                <div className="flex items-center gap-1">
-                                                    {(() => {
-                                                        const pages = [];
-                                                        const maxVisible = 5;
-                                                        let start = Math.max(1, currentPage - 2);
-                                                        let end = Math.min(totalPages, start + maxVisible - 1);
-                                                        if (end === totalPages) start = Math.max(1, end - maxVisible + 1);
-
-                                                        for (let i = start; i <= end; i++) {
-                                                            pages.push(
-                                                                <button
-                                                                    key={i}
-                                                                    onClick={() => setCurrentPage(i)}
-                                                                    className={`w-6 h-6 rounded-lg text-[10px] font-medium transition-all ${currentPage === i ? 'bg-[var(--theme-primary)] text-gray-900' : 'text-gray-500 hover:bg-white dark:hover:bg-gray-700'}`}
-                                                                >
-                                                                    {i}
-                                                                </button>
-                                                            );
-                                                        }
-                                                        return pages;
-                                                    })()}
-                                                </div>
-                                                <button
-                                                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                                                    disabled={currentPage === totalPages}
-                                                    className="p-1 px-2 rounded-lg border border-gray-200 dark:border-gray-700 disabled:opacity-30 hover:bg-white dark:hover:bg-gray-700 transition-all text-[10px] font-medium"
-                                                >
-                                                    NEXT
-                                                </button>
-                                            </div>
-                                        )}
                                     </div>
-                                )}
+
+                                    {totalPages > 1 && (
+                                        <div className="flex items-center gap-1">
+                                            <button
+                                                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                                disabled={currentPage === 1}
+                                                className="p-1 px-2 rounded-lg border border-gray-200 dark:border-gray-700 disabled:opacity-30 hover:bg-white dark:hover:bg-gray-700 transition-all text-[10px] font-medium"
+                                            >
+                                                PREV
+                                            </button>
+                                            <div className="flex items-center gap-1">
+                                                {(() => {
+                                                    const pages = [];
+                                                    const maxVisible = 5;
+                                                    let start = Math.max(1, currentPage - 2);
+                                                    let end = Math.min(totalPages, start + maxVisible - 1);
+                                                    if (end === totalPages) start = Math.max(1, end - maxVisible + 1);
+
+                                                    for (let i = start; i <= end; i++) {
+                                                        pages.push(
+                                                            <button
+                                                                key={i}
+                                                                onClick={() => setCurrentPage(i)}
+                                                                className={`w-6 h-6 rounded-lg text-[10px] font-medium transition-all ${currentPage === i ? 'bg-[var(--theme-primary)] text-gray-900' : 'text-gray-500 hover:bg-white dark:hover:bg-gray-700'}`}
+                                                            >
+                                                                {i}
+                                                            </button>
+                                                        );
+                                                    }
+                                                    return pages;
+                                                })()}
+                                            </div>
+                                            <button
+                                                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                                disabled={currentPage === totalPages}
+                                                className="p-1 px-2 rounded-lg border border-gray-200 dark:border-gray-700 disabled:opacity-30 hover:bg-white dark:hover:bg-gray-700 transition-all text-[10px] font-medium"
+                                            >
+                                                NEXT
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
 
                                 <div className="overflow-x-auto custom-scrollbar">
                                     <table className="w-full text-left border-collapse">
@@ -1335,7 +1359,9 @@ export default function O2DPage() {
                                                 </th>
                                                 <th className="px-4 py-3 text-left text-sm font-medium text-white uppercase tracking-wider">Contact Info</th>
                                                 <th className="px-4 py-3 text-left text-sm font-medium text-white uppercase tracking-wider">Representative</th>
-                                                <th className="px-4 py-3 text-left text-sm font-medium text-white uppercase tracking-wider">Cancelled</th>
+                                                {viewMode !== 'details' && (
+                                                    <th className="px-4 py-3 text-left text-sm font-medium text-white uppercase tracking-wider">Cancelled</th>
+                                                )}
                                                 <th onClick={() => handleSort('location')} className="px-4 py-3 text-left text-sm font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-white/10 transition-colors">
                                                     <div className="flex items-center gap-2">
                                                         Location
@@ -1345,7 +1371,7 @@ export default function O2DPage() {
                                                     </div>
                                                 </th>
                                                 {viewMode !== 'group' && (
-                                                    <th className="px-4 py-3 text-left text-sm font-medium text-white uppercase tracking-wider">Item Details</th>
+                                                    <th className="px-4 py-3 text-left text-sm font-medium text-white uppercase tracking-wider min-w-[280px]">Item Details</th>
                                                 )}
                                                 {viewMode === 'group' && (
                                                     <th className="px-4 py-3 text-left text-sm font-medium text-white uppercase tracking-wider">Summary</th>
@@ -1500,15 +1526,17 @@ export default function O2DPage() {
                                                             <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{row.field_person_name || '-'}</span>
                                                         </div>
                                                     </td>
-                                                    <td className="px-4 py-3">
-                                                        {(viewMode === 'group' ? row.items?.some((i: OrderItem) => i.Cancelled === 'Cancelled') : row.current_item?.Cancelled === 'Cancelled') ? (
-                                                            <span className="px-2 py-0.5 bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 text-[10px] font-bold rounded uppercase tracking-wider">
-                                                                Cancelled
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-gray-400 text-xs italic">Active</span>
-                                                        )}
-                                                    </td>
+                                                    {viewMode !== 'details' && (
+                                                        <td className="px-4 py-3">
+                                                            {(viewMode === 'group' ? row.items?.some((i: OrderItem) => i.Cancelled === 'Cancelled') : row.current_item?.Cancelled === 'Cancelled') ? (
+                                                                <span className="px-2 py-0.5 bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 text-[10px] font-bold rounded uppercase tracking-wider">
+                                                                    Cancelled
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-gray-400 text-xs italic">Active</span>
+                                                            )}
+                                                        </td>
+                                                    )}
                                                     <td className="px-4 py-3">
                                                         <div className="flex flex-col gap-0.5">
                                                             <div className="flex items-center gap-1.5">
@@ -1894,15 +1922,33 @@ export default function O2DPage() {
                                                 <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-widest">Party Information</h3>
                                             </div>
                                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                                <div className="space-y-1.5">
-                                                    <label className="text-[10px] font-medium text-gray-500 uppercase tracking-widest px-1">Party Name</label>
-                                                    <input
-                                                        required
-                                                        type="text"
-                                                        value={formData.party_name}
-                                                        onChange={(e) => setFormData({ ...formData, party_name: e.target.value })}
-                                                        className="w-full px-4 py-2.5 bg-[var(--theme-lighter)] dark:bg-gray-700/50 rounded-xl font-semibold text-gray-900 dark:text-white placeholder:text-gray-400 focus:ring-2 focus:ring-[var(--theme-primary)] transition-all text-sm border-0"
-                                                        placeholder="Enter party name"
+                                                <div className="space-y-0">
+                                                    <SearchableDropdown
+                                                        label="PARTY NAME"
+                                                        options={partyOptions}
+                                                        value={formData.party_name || ''}
+                                                        onChange={(val) => {
+                                                            const partyName = val as string;
+                                                            const existingOrder = orders.find(o => o.party_name === partyName);
+                                                            if (existingOrder) {
+                                                                setFormData({
+                                                                    ...formData,
+                                                                    party_id: existingOrder.party_id,
+                                                                    party_name: partyName,
+                                                                    type: existingOrder.type || formData.type,
+                                                                    contact_person: existingOrder.contact_person || formData.contact_person,
+                                                                    email: existingOrder.email || formData.email,
+                                                                    contact_no_1: existingOrder.contact_no_1 || formData.contact_no_1,
+                                                                    contact_no_2: existingOrder.contact_no_2 || formData.contact_no_2,
+                                                                    location: existingOrder.location || formData.location,
+                                                                    state: existingOrder.state || formData.state,
+                                                                    field_person_name: existingOrder.field_person_name || formData.field_person_name
+                                                                });
+                                                            } else {
+                                                                setFormData({ ...formData, party_name: partyName, party_id: undefined });
+                                                            }
+                                                        }}
+                                                        placeholder="Select or enter party name"
                                                     />
                                                 </div>
                                                 <div className="space-y-1.5">

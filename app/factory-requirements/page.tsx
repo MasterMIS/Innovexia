@@ -33,10 +33,10 @@ interface FactoryRequirement {
 
 const STAGES = [
     { step: 1, name: 'Approval' },
-    { step: 2, name: 'Place Order With Vendor by PO' },
-    { step: 3, name: 'Paying Advance' },
-    { step: 4, name: 'Follow up Regarding Material' },
-    { step: 5, name: 'Recieved Material' },
+    { step: 2, name: 'Order' },
+    { step: 3, name: 'Advance' },
+    { step: 4, name: 'Followup' },
+    { step: 5, name: 'Received' },
 ];
 
 const REQ_TYPE_OPTIONS = ['One Time', 'Monthly'];
@@ -556,6 +556,41 @@ export default function FactoryRequirementFMS() {
         };
     }, [requirements]);
 
+    const timeStats = useMemo(() => {
+        const active = requirements.filter(r => r.Cancelled !== 'Cancelled');
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const oneDayMs = 24 * 60 * 60 * 1000;
+
+        const stats = { 'Delayed': 0, 'Today': 0, 'Tomorrow': 0, 'Next 3': 0, 'Next 7': 0, 'Next 15': 0 };
+
+        active.forEach(r => {
+            let currentStep = 1;
+            for (let s = 1; s <= 5; s++) {
+                if ((r as any)[`Actual_${s}`]) currentStep = s + 1;
+                else break;
+            }
+            if (currentStep > 5) return;
+
+            const plannedStr = (r as any)[`Planned_${currentStep}`];
+            if (!plannedStr) return;
+
+            const pDate = new Date(plannedStr as string);
+            const pTime = pDate.getTime();
+            const pDayStart = new Date(pDate.getFullYear(), pDate.getMonth(), pDate.getDate()).getTime();
+            const diffDays = Math.round((pDayStart - todayStart) / oneDayMs);
+
+            if (pTime < now.getTime()) stats['Delayed']++;
+            if (diffDays === 0) stats['Today']++;
+            if (diffDays === 1) stats['Tomorrow']++;
+            if (diffDays >= 0 && diffDays <= 3) stats['Next 3']++;
+            if (diffDays >= 0 && diffDays <= 7) stats['Next 7']++;
+            if (diffDays >= 0 && diffDays <= 15) stats['Next 15']++;
+        });
+
+        return stats;
+    }, [requirements]);
+
     const totalPages = Math.ceil(filteredRequirements.length / ITEMS_PER_PAGE);
     const paginatedRequirements = filteredRequirements.slice(
         (currentPage - 1) * ITEMS_PER_PAGE,
@@ -774,16 +809,21 @@ export default function FactoryRequirementFMS() {
                                             )}
                                             <div className="h-4 w-px bg-slate-200 dark:bg-slate-700" />
                                             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
-                                                {['Delayed', 'Today', 'Tomorrow', 'Next 3', 'Next 7', 'Next 15'].map((filter) => (
+                                                {(['Delayed', 'Today', 'Tomorrow', 'Next 3', 'Next 7', 'Next 15'] as const).map((filter) => (
                                                     <button
                                                         key={filter}
                                                         onClick={() => { setActiveTimeFilter(activeTimeFilter === filter ? null : filter); setCurrentPage(1); }}
-                                                        className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all whitespace-nowrap ${activeTimeFilter === filter
+                                                        className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all whitespace-nowrap relative ${activeTimeFilter === filter
                                                             ? 'bg-[var(--theme-primary)] text-white shadow-md'
                                                             : 'bg-white dark:bg-slate-800 text-slate-500 border border-slate-100 dark:border-slate-700 hover:border-[var(--theme-primary)] hover:text-[var(--theme-primary)]'
                                                             }`}
                                                     >
                                                         {filter}
+                                                        {timeStats[filter] > 0 && (
+                                                            <sup className={`ml-1 text-[8px] ${activeTimeFilter === filter ? 'text-white/80' : (filter === 'Delayed' ? 'text-red-500' : 'text-[var(--theme-primary)]')}`}>
+                                                                {timeStats[filter]}
+                                                            </sup>
+                                                        )}
                                                     </button>
                                                 ))}
                                             </div>

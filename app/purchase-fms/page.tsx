@@ -37,10 +37,10 @@ interface PurchaseFMSOrder {
 }
 
 const STAGES = [
-    { step: 1, name: 'Create PO' },
-    { step: 2, name: 'Sent PO to Vendor' },
-    { step: 3, name: 'Follow Up' },
-    { step: 4, name: 'Item Received' },
+    { step: 1, name: 'PO' },
+    { step: 2, name: 'Sent' },
+    { step: 3, name: 'Followup' },
+    { step: 4, name: 'Received' },
 ];
 
 const ITEMS_PER_PAGE = 10;
@@ -181,6 +181,37 @@ export default function PurchaseFMSPage() {
             Step3: activeOrders.filter(o => o.Actual_2 && !o.Actual_3).length,
             Step4: activeOrders.filter(o => o.Actual_3 && !o.Actual_4).length,
         };
+    }, [orders]);
+
+    const timeStats = useMemo(() => {
+        const active = orders.filter(o => o.Cancelled !== 'Cancelled');
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const oneDayMs = 24 * 60 * 60 * 1000;
+
+        const stats = { 'Delayed': 0, 'Today': 0, 'Tomorrow': 0, 'Next 3': 0, 'Next 7': 0, 'Next 15': 0 };
+
+        active.forEach(o => {
+            const currentStep = getCurrentStep(o);
+            if (currentStep > 4) return;
+
+            const plannedStr = o[`Planned_${currentStep}` as keyof PurchaseFMSOrder];
+            if (!plannedStr) return;
+
+            const pDate = new Date(plannedStr as string);
+            const pTime = pDate.getTime();
+            const pDayStart = new Date(pDate.getFullYear(), pDate.getMonth(), pDate.getDate()).getTime();
+            const diffDays = Math.round((pDayStart - todayStart) / oneDayMs);
+
+            if (pTime < now.getTime()) stats['Delayed']++;
+            if (diffDays === 0) stats['Today']++;
+            if (diffDays === 1) stats['Tomorrow']++;
+            if (diffDays >= 0 && diffDays <= 3) stats['Next 3']++;
+            if (diffDays >= 0 && diffDays <= 7) stats['Next 7']++;
+            if (diffDays >= 0 && diffDays <= 15) stats['Next 15']++;
+        });
+
+        return stats;
     }, [orders]);
 
     const distinctSteps = useMemo(() => {
@@ -871,16 +902,21 @@ export default function PurchaseFMSPage() {
                                                 <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 mx-2" />
 
                                                 <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
-                                                    {['Delayed', 'Today', 'Tomorrow', 'Next 3', 'Next 7', 'Next 15'].map((filter) => (
+                                                    {(['Delayed', 'Today', 'Tomorrow', 'Next 3', 'Next 7', 'Next 15'] as const).map((filter) => (
                                                         <button
                                                             key={filter}
                                                             onClick={() => setActiveTimeFilter(activeTimeFilter === filter ? null : filter)}
-                                                            className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all whitespace-nowrap ${activeTimeFilter === filter
+                                                            className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all whitespace-nowrap relative ${activeTimeFilter === filter
                                                                 ? 'bg-[var(--theme-primary)] text-white shadow-md'
                                                                 : 'bg-white dark:bg-slate-800 text-slate-500 border border-slate-100 dark:border-slate-700 hover:border-[var(--theme-primary)] hover:text-[var(--theme-primary)]'
                                                                 }`}
                                                         >
                                                             {filter}
+                                                            {timeStats[filter] > 0 && (
+                                                                <sup className={`ml-1 text-[8px] ${activeTimeFilter === filter ? 'text-white/80' : (filter === 'Delayed' ? 'text-red-500' : 'text-[var(--theme-primary)]')}`}>
+                                                                    {timeStats[filter]}
+                                                                </sup>
+                                                            )}
                                                         </button>
                                                     ))}
                                                 </div>

@@ -35,15 +35,28 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
     { label: 'MOM', icon: 'document', href: '/mom', roles: ['Admin', 'Manager'] },
     { label: 'Lead to Sales', icon: 'trending', href: '/lead-to-sales', roles: ['Admin', 'Manager', 'Employee'] },
     {
-      label: 'Sales', icon: 'currency-dollar', roles: ['Admin', 'Manager'], children: [
+      label: 'CRM', icon: 'clipboard', roles: ['Admin', 'Manager'], children: [
+        { label: 'CRM', icon: 'clipboard', href: '/crm', roles: ['Admin', 'Manager'] },
         { label: 'O2D', icon: 'clipboard', href: '/o2d', roles: ['Admin', 'Manager'] },
-        { label: 'NBD', icon: 'clipboard', href: '/nbd', roles: ['Admin', 'Manager'] },
         { label: 'Collection', icon: 'clipboard', href: '/collection', roles: ['Admin', 'Manager'] },
+      ]
+    },
+    {
+      label: 'Sales', icon: 'currency-dollar', roles: ['Admin', 'Manager'], children: [
+        { label: 'NBD', icon: 'clipboard', href: '/nbd', roles: ['Admin', 'Manager'] },
         { label: 'NBD Incoming', icon: 'clipboard', href: '/nbd-incoming', roles: ['Admin', 'Manager'] },
         { label: 'CRR', icon: 'clipboard', href: '/crr', roles: ['Admin', 'Manager'] },
-        { label: 'IMS RM', icon: 'clipboard', href: '/ims-rm', roles: ['Admin', 'Manager'] },
+      ]
+    },
+    {
+      label: 'Factory', icon: 'clipboard', roles: ['Admin', 'Manager'], children: [
         { label: 'Purchase FMS', icon: 'clipboard', href: '/purchase-fms', roles: ['Admin', 'Manager'] },
         { label: 'Factory Requirement', icon: 'clipboard', href: '/factory-requirements', roles: ['Admin', 'Manager'] },
+      ]
+    },
+    {
+      label: 'IMS', icon: 'clipboard', roles: ['Admin', 'Manager'], children: [
+        { label: 'IMS RM', icon: 'clipboard', href: '/ims-rm', roles: ['Admin', 'Manager'] },
       ]
     },
     { label: 'HelpDesk', icon: 'headset', href: '/helpdesk', roles: ['Admin', 'Manager', 'Employee'] },
