@@ -149,7 +149,7 @@ export async function getDelegations(userId: number, role?: string, username?: s
     // Read all data from the sheet
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: DELEGATION_SPREADSHEET_ID,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
@@ -265,7 +265,7 @@ export async function createDelegation(delegationData: any) {
     // Append row
     await sheets.spreadsheets.values.append({
       spreadsheetId: DELEGATION_SPREADSHEET_ID,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueInputOption: 'USER_ENTERED',
       requestBody: {
         values: [rowData],
@@ -287,7 +287,7 @@ export async function createMultipleDelegations(delegationsData: any[]) {
     // Get all data to get headers and max ID safely
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: DELEGATION_SPREADSHEET_ID,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
@@ -316,7 +316,7 @@ export async function createMultipleDelegations(delegationsData: any[]) {
 
     await sheets.spreadsheets.values.append({
       spreadsheetId: DELEGATION_SPREADSHEET_ID,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueInputOption: 'USER_ENTERED',
       requestBody: {
         values: rowsToAppend,
@@ -427,7 +427,7 @@ export async function deleteDelegation(id: number) {
     // Read all data to find the row
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: DELEGATION_SPREADSHEET_ID,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
@@ -480,7 +480,7 @@ export async function getDelegationRemarks(delegationId: number) {
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: DELEGATION_SPREADSHEET_ID,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
@@ -562,7 +562,7 @@ export async function createDelegationRemark(remarkData: any) {
 
     await sheets.spreadsheets.values.append({
       spreadsheetId: DELEGATION_SPREADSHEET_ID,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueInputOption: 'RAW',
       requestBody: {
         values: [rowData],
@@ -585,7 +585,7 @@ export async function getDelegationHistory(delegationId: number) {
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: DELEGATION_SPREADSHEET_ID,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
@@ -670,7 +670,7 @@ export async function createDelegationHistory(historyData: any) {
 
     await sheets.spreadsheets.values.append({
       spreadsheetId: DELEGATION_SPREADSHEET_ID,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueInputOption: 'RAW',
       requestBody: {
         values: [rowData],
@@ -692,7 +692,7 @@ export async function getDelegationById(id: number) {
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: DELEGATION_SPREADSHEET_ID,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
@@ -1509,7 +1509,7 @@ export async function getChecklists() {
     console.log('getChecklists: Fetching values...');
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueRenderOption: 'UNFORMATTED_VALUE',
     });
     console.log('getChecklists: Values fetched');
@@ -1601,7 +1601,7 @@ export async function createChecklistsBatch(checklistsData: any[]) {
     // Append all rows in a single batch operation
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueInputOption: 'USER_ENTERED',
       requestBody: {
         values: rowsData,
@@ -1664,7 +1664,7 @@ export async function createChecklist(checklistData: any) {
     // Append row
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueInputOption: 'USER_ENTERED',
       requestBody: {
         values: [rowData],
@@ -1686,7 +1686,7 @@ export async function updateChecklist(id: number, checklistData: any) {
     // Read all data to find the row
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
@@ -1746,7 +1746,7 @@ export async function deleteChecklist(id: number) {
     // Read all data to find the row
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
     });
 
     const rows = response.data.values;
@@ -1808,7 +1808,7 @@ export async function updateChecklistsByGroupId(groupId: string, checklistData: 
     // Read all data to find the rows with matching group_id
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
     });
 
     const rows = response.data.values;
@@ -1877,7 +1877,7 @@ export async function deleteChecklistsByGroupId(groupId: string) {
     // Read all data to find the rows with matching group_id
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
     });
 
     const rows = response.data.values;
@@ -1951,7 +1951,7 @@ export async function getChecklistById(id: number) {
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
     });
 
     const rows = response.data.values;
@@ -1995,7 +1995,7 @@ export async function getChecklistRemarks(checklistId: number) {
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
     });
 
     const rows = response.data.values;
@@ -2094,7 +2094,7 @@ export async function createChecklistRemark(remarkData: any) {
 
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueInputOption: 'RAW',
       requestBody: {
         values: [rowData],
@@ -2186,7 +2186,7 @@ export async function createChecklistHistory(historyData: any) {
 
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_IDS.CHECKLISTS,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueInputOption: 'RAW',
       requestBody: {
         values: [rowData],
@@ -2321,7 +2321,7 @@ export async function getHelpdeskTickets(filters: any = {}) {
     // Read all data from the sheet
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_IDS.HELPDESK,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
     });
 
     const rows = response.data.values;
@@ -2403,7 +2403,7 @@ export async function createHelpdeskTicket(ticketData: any) {
 
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_IDS.HELPDESK,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueInputOption: 'RAW',
       requestBody: {
         values: [rowData],
@@ -2425,7 +2425,7 @@ export async function updateHelpdeskTicket(id: number, ticketData: any) {
     // Read all data to find the row
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_IDS.HELPDESK,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
     });
 
     const rows = response.data.values;
@@ -2477,7 +2477,7 @@ export async function deleteHelpdeskTicket(id: number) {
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_IDS.HELPDESK,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
     });
 
     const rows = response.data.values;
@@ -2587,7 +2587,7 @@ export async function createHelpdeskRemark(remarkData: any) {
 
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_IDS.HELPDESK,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueInputOption: 'RAW',
       requestBody: { values: [rowData] }
     });
@@ -2608,7 +2608,7 @@ export async function getHelpdeskRemarks(ticketId: number) {
     try {
       const response = await sheets.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_IDS.HELPDESK,
-        range: `${sheetName}!A:Z`,
+        range: `${sheetName}!A:AZ`,
         valueRenderOption: 'UNFORMATTED_VALUE',
       });
       const rows = response.data.values;
@@ -2706,7 +2706,7 @@ export async function getTodos(filters: any = {}) {
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_IDS.TODOS,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
@@ -2781,7 +2781,7 @@ export async function createTodo(todoData: any) {
 
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_IDS.TODOS,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueInputOption: 'RAW',
       requestBody: {
         values: [rowData],
@@ -2802,7 +2802,7 @@ export async function updateTodo(id: number, todoData: any) {
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_IDS.TODOS,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
@@ -2848,7 +2848,7 @@ export async function deleteTodo(id: number) {
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_IDS.TODOS,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
@@ -2962,7 +2962,7 @@ export async function getChatMessages() {
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_IDS.CHAT,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
@@ -3027,7 +3027,7 @@ export async function createChatMessage(messageData: any) {
 
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_IDS.CHAT,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueInputOption: 'RAW',
       requestBody: {
         values: [rowData],
@@ -3050,7 +3050,7 @@ export async function getNBDs() {
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: NBD_SPREADSHEET_ID,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
@@ -3119,7 +3119,7 @@ export async function createNBD(data: any) {
 
     await sheets.spreadsheets.values.append({
       spreadsheetId: NBD_SPREADSHEET_ID,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueInputOption: 'RAW',
       requestBody: { values: [rowData] },
     });
@@ -3139,7 +3139,7 @@ export async function getIMSRMData(sheetName: string) {
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: IMS_RM_SPREADSHEET_ID,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
@@ -3204,7 +3204,7 @@ export async function submitIMSPartyDetails(data: any) {
     // Append to the sheet
     await sheets.spreadsheets.values.append({
       spreadsheetId: IMS_RM_SPREADSHEET_ID,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueInputOption: 'USER_ENTERED',
       requestBody: { values: [rowData] },
     });
@@ -3257,7 +3257,7 @@ export async function confirmIMSRMOrder(data: any) {
     // Append to the sheet
     await sheets.spreadsheets.values.append({
       spreadsheetId: IMS_RM_SPREADSHEET_ID,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueInputOption: 'USER_ENTERED',
       requestBody: { values: [rowData] },
     });
@@ -3988,7 +3988,7 @@ export async function getNBDIncomings() {
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: NBD_SPREADSHEET_ID,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
@@ -4057,7 +4057,7 @@ export async function createNBDIncoming(data: any) {
 
     await sheets.spreadsheets.values.append({
       spreadsheetId: NBD_SPREADSHEET_ID,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueInputOption: 'RAW',
       requestBody: { values: [rowData] },
     });
@@ -4172,7 +4172,7 @@ export async function getCRRs() {
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: NBD_SPREADSHEET_ID,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
@@ -4241,7 +4241,7 @@ export async function createCRR(data: any) {
 
     await sheets.spreadsheets.values.append({
       spreadsheetId: NBD_SPREADSHEET_ID,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueInputOption: 'RAW',
       requestBody: { values: [rowData] },
     });
@@ -4410,7 +4410,7 @@ export async function getPurchaseFMSOrders() {
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_IDS.PURCHASE_FMS,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
@@ -4479,7 +4479,7 @@ export async function createPurchaseFMSOrder(data: any) {
 
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_IDS.PURCHASE_FMS,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueInputOption: 'RAW',
       requestBody: { values: [rowData] },
     });
@@ -4803,7 +4803,7 @@ export async function getFactoryRequirements() {
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_IDS.FACTORY_REQUIREMENT,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
@@ -4911,7 +4911,7 @@ export async function createFactoryRequirement(data: any) {
 
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_IDS.FACTORY_REQUIREMENT,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueInputOption: 'RAW',
       requestBody: { values: [rowData] },
     });
@@ -5355,7 +5355,7 @@ export async function getClientComplainData() {
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
@@ -5382,14 +5382,25 @@ export async function createClientComplainData(complaints: any[]) {
 
     const existingRes = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueRenderOption: 'UNFORMATTED_VALUE',
     });
     const existingRows = existingRes.data.values || [];
     const headers: string[] = existingRows[0]?.map((h: string) => h.trim()) || [];
 
     if (headers.length === 0) {
-      const defaultHeaders = ['id', 'Client Name', 'Complain Product', 'Remark', 'Timestamp', 'Planned_1'];
+      const defaultHeaders = [
+        'id', 'Client Name', 'Complain Product', 'Remark', 'Timestamp', 'Cancelled',
+        'Planned_1', 'Actual_1', 'Status_1',
+        'Planned_2', 'Actual_2', 'Status_2',
+        'Planned_3', 'Actual_3', 'Status_3',
+        'Planned_4', 'Actual_4', 'Status_4',
+        'Planned_5', 'Actual_5', 'Status_5',
+        'Planned_6', 'Actual_6', 'Status_6',
+        'Planned_7', 'Actual_7', 'Status_7',
+        'Planned_8', 'Actual_8', 'Status_8',
+        'Planned_9', 'Actual_9', 'Status_9'
+      ];
       await sheets.spreadsheets.values.update({
         spreadsheetId,
         range: `${sheetName}!A1`,
@@ -5423,7 +5434,7 @@ export async function createClientComplainData(complaints: any[]) {
 
     await sheets.spreadsheets.values.append({
       spreadsheetId,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueInputOption: 'USER_ENTERED',
       requestBody: { values: rowsData },
     });
@@ -5443,7 +5454,7 @@ export async function updateClientComplainData(id: string, updates: any) {
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueRenderOption: 'UNFORMATTED_VALUE',
     });
     const rows = response.data.values;
@@ -5500,7 +5511,7 @@ export async function deleteClientComplainData(id: string) {
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueRenderOption: 'UNFORMATTED_VALUE',
     });
     const rows = response.data.values;
@@ -5639,7 +5650,7 @@ export async function getRMDefectsData() {
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueRenderOption: 'UNFORMATTED_VALUE',
     });
 
@@ -5662,18 +5673,47 @@ export async function createRMDefectsData(defects: any[]) {
     const sheets = await getGoogleSheetsClient();
     const spreadsheetId = SPREADSHEET_IDS.RM_DEFECTS;
     const sheetName = SHEETS.RM_DEFECTS;
-    const timestamp = new Date().toISOString();
+    const now = new Date();
+    const timestamp = now.toISOString();
+
+    // Fetch Step 1 TAT from config to compute Planned_1 correctly
+    let planned1: string = timestamp; // fallback: same as created
+    try {
+      const config = await getRMDefectsConfig();
+      const step1Config = config.find((c: any) => c.step === 1);
+      if (step1Config && step1Config.tatValue > 0) {
+        const plannedDate = new Date(now);
+        const tatMs = step1Config.tatUnit === 'days'
+          ? step1Config.tatValue * 24 * 60 * 60 * 1000
+          : step1Config.tatValue * 60 * 60 * 1000;
+        plannedDate.setTime(plannedDate.getTime() + tatMs);
+        planned1 = plannedDate.toISOString();
+      }
+    } catch (_) {
+      // if config fetch fails, keep planned1 = timestamp
+    }
 
     const existingRes = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueRenderOption: 'UNFORMATTED_VALUE',
     });
     const existingRows = existingRes.data.values || [];
     const headers: string[] = existingRows[0]?.map((h: string) => h.trim()) || [];
 
     if (headers.length === 0) {
-      const defaultHeaders = ['id', 'Material Name', 'Vendor Name', 'Remark', 'Timestamp', 'Planned_1', 'Planned_2', 'Planned_3', 'Planned_4', 'Planned_5', 'Planned_6', 'Planned_7', 'Planned_8', 'Planned_9'];
+      const defaultHeaders = [
+        'id', 'Material Name', 'Vendor Name', 'Remark', 'Timestamp', 'Cancelled',
+        'Planned_1', 'Actual_1', 'Status_1',
+        'Planned_2', 'Actual_2', 'Status_2',
+        'Planned_3', 'Actual_3', 'Status_3',
+        'Planned_4', 'Actual_4', 'Status_4',
+        'Planned_5', 'Actual_5', 'Status_5',
+        'Planned_6', 'Actual_6', 'Status_6',
+        'Planned_7', 'Actual_7', 'Status_7',
+        'Planned_8', 'Actual_8', 'Status_8',
+        'Planned_9', 'Actual_9', 'Status_9'
+      ];
       await sheets.spreadsheets.values.update({
         spreadsheetId,
         range: `${sheetName}!A1`,
@@ -5700,14 +5740,14 @@ export async function createRMDefectsData(defects: any[]) {
         'Vendor Name': d.vendorName || '',
         Remark: d.remark || '',
         Timestamp: timestamp,
-        Planned_1: timestamp,
+        Planned_1: planned1,
       };
       return headers.map(h => rowMap[h] ?? '');
     });
 
     await sheets.spreadsheets.values.append({
       spreadsheetId,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueInputOption: 'USER_ENTERED',
       requestBody: { values: rowsData },
     });
@@ -5727,7 +5767,7 @@ export async function updateRMDefectsData(id: string, updates: any) {
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueRenderOption: 'UNFORMATTED_VALUE',
     });
     const rows = response.data.values;
@@ -5784,7 +5824,7 @@ export async function deleteRMDefectsData(id: string) {
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A:AZ`,
       valueRenderOption: 'UNFORMATTED_VALUE',
     });
     const rows = response.data.values;

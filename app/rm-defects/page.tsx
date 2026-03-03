@@ -6,8 +6,8 @@ import { useToast } from '@/components/ToastProvider';
 import { useLoader } from '@/components/LoaderProvider';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    Pencil, Trash2, X, Save, Loader2,
-    AlertTriangle, MessageSquareWarning, Ban, RotateCcw
+    Loader2, Save, X, Plus, Trash2, Pencil, Search, History, AlertTriangle, MessageSquareWarning, ArrowRight,
+    Filter, LayoutGrid, List, CheckCircle2, Clock, Calendar, Download, Trash, ChevronLeft, ChevronRight, Ban, RotateCcw
 } from 'lucide-react';
 
 interface StepConfig {
@@ -38,15 +38,15 @@ interface RMDefect {
 }
 
 const DEFECT_STAGES = [
-    { step: 1, name: 'SEND THE PHOTO TO VENDOR GROUP' },
-    { step: 2, name: 'TALK TO VENDOR' },
-    { step: 3, name: 'SEND THE SAMPLE TO VENDOR' },
-    { step: 4, name: 'TALK TO VENDOR FOR SOLUTION' },
-    { step: 5, name: 'INFOR MD ABOUT THE SOLUTION AND GET THE APPROVAL' },
-    { step: 6, name: 'ORDER THE NEW MATERIAL' },
-    { step: 7, name: 'TAKE APPROVAL FROM NEERAJ ABOUT NEW STOCK' },
-    { step: 8, name: 'RETURN THE DEFECTED MATERIAL' },
-    { step: 9, name: 'RETURN THE DEFECTED MATERIAL' },
+    { step: 1, name: 'SEND PHOTO' },
+    { step: 2, name: 'TALK VENDOR' },
+    { step: 3, name: 'SEND SAMPLE' },
+    { step: 4, name: 'VENDOR SOLUTION' },
+    { step: 5, name: 'MD APPROVAL' },
+    { step: 6, name: 'ORDER MATERIAL' },
+    { step: 7, name: 'STOCK APPROVAL' },
+    { step: 8, name: 'RETURN MATERIAL' },
+    { step: 9, name: 'CLOSE DEFECT' },
 ];
 
 const ITEMS_PER_PAGE = 15;
@@ -94,6 +94,10 @@ export default function RMDefectsPage() {
     const [editingItem, setEditingItem] = useState<RMDefect | null>(null);
     const [deletingItem, setDeletingItem] = useState<RMDefect | null>(null);
     const [cancellingItem, setCancellingItem] = useState<RMDefect | null>(null);
+
+    const [showRemoveModal, setShowRemoveModal] = useState(false);
+    const [removeTarget, setRemoveTarget] = useState<{ id: string, name: string } | null>(null);
+    const [removeStep, setRemoveStep] = useState<number | 'all'>('all');
 
     const toast = useToast();
     const loader = useLoader();
@@ -234,6 +238,35 @@ export default function RMDefectsPage() {
         };
     }, [data]);
 
+    const timeStats = useMemo(() => {
+        const active = data.filter(d => !d['Cancelled'] || d['Cancelled'].trim().toLowerCase() !== 'yes');
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const oneDayMs = 24 * 60 * 60 * 1000;
+        const stats = { 'Delayed': 0, 'Today': 0, 'Tomorrow': 0, 'Next 3': 0, 'Next 7': 0, 'Next 15': 0 };
+        active.forEach(item => {
+            let currentStep = 1;
+            for (let s = 1; s <= 9; s++) {
+                if ((item as any)[`Actual_${s}`]) currentStep = s + 1;
+                else break;
+            }
+            if (currentStep > 9) return;
+            const plannedStr = (item as any)[`Planned_${currentStep}`];
+            if (!plannedStr) return;
+            const pDate = new Date(plannedStr);
+            const pTime = pDate.getTime();
+            const pDayStart = new Date(pDate.getFullYear(), pDate.getMonth(), pDate.getDate()).getTime();
+            const diffDays = Math.round((pDayStart - todayStart) / oneDayMs);
+            if (pTime < now.getTime()) stats['Delayed']++;
+            if (diffDays === 0) stats['Today']++;
+            if (diffDays === 1) stats['Tomorrow']++;
+            if (diffDays >= 0 && diffDays <= 3) stats['Next 3']++;
+            if (diffDays >= 0 && diffDays <= 7) stats['Next 7']++;
+            if (diffDays >= 0 && diffDays <= 15) stats['Next 15']++;
+        });
+        return stats;
+    }, [data]);
+
     const totalPages = Math.max(1, Math.ceil(activeData.length / ITEMS_PER_PAGE));
     const paginatedData = activeData.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
@@ -241,6 +274,99 @@ export default function RMDefectsPage() {
         setViewMode(v);
         setCurrentPage(1);
         setSelectedItems(new Set());
+    };
+
+    const getNextPlannedTime = (current: Date, value: number, unit: string) => {
+        const next = new Date(current);
+        if (unit === 'days') {
+            let daysAdded = 0;
+            while (daysAdded < value) {
+                next.setDate(next.getDate() + 1);
+                if (next.getDay() !== 0) { // Skip Sunday
+                    daysAdded++;
+                }
+            }
+        } else {
+            next.setHours(next.getHours() + value);
+        }
+
+        if (next.getDay() === 0) {
+            next.setDate(next.getDate() + 1);
+        }
+        return next;
+    };
+
+    const toggleSelection = (id: string) => {
+        const newSelected = new Set(selectedItems);
+        if (newSelected.has(id)) {
+            newSelected.delete(id);
+        } else {
+            newSelected.add(id);
+        }
+        setSelectedItems(newSelected);
+    };
+
+    const toggleAll = () => {
+        if (selectedItems.size === activeData.length) {
+            setSelectedItems(new Set());
+        } else {
+            setSelectedItems(new Set(activeData.map(d => d.id)));
+        }
+    };
+
+    const getCurrentStep = (item: RMDefect) => {
+        let step = 1;
+        for (let s = 1; s <= 9; s++) {
+            if ((item as any)[`Actual_${s}`]) step = s + 1;
+            else break;
+        }
+        return step;
+    };
+
+    const handleBulkUpdate = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (selectedItems.size === 0) return;
+
+        try {
+            loader.showLoader();
+            const now = new Date().toISOString();
+            const updatePromises = Array.from(selectedItems).map(id => {
+                const item = data.find(d => d.id === id);
+                if (!item) return Promise.resolve();
+
+                const currentStep = getCurrentStep(item);
+                const updatedData: any = { id: item.id };
+
+                if (itemsToMarkDone.has(item.id) && currentStep <= 9) {
+                    updatedData[`Actual_${currentStep}`] = now;
+                    updatedData[`Status_${currentStep}`] = 'Completed';
+
+                    if (currentStep < 9) {
+                        const nextStep = currentStep + 1;
+                        const nextConfig = stepConfigs.find(c => c.step === nextStep);
+                        const nextPlanned = getNextPlannedTime(new Date(now), nextConfig?.tatValue || 24, nextConfig?.tatUnit || 'hours').toISOString();
+                        updatedData[`Planned_${nextStep}`] = nextPlanned;
+                    }
+                }
+
+                return fetch('/api/rm-defects', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updatedData),
+                });
+            });
+
+            await Promise.all(updatePromises);
+            toast.success('Bulk updates applied');
+            setItemsToMarkDone(new Set());
+            setSelectedItems(new Set());
+            setIsBulkUpdateModalOpen(false);
+            fetchData();
+        } catch (error) {
+            toast.error('Failed to apply bulk updates');
+        } finally {
+            loader.hideLoader();
+        }
     };
 
     const handleSave = async () => {
@@ -321,6 +447,58 @@ export default function RMDefectsPage() {
         } finally {
             setIsCancelling(false);
         }
+    };
+
+    const handleRemoveFollowUp = async () => {
+        if (!removeTarget) return;
+        try {
+            loader.showLoader();
+            const payload: any = { id: removeTarget.id };
+
+            if (removeStep === 'all') {
+                [1, 2, 3, 4, 5, 6, 7, 8, 9].forEach(step => {
+                    payload[`Actual_${step}`] = '';
+                    payload[`Status_${step}`] = '';
+                    if (step > 1) payload[`Planned_${step}`] = '';
+                });
+            } else {
+                const stepNum = removeStep as number;
+                [1, 2, 3, 4, 5, 6, 7, 8, 9].forEach(step => {
+                    if (step === stepNum) {
+                        payload[`Actual_${step}`] = '';
+                        payload[`Status_${step}`] = '';
+                    } else if (step > stepNum) {
+                        payload[`Planned_${step}`] = '';
+                        payload[`Actual_${step}`] = '';
+                        payload[`Status_${step}`] = '';
+                    }
+                });
+            }
+
+            const res = await fetch('/api/rm-defects', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                toast.success('Follow-up details removed');
+                setShowRemoveModal(false);
+                setRemoveTarget(null);
+                fetchData();
+            } else {
+                toast.error('Operation failed');
+            }
+        } catch (e) {
+            toast.error('Error removing follow-up');
+        } finally {
+            loader.hideLoader();
+        }
+    };
+
+    const openRemoveModal = (id: string, name?: string) => {
+        setRemoveTarget({ id, name: name || 'Record ' + id });
+        setRemoveStep('all');
+        setShowRemoveModal(true);
     };
 
     const handleSaveConfig = async () => {
@@ -488,38 +666,128 @@ export default function RMDefectsPage() {
                         </div>
                     ) : (
                         <>
-                            {/* Pagination row above header */}
+                            {/* Step Filter Tiles */}
+                            <div className="overflow-x-auto pb-0 scroll-smooth -mx-0 px-4 pt-4 border-b border-slate-50 dark:border-slate-800/50 bg-slate-50/30 dark:bg-slate-900/10">
+                                <div className="flex gap-2 min-w-max pr-2 pb-4">
+                                    {[
+                                        { step: 'all' as const, label: 'All Items', value: statusStats.Total, gradient: 'from-slate-50 to-slate-100', border: 'border-slate-200', iconBg: 'from-slate-500 to-slate-600', icon: 'M4 6h16M4 10h16M4 14h16M4 18h16' },
+                                        { step: 1 as const, label: '1. Send Photo', value: statusStats.Step1, gradient: 'from-indigo-50 to-indigo-100', border: 'border-indigo-200', iconBg: 'from-indigo-500 to-indigo-600', icon: 'M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z M15 13a3 3 0 11-6 0 3 3 0 016 0z' },
+                                        { step: 2 as const, label: '2. Talk Vendor', value: statusStats.Step2, gradient: 'from-yellow-50 to-yellow-100', border: 'border-yellow-200', iconBg: 'from-yellow-500 to-yellow-600', icon: 'M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z' },
+                                        { step: 3 as const, label: '3. Send Sample', value: statusStats.Step3, gradient: 'from-orange-50 to-orange-100', border: 'border-orange-200', iconBg: 'from-orange-500 to-orange-600', icon: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4' },
+                                        { step: 4 as const, label: '4. Vendor Solution', value: statusStats.Step4, gradient: 'from-pink-50 to-pink-100', border: 'border-pink-200', iconBg: 'from-pink-500 to-pink-600', icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z' },
+                                        { step: 5 as const, label: '5. MD Approval', value: statusStats.Step5, gradient: 'from-purple-50 to-purple-100', border: 'border-purple-200', iconBg: 'from-purple-500 to-purple-600', icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' },
+                                        { step: 6 as const, label: '6. Order Material', value: statusStats.Step6, gradient: 'from-blue-50 to-blue-100', border: 'border-blue-200', iconBg: 'from-blue-500 to-blue-600', icon: 'M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z' },
+                                        { step: 7 as const, label: '7. Stock Approval', value: statusStats.Step7, gradient: 'from-teal-50 to-teal-100', border: 'border-teal-200', iconBg: 'from-teal-500 to-teal-600', icon: 'M5 13l4 4L19 7' },
+                                        { step: 8 as const, label: '8. Return Material', value: statusStats.Step8, gradient: 'from-rose-50 to-rose-100', border: 'border-rose-200', iconBg: 'from-rose-500 to-rose-600', icon: 'M16 15v-1a4 4 0 00-4-4H8m0 0l3 3m-3-3l3-3m9 14V5a2 2 0 00-2-2H6a2 2 0 00-2 2v16l4-2 2 2 2-2 4 2z' },
+                                        { step: 9 as const, label: '9. Close Defect', value: statusStats.Step9, gradient: 'from-emerald-50 to-emerald-100', border: 'border-emerald-200', iconBg: 'from-emerald-500 to-emerald-600', icon: 'M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z' },
+                                    ].map((stat, i) => (
+                                        <motion.div
+                                            key={i}
+                                            initial={{ opacity: 0, y: 10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{ delay: i * 0.03 }}
+                                            whileHover={activeStepFilter === stat.step ? { scale: 1 } : { y: -1 }}
+                                            onClick={() => {
+                                                const nextStep = activeStepFilter === stat.step ? 'all' : stat.step;
+                                                setActiveStepFilter(nextStep);
+                                                if (nextStep === 'all') setActiveTimeFilter(null);
+                                                setCurrentPage(1);
+                                            }}
+                                            className={`bg-gradient-to-br ${stat.gradient} p-2 rounded-xl border ${stat.border} shadow-sm flex items-center gap-2 transition-all min-w-[140px] cursor-pointer ${activeStepFilter === stat.step
+                                                ? 'ring-2 ring-[var(--theme-primary)] shadow-md opacity-100'
+                                                : 'opacity-75 hover:opacity-100 hover:-translate-y-px'
+                                                }`}
+                                        >
+                                            <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${stat.iconBg} flex items-center justify-center flex-shrink-0 shadow-sm text-white`}>
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d={stat.icon} /></svg>
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-[8px] font-black text-gray-500 uppercase tracking-wider truncate opacity-80">{stat.label}</p>
+                                                <p className="text-base font-black text-gray-900 leading-none mt-0.5">{stat.value}</p>
+                                            </div>
+                                        </motion.div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Pagination + Filters — single row, client-complain style */}
                             <div className="flex bg-[var(--theme-lighter)]/50 dark:bg-slate-900/50 p-2 border-b border-slate-100 dark:border-slate-800 backdrop-blur-md sticky top-0 z-[20]">
                                 <div className="flex-1 flex items-center justify-between px-3">
                                     <div className="flex items-center gap-4">
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">
                                             Showing{' '}
-                                            <span className="text-slate-900 dark:text-white">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span>
+                                            <span className="text-slate-900 dark:text-white">{activeData.length === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1}</span>
                                             {' – '}
                                             <span className="text-slate-900 dark:text-white">{Math.min(currentPage * ITEMS_PER_PAGE, activeData.length)}</span>
                                             {' of '}
                                             <span className="text-slate-900 dark:text-white">{activeData.length}</span>
                                         </p>
+
+                                        {selectedItems.size > 0 && (
+                                            <button
+                                                onClick={() => setIsBulkUpdateModalOpen(true)}
+                                                className="h-8 px-4 rounded-xl bg-[var(--theme-primary)] text-gray-900 text-[9px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-[var(--theme-primary)]/20 hover:scale-[1.02] active:scale-[0.98] transition-all ml-2"
+                                            >
+                                                Update Status ({selectedItems.size})
+                                            </button>
+                                        )}
+
+                                        <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 mx-1" />
+                                        {/* Time filter pills with counts */}
+                                        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
+                                            {(['Delayed', 'Today', 'Tomorrow', 'Next 3', 'Next 7', 'Next 15'] as const).map((filter) => (
+                                                <button
+                                                    key={filter}
+                                                    onClick={() => { setActiveTimeFilter(activeTimeFilter === filter ? null : filter); setCurrentPage(1); }}
+                                                    className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all whitespace-nowrap relative ${activeTimeFilter === filter
+                                                        ? 'bg-[var(--theme-primary)] text-gray-900 shadow-md scale-[1.05]'
+                                                        : 'bg-white dark:bg-slate-800 text-slate-500 border border-slate-100 dark:border-slate-700 hover:border-[var(--theme-primary)] hover:text-[var(--theme-primary)]'
+                                                        }`}
+                                                >
+                                                    {filter}
+                                                    {((timeStats[filter as keyof typeof timeStats] ?? 0) > 0) && (
+                                                        <sup className={`ml-1 text-[8px] ${activeTimeFilter === filter ? 'text-gray-900' : (filter === 'Delayed' ? 'text-red-500' : 'text-emerald-500')}`}>
+                                                            {timeStats[filter as keyof typeof timeStats]}
+                                                        </sup>
+                                                    )}
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
+                                    {/* FIRST / PREV / page numbers / NEXT / LAST */}
                                     <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                            disabled={currentPage === 1}
-                                            className="p-1 px-3 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-30 hover:bg-white dark:hover:bg-slate-800 transition-all text-[10px] font-black uppercase tracking-widest"
-                                        >
+                                        <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1}
+                                            className="p-1 px-2 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-30 hover:bg-white dark:hover:bg-slate-800 transition-all text-[10px] font-black uppercase tracking-widest">
+                                            First
+                                        </button>
+                                        <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
+                                            className="p-1 px-2 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-30 hover:bg-white dark:hover:bg-slate-800 transition-all text-[10px] font-black uppercase tracking-widest">
                                             Prev
                                         </button>
                                         <div className="flex items-center gap-1">
-                                            <span className="text-[10px] font-black text-[var(--theme-primary)]">{currentPage}</span>
-                                            <span className="text-[10px] font-black text-slate-300">/</span>
-                                            <span className="text-[10px] font-black text-slate-400">{totalPages}</span>
+                                            {(() => {
+                                                const pages = [];
+                                                const windowSize = 5;
+                                                let startPage = Math.max(1, currentPage - 2);
+                                                let endPage = Math.min(totalPages, startPage + windowSize - 1);
+                                                if (endPage === totalPages) startPage = Math.max(1, endPage - windowSize + 1);
+                                                for (let i = startPage; i <= endPage; i++) {
+                                                    pages.push(
+                                                        <button key={i} onClick={() => setCurrentPage(i)}
+                                                            className={`w-7 h-7 rounded-lg text-[10px] font-black transition-all ${currentPage === i ? 'bg-[var(--theme-primary)] text-gray-900 shadow-md' : 'text-slate-400 hover:bg-white dark:hover:bg-slate-800'
+                                                                }`}>{i}</button>
+                                                    );
+                                                }
+                                                return pages;
+                                            })()}
                                         </div>
-                                        <button
-                                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                            disabled={currentPage === totalPages}
-                                            className="p-1 px-3 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-30 hover:bg-white dark:hover:bg-slate-800 transition-all text-[10px] font-black uppercase tracking-widest"
-                                        >
+                                        <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
+                                            className="p-1 px-2 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-30 hover:bg-white dark:hover:bg-slate-800 transition-all text-[10px] font-black uppercase tracking-widest">
                                             Next
+                                        </button>
+                                        <button onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages}
+                                            className="p-1 px-2 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-30 hover:bg-white dark:hover:bg-slate-800 transition-all text-[10px] font-black uppercase tracking-widest">
+                                            Last
                                         </button>
                                     </div>
                                 </div>
@@ -530,18 +798,25 @@ export default function RMDefectsPage() {
                                 <table className="w-full text-left">
                                     <thead className={`text-[10px] font-bold text-gray-900 uppercase tracking-wider ${viewMode === 'cancelled' ? 'bg-red-400' : 'bg-[var(--theme-primary)]'}`}>
                                         <tr>
+                                            <th className="px-3 py-2.5 text-center w-10">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedItems.size === activeData.length && activeData.length > 0}
+                                                    onChange={toggleAll}
+                                                    className="w-4 h-4 rounded border-2 border-gray-300 dark:border-gray-600 checked:bg-[var(--theme-primary)] checked:border-[var(--theme-primary)] transition-all cursor-pointer accent-[var(--theme-primary)]"
+                                                />
+                                            </th>
+                                            <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest w-28 text-center">Actions</th>
                                             <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest w-12 text-center">ID</th>
-                                            <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest w-24 text-center">Actions</th>
-                                            <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest min-w-[300px]">Details</th>
+                                            <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest min-w-[220px]">Details</th>
                                             {DEFECT_STAGES.map(s => (
-                                                <th key={s.step} className="px-3 py-2 text-left border-l border-white/10 min-w-[120px]">
+                                                <th key={s.step} className="px-3 py-2 text-left border-l border-white/10 min-w-[160px]">
                                                     <div className="flex flex-col leading-tight">
                                                         <span className="text-[9px] opacity-70 font-black">STEP {s.step}</span>
-                                                        <span className="text-[10px] font-black uppercase whitespace-nowrap">{s.name.length > 15 ? s.name.substring(0, 15) + '...' : s.name}</span>
+                                                        <span className="text-[10px] font-black uppercase whitespace-nowrap">{s.name}</span>
                                                     </div>
                                                 </th>
                                             ))}
-                                            <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest w-24 text-center">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-50 dark:divide-slate-800 text-xs">
@@ -551,8 +826,13 @@ export default function RMDefectsPage() {
                                             <tr><td colSpan={13} className="px-6 py-12 text-center text-slate-400 font-bold">No records found</td></tr>
                                         ) : paginatedData.map((item, idx) => (
                                             <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 group transition-colors">
-                                                <td className="px-4 py-4 text-center">
-                                                    <div className="text-[11px] font-black text-slate-600 dark:text-slate-300">{item.id}</div>
+                                                <td className="px-3 py-2 text-center border-r border-gray-100 dark:border-gray-700/50">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedItems.has(item.id)}
+                                                        onChange={() => toggleSelection(item.id)}
+                                                        className="w-4 h-4 rounded border-2 border-gray-300 dark:border-gray-600 checked:bg-[var(--theme-primary)] checked:border-[var(--theme-primary)] transition-all cursor-pointer accent-[var(--theme-primary)]"
+                                                    />
                                                 </td>
                                                 <td className="px-4 py-4">
                                                     <div className="flex items-center justify-center gap-1.5">
@@ -575,24 +855,36 @@ export default function RMDefectsPage() {
                                                             </motion.button>
                                                         )}
                                                         <motion.button whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
+                                                            onClick={() => openRemoveModal(item.id, item['Material Name'])}
+                                                            className="p-1 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 rounded-lg transition-colors" title="Remove Follow Up">
+                                                            <RotateCcw size={13} />
+                                                        </motion.button>
+                                                        <motion.button whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
                                                             onClick={() => { setDeletingItem(item); setIsDeleteModalOpen(true); }}
                                                             className="p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors" title="Delete">
                                                             <Trash2 size={13} />
                                                         </motion.button>
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-4">
-                                                    <div className="font-bold text-gray-900 dark:text-white text-sm leading-tight flex items-baseline gap-2">
-                                                        {item['Material Name']}
+                                                <td className="px-4 py-4 text-center">
+                                                    <div className="text-[11px] font-black text-slate-600 dark:text-slate-300">{item.id}</div>
+                                                </td>
+                                                <td className="px-6 py-4 border-r border-slate-100 dark:border-slate-700">
+                                                    <div className="flex flex-col gap-0.5">
+                                                        <span className="font-bold text-gray-900 dark:text-white text-sm leading-tight">
+                                                            {item['Material Name']}
+                                                        </span>
                                                         {item['Vendor Name'] && (
-                                                            <span className="px-1.5 py-0.5 bg-[var(--theme-primary)]/10 text-[var(--theme-primary)] font-black text-[9px] rounded uppercase tracking-wider">{item['Vendor Name']}</span>
+                                                            <span className="inline-block w-fit px-1.5 py-0.5 bg-[var(--theme-primary)]/10 text-[var(--theme-primary)] font-black text-[9px] rounded uppercase tracking-wider">
+                                                                {item['Vendor Name']}
+                                                            </span>
+                                                        )}
+                                                        {item['Remark'] && (
+                                                            <span className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed font-medium line-clamp-2">
+                                                                {item['Remark']}
+                                                            </span>
                                                         )}
                                                     </div>
-                                                    {item['Remark'] && (
-                                                        <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2 leading-relaxed font-medium max-w-sm">
-                                                            {item['Remark']}
-                                                        </div>
-                                                    )}
                                                 </td>
                                                 {DEFECT_STAGES.map(s => {
                                                     const planned = item[`Planned_${s.step}` as keyof RMDefect] as string;
@@ -604,14 +896,14 @@ export default function RMDefectsPage() {
                                                             <div className="flex flex-col gap-1">
                                                                 <div className="flex items-center justify-between gap-2">
                                                                     <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">P:</span>
-                                                                    <span className="text-[10px] font-medium text-slate-600 dark:text-slate-400 tabular-nums">
+                                                                    <span className="text-[10px] font-medium text-slate-600 dark:text-slate-400 tabular-nums text-right">
                                                                         {planned ? formatDateTime(planned) : '-'}
                                                                     </span>
                                                                 </div>
                                                                 <div className="flex items-center justify-between gap-2">
                                                                     <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">A:</span>
                                                                     {actual ? (
-                                                                        <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 tabular-nums">
+                                                                        <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 tabular-nums text-right">
                                                                             {formatDateTime(actual)}
                                                                         </span>
                                                                     ) : (
@@ -790,6 +1082,171 @@ export default function RMDefectsPage() {
                         </motion.div>
                     </div>
                 )}
+                {/* Bulk Update Modal */}
+                {isBulkUpdateModalOpen && (
+                    <>
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                            onClick={() => setIsBulkUpdateModalOpen(false)} className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-[9998]" />
+                        <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }} transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                            className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+                            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-4xl border border-gray-100 dark:border-gray-800 overflow-hidden text-gray-900 dark:text-gray-100 max-h-[90vh] flex flex-col">
+                                <div className="p-5 bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-secondary)] text-gray-900 flex items-center justify-between shadow-lg">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-white/20 rounded-xl shadow-inner"><Pencil size={20} /></div>
+                                        <div>
+                                            <h2 className="text-lg font-black uppercase tracking-tight leading-none">Bulk Update Status</h2>
+                                            <p className="text-[10px] font-bold opacity-70 uppercase tracking-widest mt-1.5">Applying updates to {selectedItems.size} selected items</p>
+                                        </div>
+                                    </div>
+                                    <button onClick={() => setIsBulkUpdateModalOpen(false)} className="p-2 hover:bg-white/20 rounded-xl transition-all hover:rotate-90"><X size={20} /></button>
+                                </div>
+
+                                <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar bg-gray-50/50 dark:bg-gray-900/50">
+                                    {DEFECT_STAGES.map(stage => {
+                                        const stageItems = data.filter(d => selectedItems.has(d.id) && getCurrentStep(d) === stage.step);
+                                        if (stageItems.length === 0) return null;
+
+                                        return (
+                                            <div key={stage.step} className="space-y-4">
+                                                <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-800 pb-3">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-1 h-8 rounded-full bg-[var(--theme-primary)] shadow-[0_0_12px_var(--theme-primary)]" />
+                                                        <div>
+                                                            <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-tight">Step {stage.step}: {stage.name}</h3>
+                                                            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{stageItems.length} items in this stage</p>
+                                                        </div>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => {
+                                                            const allChecked = stageItems.every(i => itemsToMarkDone.has(i.id));
+                                                            const next = new Set(itemsToMarkDone);
+                                                            if (allChecked) stageItems.forEach(i => next.delete(i.id));
+                                                            else stageItems.forEach(i => next.add(i.id));
+                                                            setItemsToMarkDone(next);
+                                                        }}
+                                                        className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${stageItems.every(i => itemsToMarkDone.has(i.id))
+                                                            ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 border-gray-200 dark:border-gray-700'
+                                                            : 'bg-[var(--theme-primary)]/10 text-[var(--theme-primary)] border-[var(--theme-primary)]/20 hover:bg-[var(--theme-primary)] hover:text-gray-900'
+                                                            }`}
+                                                    >
+                                                        {stageItems.every(i => itemsToMarkDone.has(i.id)) ? 'Unmark All' : 'Mark All Done'}
+                                                    </button>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    {stageItems.map(item => (
+                                                        <div key={item.id} className={`p-4 rounded-2xl border transition-all relative overflow-hidden group ${itemsToMarkDone.has(item.id)
+                                                            ? 'bg-emerald-50/30 dark:bg-emerald-500/5 border-emerald-200 dark:border-emerald-500/20'
+                                                            : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 shadow-sm'
+                                                            }`}>
+                                                            <div className="flex flex-col gap-3">
+                                                                <div className="flex items-center justify-between gap-3">
+                                                                    <div className="min-w-0">
+                                                                        <h4 className="text-[11px] font-black text-gray-900 dark:text-white uppercase tracking-tight leading-tight truncate">{item['Material Name']}</h4>
+                                                                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-1 truncate">{item['Vendor Name']}</p>
+                                                                    </div>
+                                                                    <label className="relative inline-flex items-center cursor-pointer scale-75">
+                                                                        <input type="checkbox" className="sr-only peer" checked={itemsToMarkDone.has(item.id)}
+                                                                            onChange={() => {
+                                                                                const next = new Set(itemsToMarkDone);
+                                                                                if (next.has(item.id)) next.delete(item.id);
+                                                                                else next.add(item.id);
+                                                                                setItemsToMarkDone(next);
+                                                                            }}
+                                                                        />
+                                                                        <div className="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-emerald-500"></div>
+                                                                    </label>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                <div className="p-5 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 flex items-center gap-3 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+                                    <button onClick={() => setIsBulkUpdateModalOpen(false)}
+                                        className="px-6 py-3 rounded-2xl border border-gray-200 dark:border-gray-700 text-[10px] font-black text-gray-500 uppercase tracking-widest hover:bg-gray-50 dark:hover:bg-gray-800 transition-all active:scale-95">
+                                        Cancel
+                                    </button>
+                                    <button onClick={handleBulkUpdate}
+                                        className="flex-1 py-3 rounded-2xl bg-[var(--theme-primary)] text-gray-900 text-[10px] font-black uppercase tracking-widest shadow-xl shadow-[var(--theme-primary)]/20 hover:scale-[1.01] active:scale-95 transition-all flex items-center justify-center gap-2">
+                                        <Save size={16} />
+                                        Apply Updates to {selectedItems.size} Records
+                                    </button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+
+                {/* Remove Follow Up Modal */}
+                <AnimatePresence>
+                    {showRemoveModal && removeTarget && (
+                        <>
+                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                                onClick={() => setShowRemoveModal(false)} className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-[9998]" />
+                            <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.95, y: 20 }} transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                                className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+                                <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md border border-gray-100 dark:border-gray-800 p-6 space-y-5">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-600">
+                                            <RotateCcw size={20} />
+                                        </div>
+                                        <div>
+                                            <h3 className="font-black text-gray-900 dark:text-white text-sm uppercase tracking-tight">Remove Follow Up</h3>
+                                            <p className="text-[10px] font-bold text-gray-400 mt-0.5 uppercase tracking-widest leading-tight">{removeTarget.name}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Select range to clear:</p>
+                                        <div className="grid grid-cols-1 gap-2 max-h-[40vh] overflow-y-auto custom-scrollbar pr-1">
+                                            <button
+                                                onClick={() => setRemoveStep('all')}
+                                                className={`p-3 rounded-xl border-2 text-left transition-all ${removeStep === 'all'
+                                                    ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400'
+                                                    : 'border-gray-100 dark:border-gray-800 text-gray-500 hover:border-indigo-200'
+                                                    }`}
+                                            >
+                                                <div className="font-black text-[10px] uppercase tracking-widest">Remove All</div>
+                                                <p className="text-[9px] opacity-70 font-medium mt-0.5">Clears all 9 steps for this defect</p>
+                                            </button>
+                                            {DEFECT_STAGES.map(s => (
+                                                <button
+                                                    key={s.step}
+                                                    onClick={() => setRemoveStep(s.step)}
+                                                    className={`p-3 rounded-xl border-2 text-left transition-all ${removeStep === s.step
+                                                        ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400'
+                                                        : 'border-gray-100 dark:border-gray-800 text-gray-500 hover:border-indigo-200'
+                                                        }`}
+                                                >
+                                                    <div className="font-black text-[10px] uppercase tracking-widest">From Step {s.step} ({s.name})</div>
+                                                    <p className="text-[9px] opacity-70 font-medium mt-0.5">Clears data from step {s.step} onwards</p>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-3 pt-2">
+                                        <button onClick={() => setShowRemoveModal(false)}
+                                            className="flex-1 py-2.5 rounded-xl border border-gray-100 dark:border-gray-800 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">
+                                            Cancel
+                                        </button>
+                                        <button onClick={handleRemoveFollowUp}
+                                            className="flex-1 py-2.5 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20">
+                                            Confirm Clear
+                                        </button>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        </>
+                    )}
+                </AnimatePresence>
             </AnimatePresence>
         </LayoutWrapper >
     );
