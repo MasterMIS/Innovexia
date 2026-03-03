@@ -531,6 +531,7 @@ export default function RMDefectsPage() {
                                     <thead className={`text-[10px] font-bold text-gray-900 uppercase tracking-wider ${viewMode === 'cancelled' ? 'bg-red-400' : 'bg-[var(--theme-primary)]'}`}>
                                         <tr>
                                             <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest w-12 text-center">#</th>
+                                            <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest w-24 text-center">Actions</th>
                                             <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest">Material & Vendor</th>
                                             <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest">Remark</th>
                                             {DEFECT_STAGES.map(s => (
@@ -552,6 +553,13 @@ export default function RMDefectsPage() {
                                         ) : paginatedData.map((item, idx) => (
                                             <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 group transition-colors">
                                                 <td className="px-6 py-4 text-[10px] font-black text-slate-300 text-center">{(currentPage - 1) * ITEMS_PER_PAGE + idx + 1}</td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center justify-center gap-2">
+                                                        <button onClick={() => { setEditingItem(item); setRows([{ materialName: item['Material Name'], vendorName: item['Vendor Name'], remark: item['Remark'] }]); setIsModalOpen(true); }} className="p-2 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all"><Pencil size={16} /></button>
+                                                        <button onClick={() => { setDeletingItem(item); setIsDeleteModalOpen(true); }} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"><Trash2 size={16} /></button>
+                                                        <button onClick={() => { setCancellingItem(item); setIsCancelModalOpen(true); }} className={`p-2 rounded-xl transition-all ${item['Cancelled'] === 'Yes' ? 'text-emerald-500 bg-emerald-50 hover:bg-emerald-100' : 'text-orange-400 hover:text-orange-500 hover:bg-orange-50'}`}><X size={16} className={item['Cancelled'] === 'Yes' ? '' : 'rotate-45'} /></button>
+                                                    </div>
+                                                </td>
                                                 <td className="px-6 py-4">
                                                     <div className="font-bold text-gray-900 dark:text-white uppercase tracking-tight leading-none text-sm">{item['Material Name']}</div>
                                                     <div className="flex items-center gap-1.5 mt-1.5">
@@ -593,13 +601,6 @@ export default function RMDefectsPage() {
                                                         </td>
                                                     );
                                                 })}
-                                                <td className="px-6 py-4">
-                                                    <div className="flex items-center justify-center gap-2">
-                                                        <button onClick={() => { setEditingItem(item); setRows([{ materialName: item['Material Name'], vendorName: item['Vendor Name'], remark: item['Remark'] }]); setIsModalOpen(true); }} className="p-2 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all"><Pencil size={16} /></button>
-                                                        <button onClick={() => { setDeletingItem(item); setIsDeleteModalOpen(true); }} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"><Trash2 size={16} /></button>
-                                                        <button onClick={() => { setCancellingItem(item); setIsCancelModalOpen(true); }} className={`p-2 rounded-xl transition-all ${item['Cancelled'] === 'Yes' ? 'text-emerald-500 bg-emerald-50 hover:bg-emerald-100' : 'text-orange-400 hover:text-orange-500 hover:bg-orange-50'}`}><X size={16} className={item['Cancelled'] === 'Yes' ? '' : 'rotate-45'} /></button>
-                                                    </div>
-                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
