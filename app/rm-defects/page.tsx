@@ -6,7 +6,7 @@ import { useToast } from '@/components/ToastProvider';
 import { useLoader } from '@/components/LoaderProvider';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    Pencil, Trash2, X, Save,
+    Pencil, Trash2, X, Save, Loader2,
     AlertTriangle, MessageSquareWarning
 } from 'lucide-react';
 
@@ -569,51 +569,123 @@ export default function RMDefectsPage() {
             <AnimatePresence>
                 {/* Add/Edit Modal */}
                 {isModalOpen && (
-                    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="bg-white dark:bg-gray-800 rounded-[2.5rem] shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-                            <div className="p-8 border-b border-slate-50 dark:border-slate-700 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/20">
-                                <div>
-                                    <h2 className="text-2xl font-black text-slate-800 dark:text-white uppercase tracking-tight">{editingItem ? 'Edit' : 'Add New'} Record</h2>
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">RM Defect Tracking System</p>
-                                </div>
-                                <button onClick={() => setIsModalOpen(false)} className="p-3 bg-white dark:bg-slate-700 rounded-2xl shadow-sm text-slate-400 hover:text-red-500 transition-all"><X size={24} /></button>
-                            </div>
-
-                            <div className="flex-1 overflow-y-auto p-8 space-y-4">
-                                {rows.map((row, idx) => (
-                                    <div key={idx} className="p-6 bg-slate-50/50 dark:bg-slate-900/20 rounded-3xl border border-slate-100 dark:border-slate-700 flex gap-4 items-start">
-                                        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div className="space-y-1.5">
-                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Material Name*</label>
-                                                <input value={row.materialName} onChange={e => { const n = [...rows]; n[idx].materialName = e.target.value; setRows(n); }} placeholder="Enter material name..." className="w-full h-12 px-4 bg-white dark:bg-slate-800 border-2 border-transparent focus:border-[var(--theme-primary)] rounded-2xl text-sm font-bold shadow-sm outline-none transition-all" />
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Vendor Name</label>
-                                                <input value={row.vendorName} onChange={e => { const n = [...rows]; n[idx].vendorName = e.target.value; setRows(n); }} placeholder="Enter vendor name..." className="w-full h-12 px-4 bg-white dark:bg-slate-800 border-2 border-transparent focus:border-[var(--theme-primary)] rounded-2xl text-sm font-bold shadow-sm outline-none transition-all" />
-                                            </div>
-                                            <div className="space-y-1.5 md:col-span-2">
-                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Remark</label>
-                                                <input value={row.remark} onChange={e => { const n = [...rows]; n[idx].remark = e.target.value; setRows(n); }} placeholder="Optional notes..." className="w-full h-12 px-4 bg-white dark:bg-slate-800 border-2 border-transparent focus:border-[var(--theme-primary)] rounded-2xl text-sm font-bold shadow-sm outline-none transition-all" />
-                                            </div>
+                    <>
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                            onClick={() => setIsModalOpen(false)} className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-[9998]" />
+                        <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }} transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                            className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+                            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-5xl border border-gray-100 dark:border-gray-800 overflow-hidden text-gray-900 dark:text-gray-100">
+                                <div className="p-5 bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-secondary)] text-gray-900 flex items-center justify-between">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="p-1.5 bg-white/20 rounded-lg">
+                                            <MessageSquareWarning size={18} />
                                         </div>
-                                        {!editingItem && rows.length > 1 && (
-                                            <button onClick={() => setRows(rows.filter((_, i) => i !== idx))} className="mt-7 p-3 text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={20} /></button>
-                                        )}
+                                        <h2 className="text-base font-black uppercase tracking-tight">{editingItem ? 'Edit Record' : 'Add New Record'}</h2>
                                     </div>
-                                ))}
-                                {!editingItem && (
-                                    <button onClick={() => setRows([...rows, { ...emptyForm }])} className="w-full py-4 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-3xl text-slate-400 text-xs font-black uppercase tracking-widest hover:border-[var(--theme-primary)] hover:text-[var(--theme-primary)] transition-all">+ Add More Rows</button>
-                                )}
-                            </div>
+                                    <button onClick={() => setIsModalOpen(false)} className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"><X size={16} /></button>
+                                </div>
+                                <div className="p-5 overflow-y-auto max-h-[70vh] custom-scrollbar">
+                                    {!editingItem && (
+                                        <div className="hidden md:grid grid-cols-[40px_1fr_1fr_1.2fr_40px] gap-4 px-3 mb-3">
+                                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">#</span>
+                                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Material Name <span className="text-red-500">*</span></span>
+                                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Vendor Name</span>
+                                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Remark</span>
+                                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Action</span>
+                                        </div>
+                                    )}
+                                    <div className="space-y-3">
+                                        {rows.map((row, index) => (
+                                            <div key={index} className="grid grid-cols-1 md:grid-cols-[40px_1fr_1fr_1.2fr_40px] items-start gap-3 md:gap-4 p-3 rounded-2xl bg-gray-50/50 dark:bg-gray-800/30 border border-transparent hover:border-gray-100 dark:hover:border-gray-700/50 transition-all group relative">
+                                                <div className="flex md:items-center justify-center md:pt-2.5">
+                                                    <span className="w-5 h-5 rounded-full bg-[var(--theme-primary)]/10 text-[var(--theme-primary)] flex items-center justify-center text-[10px] font-black">
+                                                        {index + 1}
+                                                    </span>
+                                                </div>
 
-                            <div className="p-8 border-t border-slate-50 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/20 flex gap-4 justify-end">
-                                <button onClick={() => setIsModalOpen(false)} className="px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-all">Cancel</button>
-                                <button onClick={handleSave} disabled={isSaving || !rows[0].materialName.trim()} className="px-12 py-4 bg-[var(--theme-primary)] text-gray-900 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-[var(--theme-primary)]/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50">
-                                    {isSaving ? 'Saving...' : 'Save Record'}
-                                </button>
+                                                <div className="space-y-1">
+                                                    <label className="md:hidden text-[9px] font-black text-gray-400 uppercase tracking-widest">Material Name</label>
+                                                    <input
+                                                        value={row.materialName}
+                                                        onChange={e => { const n = [...rows]; n[index].materialName = e.target.value; setRows(n); }}
+                                                        placeholder="Material..."
+                                                        autoFocus={index === 0}
+                                                        className="w-full px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-[var(--theme-primary)] outline-none text-sm transition-all"
+                                                    />
+                                                </div>
+
+                                                <div className="space-y-1">
+                                                    <label className="md:hidden text-[9px] font-black text-gray-400 uppercase tracking-widest">Vendor Name</label>
+                                                    <input
+                                                        value={row.vendorName}
+                                                        onChange={e => { const n = [...rows]; n[index].vendorName = e.target.value; setRows(n); }}
+                                                        placeholder="Vendor..."
+                                                        className="w-full px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-[var(--theme-primary)] outline-none text-sm transition-all"
+                                                    />
+                                                </div>
+
+                                                <div className="space-y-1">
+                                                    <label className="md:hidden text-[9px] font-black text-gray-400 uppercase tracking-widest">Remark</label>
+                                                    <textarea
+                                                        value={row.remark}
+                                                        onChange={e => { const n = [...rows]; n[index].remark = e.target.value; setRows(n); }}
+                                                        placeholder="Remark..."
+                                                        rows={1}
+                                                        className="w-full px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-[var(--theme-primary)] outline-none text-sm resize-none transition-all"
+                                                    />
+                                                </div>
+
+                                                <div className="flex items-center justify-center md:pt-1">
+                                                    {(rows.length > 1 || editingItem) && (
+                                                        <button
+                                                            onClick={() => editingItem ? setIsModalOpen(false) : setRows(rows.filter((_, i) => i !== index))}
+                                                            className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl transition-all opacity-0 group-hover:opacity-100"
+                                                            title={editingItem ? "Cancel" : "Remove Row"}
+                                                        >
+                                                            {editingItem ? <X size={16} /> : <Trash2 size={16} />}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {!editingItem && (
+                                        <div className="px-1">
+                                            <button
+                                                onClick={() => setRows([...rows, { ...emptyForm }])}
+                                                className="w-full mt-4 py-3 border-2 border-dashed border-gray-100 dark:border-gray-800 rounded-2xl text-[10px] font-black uppercase tracking-widest text-gray-400 hover:border-[var(--theme-primary)]/30 hover:text-[var(--theme-primary)] hover:bg-[var(--theme-primary)]/5 transition-all flex items-center justify-center gap-2 group"
+                                            >
+                                                <div className="w-5 h-5 rounded-lg bg-gray-50 dark:bg-gray-800 flex items-center justify-center group-hover:bg-[var(--theme-primary)]/20 group-hover:text-[var(--theme-primary)] transition-all">
+                                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
+                                                    </svg>
+                                                </div>
+                                                Add Another Row
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    <div className="flex gap-3 pt-6 sticky bottom-0 bg-white dark:bg-gray-900 mt-2 border-t border-gray-50 dark:border-gray-800/50">
+                                        <button onClick={() => setIsModalOpen(false)}
+                                            className="flex-1 py-3 border border-gray-100 dark:border-gray-800 rounded-2xl text-[10px] font-black uppercase tracking-widest text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">
+                                            Close
+                                        </button>
+                                        <motion.button
+                                            whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
+                                            onClick={handleSave}
+                                            disabled={isSaving || !rows.some(r => r.materialName.trim())}
+                                            className="flex-[2] py-3 bg-[var(--theme-primary)] text-gray-900 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl shadow-[var(--theme-primary)]/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                        >
+                                            {isSaving ? <Loader2 size={15} className="animate-spin" /> : <Save size={14} />}
+                                            {editingItem ? 'Update Record' : `Save ${rows.filter(r => r.materialName.trim()).length} Record${rows.filter(r => r.materialName.trim()).length !== 1 ? 's' : ''}`}
+                                        </motion.button>
+                                    </div>
+                                </div>
                             </div>
                         </motion.div>
-                    </div>
+                    </>
                 )}
 
                 {/* Confirm Delete Modal */}
