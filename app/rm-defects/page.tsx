@@ -347,18 +347,31 @@ export default function RMDefectsPage() {
 
                     <div className="flex flex-wrap items-center gap-3 bg-white dark:bg-slate-800 p-2 rounded-[2rem] shadow-xl border border-slate-100 dark:border-slate-700">
                         {[
-                            { id: 'data' as ViewMode, label: 'Data View' },
-                            { id: 'cancelled' as ViewMode, label: 'Cancelled' },
-                            { id: 'setup' as ViewMode, label: 'Setup' },
+                            {
+                                id: 'data' as ViewMode,
+                                label: 'Data View',
+                                icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>,
+                            },
+                            {
+                                id: 'cancelled' as ViewMode,
+                                label: 'Cancelled View',
+                                icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+                            },
+                            {
+                                id: 'setup' as ViewMode,
+                                label: 'Setup',
+                                icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>,
+                            },
                         ].map((tab) => (
                             <button
                                 key={tab.id}
                                 onClick={() => switchView(tab.id)}
-                                className={`px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === tab.id
-                                    ? 'bg-[var(--theme-primary)] text-gray-900 shadow-lg'
-                                    : 'text-[var(--theme-primary)]/60 hover:text-[var(--theme-primary)]'
+                                className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === tab.id
+                                    ? 'bg-[var(--theme-primary)] text-gray-900 shadow-lg shadow-[var(--theme-primary)]/25 scale-[1.02]'
+                                    : 'text-[var(--theme-primary)]/60 hover:text-[var(--theme-primary)] hover:bg-[var(--theme-primary)]/5'
                                     }`}
                             >
+                                {tab.icon}
                                 {tab.label}
                             </button>
                         ))}
@@ -370,8 +383,9 @@ export default function RMDefectsPage() {
                                 setIsModalOpen(true);
                             }}
                             className="bg-[var(--theme-primary)]/10 text-[var(--theme-primary)] p-2.5 rounded-2xl hover:bg-[var(--theme-primary)] hover:text-white transition-all shadow-sm"
+                            title="Add New"
                         >
-                            <X className="w-5 h-5 rotate-45" strokeWidth={3} />
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg>
                         </button>
                     </div>
                 </div>
@@ -454,45 +468,57 @@ export default function RMDefectsPage() {
                         </div>
                     ) : (
                         <>
-                            {/* Step Filter Tiles */}
-                            <div className="overflow-x-auto px-4 pt-4 pb-4 bg-slate-50/30 dark:bg-slate-900/10 border-b border-slate-50 dark:border-slate-800/50">
-                                <div className="flex gap-2 min-w-max">
-                                    {[
-                                        { step: 'all' as const, label: 'All Items', value: statusStats.Total, bg: 'bg-slate-100', text: 'text-slate-600' },
-                                        ...DEFECT_STAGES.map(s => ({
-                                            step: s.step,
-                                            label: `${s.step}. ${s.name}`,
-                                            value: (statusStats as any)[`Step${s.step}`],
-                                            bg: activeStepFilter === s.step ? 'bg-[var(--theme-primary)]' : 'bg-white',
-                                            text: activeStepFilter === s.step ? 'text-black' : 'text-slate-600'
-                                        }))
-                                    ].map((stat) => (
+                            {/* Pagination row above header */}
+                            <div className="flex bg-[var(--theme-lighter)]/50 dark:bg-slate-900/50 p-2 border-b border-slate-100 dark:border-slate-800 backdrop-blur-md sticky top-0 z-[20]">
+                                <div className="flex-1 flex items-center justify-between px-3">
+                                    <div className="flex items-center gap-4">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">
+                                            Showing{' '}
+                                            <span className="text-slate-900 dark:text-white">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span>
+                                            {' – '}
+                                            <span className="text-slate-900 dark:text-white">{Math.min(currentPage * ITEMS_PER_PAGE, activeData.length)}</span>
+                                            {' of '}
+                                            <span className="text-slate-900 dark:text-white">{activeData.length}</span>
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
                                         <button
-                                            key={stat.label}
-                                            onClick={() => setActiveStepFilter(stat.step)}
-                                            className={`${stat.bg} ${stat.text} px-4 py-3 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col items-start min-w-[120px] transition-all hover:scale-105 active:scale-95`}
+                                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                            disabled={currentPage === 1}
+                                            className="p-1 px-3 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-30 hover:bg-white dark:hover:bg-slate-800 transition-all text-[10px] font-black uppercase tracking-widest"
                                         >
-                                            <span className="text-[8px] font-black uppercase tracking-widest opacity-60 mb-1">{stat.label}</span>
-                                            <span className="text-lg font-black leading-none">{stat.value}</span>
+                                            Prev
                                         </button>
-                                    ))}
+                                        <div className="flex items-center gap-1">
+                                            <span className="text-[10px] font-black text-[var(--theme-primary)]">{currentPage}</span>
+                                            <span className="text-[10px] font-black text-slate-300">/</span>
+                                            <span className="text-[10px] font-black text-slate-400">{totalPages}</span>
+                                        </div>
+                                        <button
+                                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                            disabled={currentPage === totalPages}
+                                            className="p-1 px-3 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-30 hover:bg-white dark:hover:bg-slate-800 transition-all text-[10px] font-black uppercase tracking-widest"
+                                        >
+                                            Next
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 
                             {/* Table */}
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left">
-                                    <thead>
-                                        <tr className="bg-slate-50/50 dark:bg-slate-900/20 text-slate-400 border-b border-slate-50 dark:border-slate-800">
-                                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest w-12 text-center">#</th>
-                                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest">Material Name</th>
-                                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest">Vendor</th>
-                                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest">Remark</th>
-                                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest">Status</th>
-                                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest w-24 text-center">Actions</th>
+                                    <thead className={`text-[10px] font-bold text-gray-900 uppercase tracking-wider ${viewMode === 'cancelled' ? 'bg-red-400' : 'bg-[var(--theme-primary)]'}`}>
+                                        <tr>
+                                            <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest w-12 text-center">#</th>
+                                            <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest">Material Name</th>
+                                            <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest">Vendor</th>
+                                            <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest">Remark</th>
+                                            <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest">Status</th>
+                                            <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest w-24 text-center">Actions</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
+                                    <tbody className="divide-y divide-slate-50 dark:divide-slate-800 text-xs">
                                         {loading ? (
                                             <tr><td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-bold">Loading records...</td></tr>
                                         ) : paginatedData.length === 0 ? (
@@ -531,26 +557,6 @@ export default function RMDefectsPage() {
                                 </table>
                             </div>
 
-                            {/* Pagination Row Above (As requested: "tbale style pagination row above the header") */}
-                            {/* Note: Standard placement is below, but adding a simplified one above if desired. 
-                                The user said "tbale style pagination row above the header same create here".
-                                Looking at client-complain page, it has a standard bottom pagination. 
-                                I'll add standard bottom one first as it's most reliable for layout.
-                            */}
-                            <div className="px-6 py-4 bg-slate-50/50 dark:bg-slate-900/20 border-t border-slate-50 dark:border-slate-800 flex items-center justify-between">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                    Showing {activeData.length === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1} to {Math.min(currentPage * ITEMS_PER_PAGE, activeData.length)} of {activeData.length} records
-                                </p>
-                                <div className="flex gap-2">
-                                    <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-4 py-2 rounded-xl border border-slate-200 text-[10px] font-black uppercase tracking-widest disabled:opacity-30 transition-all hover:bg-white dark:hover:bg-slate-800">Prev</button>
-                                    <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200">
-                                        <span className="text-[10px] font-black text-[var(--theme-primary)]">{currentPage}</span>
-                                        <span className="text-[10px] font-black text-slate-300">/</span>
-                                        <span className="text-[10px] font-black text-slate-400">{totalPages}</span>
-                                    </div>
-                                    <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-4 py-2 rounded-xl border border-slate-200 text-[10px] font-black uppercase tracking-widest disabled:opacity-30 transition-all hover:bg-white dark:hover:bg-slate-800">Next</button>
-                                </div>
-                            </div>
                         </>
                     )}
                 </div>
