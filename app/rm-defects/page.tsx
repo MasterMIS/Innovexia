@@ -530,9 +530,9 @@ export default function RMDefectsPage() {
                                 <table className="w-full text-left">
                                     <thead className={`text-[10px] font-bold text-gray-900 uppercase tracking-wider ${viewMode === 'cancelled' ? 'bg-red-400' : 'bg-[var(--theme-primary)]'}`}>
                                         <tr>
-                                            <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest w-12 text-center"># / ID</th>
+                                            <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest w-12 text-center">ID</th>
                                             <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest w-24 text-center">Actions</th>
-                                            <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest min-w-[200px]">Details</th>
+                                            <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest min-w-[300px]">Details</th>
                                             {DEFECT_STAGES.map(s => (
                                                 <th key={s.step} className="px-3 py-2 text-left border-l border-white/10 min-w-[120px]">
                                                     <div className="flex flex-col leading-tight">
@@ -552,11 +552,10 @@ export default function RMDefectsPage() {
                                         ) : paginatedData.map((item, idx) => (
                                             <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 group transition-colors">
                                                 <td className="px-4 py-4 text-center">
-                                                    <div className="text-[10px] font-black text-slate-300">{(currentPage - 1) * ITEMS_PER_PAGE + idx + 1}</div>
-                                                    <div className="text-[9px] text-slate-400 font-bold mt-0.5 uppercase tracking-tighter" title="ID">{item.id}</div>
+                                                    <div className="text-[11px] font-black text-slate-600 dark:text-slate-300">{item.id}</div>
                                                 </td>
                                                 <td className="px-4 py-4">
-                                                    <div className="flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                                    <div className="flex items-center justify-center gap-1.5">
                                                         <motion.button whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
                                                             onClick={() => { setEditingItem(item); setRows([{ materialName: item['Material Name'], vendorName: item['Vendor Name'], remark: item['Remark'] }]); setIsModalOpen(true); }}
                                                             className="p-1 text-gray-400 hover:text-[var(--theme-primary)] hover:bg-[var(--theme-primary)]/10 rounded-lg transition-colors" title="Edit">
