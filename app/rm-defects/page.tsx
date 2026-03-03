@@ -34,17 +34,19 @@ interface RMDefect {
     Planned_6?: string; Actual_6?: string; Status_6?: string;
     Planned_7?: string; Actual_7?: string; Status_7?: string;
     Planned_8?: string; Actual_8?: string; Status_8?: string;
+    Planned_9?: string; Actual_9?: string; Status_9?: string;
 }
 
 const DEFECT_STAGES = [
-    { step: 1, name: 'Reported' },
-    { step: 2, name: 'Inspection' },
-    { step: 3, name: 'Vendor Notified' },
-    { step: 4, name: 'Action Taken' },
-    { step: 5, name: 'Replacement' },
-    { step: 6, name: 'Internal QA' },
-    { step: 7, name: 'Accounts' },
-    { step: 8, name: 'Closed' },
+    { step: 1, name: 'SEND THE PHOTO TO VENDOR GROUP' },
+    { step: 2, name: 'TALK TO VENDOR' },
+    { step: 3, name: 'SEND THE SAMPLE TO VENDOR' },
+    { step: 4, name: 'TALK TO VENDOR FOR SOLUTION' },
+    { step: 5, name: 'INFOR MD ABOUT THE SOLUTION AND GET THE APPROVAL' },
+    { step: 6, name: 'ORDER THE NEW MATERIAL' },
+    { step: 7, name: 'TAKE APPROVAL FROM NEERAJ ABOUT NEW STOCK' },
+    { step: 8, name: 'RETURN THE DEFECTED MATERIAL' },
+    { step: 9, name: 'RETURN THE DEFECTED MATERIAL' },
 ];
 
 const ITEMS_PER_PAGE = 15;
@@ -170,11 +172,11 @@ export default function RMDefectsPage() {
 
             filtered = filtered.filter(item => {
                 let currentStep = 1;
-                for (let s = 1; s <= 8; s++) {
+                for (let s = 1; s <= 9; s++) {
                     if ((item as any)[`Actual_${s}`]) currentStep = s + 1;
                     else break;
                 }
-                if (currentStep > 8) return false;
+                if (currentStep > 9) return false;
 
                 const plannedStr = (item as any)[`Planned_${currentStep}`];
                 if (!plannedStr) return false;
@@ -211,6 +213,7 @@ export default function RMDefectsPage() {
             Step6: active.filter(r => r.Actual_5 && !r.Actual_6).length,
             Step7: active.filter(r => r.Actual_6 && !r.Actual_7).length,
             Step8: active.filter(r => r.Actual_7 && !r.Actual_8).length,
+            Step9: active.filter(r => r.Actual_8 && !r.Actual_9).length,
         };
     }, [data]);
 
@@ -537,10 +540,10 @@ export default function RMDefectsPage() {
                                                 <td className="px-6 py-4">
                                                     {(() => {
                                                         let step = 1;
-                                                        for (let s = 1; s <= 8; s++) {
+                                                        for (let s = 1; s <= 9; s++) {
                                                             if ((item as any)[`Actual_${s}`]) step = s + 1; else break;
                                                         }
-                                                        if (step > 8) return <span className="bg-emerald-500/10 text-emerald-500 px-3 py-1 rounded-lg text-[10px] font-black uppercase">Completed</span>;
+                                                        if (step > 9) return <span className="bg-emerald-500/10 text-emerald-500 px-3 py-1 rounded-lg text-[10px] font-black uppercase">Completed</span>;
                                                         return <span className="bg-indigo-500/10 text-indigo-500 px-3 py-1 rounded-lg text-[10px] font-black uppercase">Step {step}: {DEFECT_STAGES[step - 1].name}</span>;
                                                     })()}
                                                 </td>
@@ -643,6 +646,6 @@ export default function RMDefectsPage() {
                     </div>
                 )}
             </AnimatePresence>
-        </LayoutWrapper>
+        </LayoutWrapper >
     );
 }

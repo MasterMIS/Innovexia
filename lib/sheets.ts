@@ -5673,7 +5673,7 @@ export async function createRMDefectsData(defects: any[]) {
     const headers: string[] = existingRows[0]?.map((h: string) => h.trim()) || [];
 
     if (headers.length === 0) {
-      const defaultHeaders = ['id', 'Material Name', 'Vendor Name', 'Remark', 'Timestamp', 'Planned_1'];
+      const defaultHeaders = ['id', 'Material Name', 'Vendor Name', 'Remark', 'Timestamp', 'Planned_1', 'Planned_2', 'Planned_3', 'Planned_4', 'Planned_5', 'Planned_6', 'Planned_7', 'Planned_8', 'Planned_9'];
       await sheets.spreadsheets.values.update({
         spreadsheetId,
         range: `${sheetName}!A1`,
