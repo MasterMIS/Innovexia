@@ -7,7 +7,7 @@ import { useLoader } from '@/components/LoaderProvider';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Pencil, Trash2, X, Save, Loader2,
-    AlertTriangle, MessageSquareWarning
+    AlertTriangle, MessageSquareWarning, Ban, RotateCcw
 } from 'lucide-react';
 
 interface StepConfig {
@@ -554,10 +554,30 @@ export default function RMDefectsPage() {
                                             <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 group transition-colors">
                                                 <td className="px-6 py-4 text-[10px] font-black text-slate-300 text-center">{(currentPage - 1) * ITEMS_PER_PAGE + idx + 1}</td>
                                                 <td className="px-6 py-4">
-                                                    <div className="flex items-center justify-center gap-2">
-                                                        <button onClick={() => { setEditingItem(item); setRows([{ materialName: item['Material Name'], vendorName: item['Vendor Name'], remark: item['Remark'] }]); setIsModalOpen(true); }} className="p-2 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all"><Pencil size={16} /></button>
-                                                        <button onClick={() => { setDeletingItem(item); setIsDeleteModalOpen(true); }} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"><Trash2 size={16} /></button>
-                                                        <button onClick={() => { setCancellingItem(item); setIsCancelModalOpen(true); }} className={`p-2 rounded-xl transition-all ${item['Cancelled'] === 'Yes' ? 'text-emerald-500 bg-emerald-50 hover:bg-emerald-100' : 'text-orange-400 hover:text-orange-500 hover:bg-orange-50'}`}><X size={16} className={item['Cancelled'] === 'Yes' ? '' : 'rotate-45'} /></button>
+                                                    <div className="flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <motion.button whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
+                                                            onClick={() => { setEditingItem(item); setRows([{ materialName: item['Material Name'], vendorName: item['Vendor Name'], remark: item['Remark'] }]); setIsModalOpen(true); }}
+                                                            className="p-1 text-gray-400 hover:text-[var(--theme-primary)] hover:bg-[var(--theme-primary)]/10 rounded-lg transition-colors" title="Edit">
+                                                            <Pencil size={13} />
+                                                        </motion.button>
+                                                        {viewMode !== 'cancelled' ? (
+                                                            <motion.button whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
+                                                                onClick={() => { setCancellingItem(item); setIsCancelModalOpen(true); }}
+                                                                className="p-1 text-orange-400 hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-500/10 rounded-lg transition-colors" title="Cancel">
+                                                                <Ban size={13} />
+                                                            </motion.button>
+                                                        ) : (
+                                                            <motion.button whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
+                                                                onClick={() => { setCancellingItem(item); setIsCancelModalOpen(true); }}
+                                                                className="p-1 text-green-600 hover:bg-green-50 dark:hover:bg-green-500/10 rounded-lg transition-colors" title="Restore">
+                                                                <RotateCcw size={13} />
+                                                            </motion.button>
+                                                        )}
+                                                        <motion.button whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
+                                                            onClick={() => { setDeletingItem(item); setIsDeleteModalOpen(true); }}
+                                                            className="p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors" title="Delete">
+                                                            <Trash2 size={13} />
+                                                        </motion.button>
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4">
