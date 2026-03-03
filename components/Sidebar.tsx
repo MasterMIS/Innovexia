@@ -36,29 +36,29 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
     { label: 'Lead to Sales', icon: 'trending', href: '/lead-to-sales', roles: ['Admin', 'Manager', 'Employee'] },
     {
       label: 'CRM', icon: 'clipboard', roles: ['Admin', 'Manager'], children: [
-        { label: 'CRM', icon: 'clipboard', href: '/crm', roles: ['Admin', 'Manager'] },
-        { label: 'O2D', icon: 'clipboard', href: '/o2d', roles: ['Admin', 'Manager'] },
-        { label: 'Collection', icon: 'clipboard', href: '/collection', roles: ['Admin', 'Manager'] },
-        { label: 'Client Complain', icon: 'clipboard', href: '/client-complain', roles: ['Admin', 'Manager'] },
+        { label: 'CRM', icon: 'users', href: '/crm', roles: ['Admin', 'Manager'] },
+        { label: 'O2D', icon: 'trending', href: '/o2d', roles: ['Admin', 'Manager'] },
+        { label: 'Collection', icon: 'currency-dollar', href: '/collection', roles: ['Admin', 'Manager'] },
+        { label: 'Client Complain', icon: 'alert', href: '/client-complain', roles: ['Admin', 'Manager'] },
       ]
     },
     {
       label: 'Sales', icon: 'currency-dollar', roles: ['Admin', 'Manager'], children: [
-        { label: 'NBD', icon: 'clipboard', href: '/nbd', roles: ['Admin', 'Manager'] },
-        { label: 'NBD Incoming', icon: 'clipboard', href: '/nbd-incoming', roles: ['Admin', 'Manager'] },
+        { label: 'NBD', icon: 'document', href: '/nbd', roles: ['Admin', 'Manager'] },
+        { label: 'NBD Incoming', icon: 'trending', href: '/nbd-incoming', roles: ['Admin', 'Manager'] },
         { label: 'CRR', icon: 'clipboard', href: '/crr', roles: ['Admin', 'Manager'] },
       ]
     },
     {
       label: 'Factory', icon: 'clipboard', roles: ['Admin', 'Manager'], children: [
-        { label: 'Purchase FMS', icon: 'clipboard', href: '/purchase-fms', roles: ['Admin', 'Manager'] },
-        { label: 'Factory Requirement', icon: 'clipboard', href: '/factory-requirements', roles: ['Admin', 'Manager'] },
-        { label: 'RM Defects', icon: 'clipboard', href: '/rm-defects', roles: ['Admin', 'Manager'] },
+        { label: 'Purchase FMS', icon: 'clock', href: '/purchase-fms', roles: ['Admin', 'Manager'] },
+        { label: 'Factory Requirement', icon: 'document', href: '/factory-requirements', roles: ['Admin', 'Manager'] },
+        { label: 'RM Defects', icon: 'alert', href: '/rm-defects', roles: ['Admin', 'Manager'] },
       ]
     },
     {
       label: 'IMS', icon: 'clipboard', roles: ['Admin', 'Manager'], children: [
-        { label: 'IMS RM', icon: 'clipboard', href: '/ims-rm', roles: ['Admin', 'Manager'] },
+        { label: 'IMS RM', icon: 'package', href: '/ims-rm', roles: ['Admin', 'Manager'] },
       ]
     },
     { label: 'HelpDesk', icon: 'headset', href: '/helpdesk', roles: ['Admin', 'Manager', 'Employee'] },
@@ -94,6 +94,10 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
         return <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>;
       case 'clock':
         return <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
+      case 'alert':
+        return <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
+      case 'package':
+        return <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-14v14m0-14L4 7m8 4L4 7m0 0v10l8 4" /></svg>;
       default:
         return null;
     }
@@ -221,8 +225,8 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
                                 : 'text-gray-600 dark:text-gray-400 hover:bg-[var(--theme-primary)]/20 dark:hover:bg-gray-700'
                                 }`}
                             >
-                              <div className="w-5 flex justify-center">
-                                <div className={`w-1.5 h-1.5 rounded-full ${isActive(child.href) ? 'bg-gray-900' : 'bg-gray-400'}`} />
+                              <div className="w-5 flex justify-center flex-shrink-0 transition-colors">
+                                {getIcon(child.icon)}
                               </div>
                               <span className="font-medium">{child.label}</span>
                             </Link>

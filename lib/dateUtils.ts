@@ -19,11 +19,14 @@ export const convertSerialToDate = (serial: number): Date => {
     const minutes = Math.floor(totalSeconds / 60) % 60;
     const hours = Math.floor(totalSeconds / 3600);
 
-    const date = new Date(1899, 11, 30);
-    date.setDate(date.getDate() + Math.floor(serial));
-    date.setHours(hours, minutes, seconds);
+    // Sheets serials are relative to 1899-12-30. 
+    // We treat the serial as a UTC wall-clock and then adjust for IST offset.
+    const date = new Date(Date.UTC(1899, 11, 30));
+    date.setUTCDate(date.getUTCDate() + Math.floor(serial));
+    date.setUTCHours(hours, minutes, seconds);
 
-    return date;
+    // Subtract IST offset (5.5 hours) to get the true UTC instant
+    return new Date(date.getTime() - (5.5 * 60 * 60 * 1000));
 };
 
 // Helper to parse DD/MM/YYYY HH:mm:ss OR Serial Number back to ISO string for frontend
@@ -62,13 +65,23 @@ export const parseSheetDate = (dateInput: string | number | null | undefined) =>
                 const min_val = timePart ? Number(timePart.split(':')[1]) : 0;
                 const s_val = timePart ? Number(timePart.split(':')[2]) : 0;
 
-                const dateObj = new Date(y, m - 1, d, h_val || 0, min_val || 0, s_val || 0);
+                // Construct as IST string to ensure consistent parsing across timezones
+                const isoStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}T${String(h_val || 0).padStart(2, '0')}:${String(min_val || 0).padStart(2, '0')}:${String(s_val || 0).padStart(2, '0')}+05:30`;
+                const dateObj = new Date(isoStr);
                 return isNaN(dateObj.getTime()) ? null : dateObj.toISOString();
             }
         }
 
         // Handle YYYY-MM-DD
         if (datePart.includes('-')) {
+            // If it has time but no timezone, assume IST
+            if (dateStr.includes(' ') && !dateStr.includes('T') && !dateStr.includes('+')) {
+                const [dPart, tPart] = dateStr.split(' ');
+                const isoStr = `${dPart}T${tPart}+05:30`;
+                const date = new Date(isoStr);
+                return isNaN(date.getTime()) ? null : date.toISOString();
+            }
+            // Fallback for simple date or already formatted ISO
             const date = new Date(dateStr);
             return isNaN(date.getTime()) ? null : date.toISOString();
         }
@@ -135,14 +148,9 @@ export const parseDateString = (dateStr: string | number | null | undefined): Da
     const ddmmyyyyMatch = finalStr.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?/);
     if (ddmmyyyyMatch) {
         const [_, day, month, year, hours, minutes, seconds] = ddmmyyyyMatch;
-        const date = new Date(
-            parseInt(year),
-            parseInt(month) - 1,
-            parseInt(day),
-            parseInt(hours || '0'),
-            parseInt(minutes || '0'),
-            parseInt(seconds || '0')
-        );
+        // Construct as IST string
+        const isoStr = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${(hours || '00').padStart(2, '0')}:${(minutes || '00').padStart(2, '0')}:${(seconds || '00').padStart(2, '0')}+05:30`;
+        const date = new Date(isoStr);
         return isNaN(date.getTime()) ? null : date;
     }
 
