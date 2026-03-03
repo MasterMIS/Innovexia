@@ -27,6 +27,7 @@ export const SPREADSHEET_IDS = {
   FACTORY_REQUIREMENT: '1YuE6M_kD6iZwB6XT-gdj6ki8MHON5L_Rp2D7Mlw3IXc',
   CRM: '1oJZWpxo1cgNc20lr8aPIZMMp_W1MaPchPYajRIexnT0',
   CLIENT_COMPLAIN: '1NbmOkuvfCDIdeK-UGKzWvPtWMf1Io1Yo9TH-lz-_uNs',
+  RM_DEFECTS: '1a0pnGbY_tSk5y9_VN02KHcqiJWHUKQSLAav9_9aIDpE',
 };
 
 // Backward compatibility
@@ -58,6 +59,8 @@ const SHEETS = {
   CRM_CONFIG: 'Step Configuration',
   CLIENT_COMPLAIN: 'Client Complain',
   CLIENT_COMPLAIN_CONFIG: 'Step Configuration',
+  RM_DEFECTS: 'Raw Material Defect Problem',
+  RM_DEFECTS_CONFIG: 'Step Configuration',
 };
 
 // Initialize Google Sheets API client with OAuth
@@ -5534,6 +5537,290 @@ export async function deleteClientComplainData(id: string) {
     return { success: true };
   } catch (error) {
     console.error('Error deleting Client Complain data:', error);
+    throw error;
+  }
+}
+
+// RM DEFECTS CRUD OPERATIONS
+
+export async function getRMDefectsConfig() {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const spreadsheetId = SPREADSHEET_IDS.RM_DEFECTS;
+    const sheetName = SHEETS.RM_DEFECTS_CONFIG;
+
+    try {
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: `${sheetName}!A:E`,
+        valueRenderOption: 'UNFORMATTED_VALUE',
+      });
+
+      const rows = response.data.values;
+      if (!rows || rows.length <= 1) return [];
+
+      const dataRows = rows.slice(1);
+
+      return dataRows.map(row => ({
+        step: parseInt(row[0]),
+        stepName: row[1],
+        doerName: row[2],
+        tatValue: parseInt(row[3]),
+        tatUnit: row[4]
+      })).sort((a, b) => a.step - b.step);
+    } catch (error: any) {
+      if (error.code === 400 || error.message?.includes('Unable to parse range')) {
+        return [];
+      }
+      throw error;
+    }
+  } catch (error) {
+    console.error('Error fetching RM Defects step config:', error);
+    return [];
+  }
+}
+
+export async function updateRMDefectsConfig(config: any[]) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const spreadsheetId = SPREADSHEET_IDS.RM_DEFECTS;
+    const sheetName = SHEETS.RM_DEFECTS_CONFIG;
+
+    const headers = ['step', 'step_name', 'doer_name', 'tat_value', 'tat_unit'];
+    const rows = [
+      headers,
+      ...config.map(c => [c.step, c.stepName, c.doerName, c.tatValue, c.tatUnit])
+    ];
+
+    try {
+      await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: `${sheetName}!A1`,
+      });
+    } catch (error: any) {
+      if (error.code === 400 || error.message?.includes('Unable to parse range')) {
+        await sheets.spreadsheets.batchUpdate({
+          spreadsheetId,
+          requestBody: {
+            requests: [{
+              addSheet: {
+                properties: { title: sheetName }
+              }
+            }]
+          }
+        });
+      }
+    }
+
+    await sheets.spreadsheets.values.clear({
+      spreadsheetId,
+      range: `${sheetName}!A:E`,
+    });
+
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: `${sheetName}!A1`,
+      valueInputOption: 'RAW',
+      requestBody: { values: rows },
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating RM Defects step config:', error);
+    throw error;
+  }
+}
+
+export async function getRMDefectsData() {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const spreadsheetId = SPREADSHEET_IDS.RM_DEFECTS;
+    const sheetName = SHEETS.RM_DEFECTS;
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `${sheetName}!A:Z`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) return [];
+
+    const headers = rows[0].map((h: string) => h.trim());
+    return rows.slice(1).map((row, idx) => ({
+      ...rowToObject(headers, row),
+      _rowIndex: idx + 2,
+    }));
+  } catch (error) {
+    console.error('Error fetching RM Defects data:', error);
+    throw error;
+  }
+}
+
+export async function createRMDefectsData(defects: any[]) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const spreadsheetId = SPREADSHEET_IDS.RM_DEFECTS;
+    const sheetName = SHEETS.RM_DEFECTS;
+    const timestamp = new Date().toISOString();
+
+    const existingRes = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `${sheetName}!A:Z`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+    const existingRows = existingRes.data.values || [];
+    const headers: string[] = existingRows[0]?.map((h: string) => h.trim()) || [];
+
+    if (headers.length === 0) {
+      const defaultHeaders = ['id', 'Material Name', 'Vendor Name', 'Remark', 'Timestamp', 'Planned_1'];
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `${sheetName}!A1`,
+        valueInputOption: 'RAW',
+        requestBody: { values: [defaultHeaders] }
+      });
+      headers.push(...defaultHeaders);
+    }
+
+    const idColIdx = headers.indexOf('id');
+    let maxId = 0;
+    if (idColIdx !== -1 && existingRows.length > 1) {
+      existingRows.slice(1).forEach(row => {
+        const val = parseInt(row[idColIdx] || '0', 10);
+        if (!isNaN(val) && val > maxId) maxId = val;
+      });
+    }
+
+    const rowsData = defects.map((d, index) => {
+      const newId = (maxId + index + 1).toString();
+      const rowMap: Record<string, string> = {
+        id: newId,
+        'Material Name': d.materialName,
+        'Vendor Name': d.vendorName || '',
+        Remark: d.remark || '',
+        Timestamp: timestamp,
+        Planned_1: timestamp,
+      };
+      return headers.map(h => rowMap[h] ?? '');
+    });
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId,
+      range: `${sheetName}!A:Z`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: rowsData },
+    });
+
+    return { success: true, count: defects.length };
+  } catch (error) {
+    console.error('Error creating RM Defects data:', error);
+    throw error;
+  }
+}
+
+export async function updateRMDefectsData(id: string, updates: any) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const spreadsheetId = SPREADSHEET_IDS.RM_DEFECTS;
+    const sheetName = SHEETS.RM_DEFECTS;
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `${sheetName}!A:Z`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) throw new Error('Sheet is empty');
+
+    const headers: string[] = rows[0].map((h: string) => h.trim());
+    const idColIdx = headers.indexOf('id');
+    if (idColIdx === -1) throw new Error('id column not found');
+
+    const rowIdx = rows.findIndex((row, i) => i > 0 && (row[idColIdx] || '').toString().trim() === id.toString().trim());
+    if (rowIdx === -1) throw new Error('Record not found');
+
+    const sheetRowNumber = rowIdx + 1;
+    const existingRow = rows[rowIdx];
+    const updatedRowMap: Record<string, string> = {};
+    headers.forEach((h, i) => { updatedRowMap[h] = existingRow[i] || ''; });
+
+    const keyMap: Record<string, string> = {
+      materialName: 'Material Name',
+      vendorName: 'Vendor Name',
+      remark: 'Remark'
+    };
+
+    Object.keys(updates).forEach(key => {
+      if (key === 'id') return;
+      const headerName = keyMap[key] || key;
+      if (headers.includes(headerName)) {
+        updatedRowMap[headerName] = updates[key] === null ? '' : String(updates[key]);
+      }
+    });
+
+    const updatedRow = headers.map(h => updatedRowMap[h] ?? '');
+    const range = `${sheetName}!A${sheetRowNumber}:${getColLetter(headers.length - 1)}${sheetRowNumber}`;
+
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [updatedRow] },
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating RM Defects data:', error);
+    throw error;
+  }
+}
+
+export async function deleteRMDefectsData(id: string) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const spreadsheetId = SPREADSHEET_IDS.RM_DEFECTS;
+    const sheetName = SHEETS.RM_DEFECTS;
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `${sheetName}!A:Z`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) throw new Error('Sheet is empty');
+
+    const headers: string[] = rows[0].map((h: string) => h.trim());
+    const idColIdx = headers.indexOf('id');
+    if (idColIdx === -1) throw new Error('id column not found');
+
+    const rowIdx = rows.findIndex((row, i) => i > 0 && (row[idColIdx] || '').toString().trim() === id.toString().trim());
+    if (rowIdx === -1) throw new Error('Record not found');
+
+    const spreadsheetMeta = await sheets.spreadsheets.get({ spreadsheetId });
+    const sheet = spreadsheetMeta.data.sheets?.find((s: any) => s.properties?.title === sheetName);
+    if (!sheet) throw new Error('Sheet not found');
+    const sheetId = sheet.properties?.sheetId;
+
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: [{
+          deleteDimension: {
+            range: {
+              sheetId,
+              dimension: 'ROWS',
+              startIndex: rowIdx,
+              endIndex: rowIdx + 1
+            }
+          }
+        }]
+      }
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting RM Defects data:', error);
     throw error;
   }
 }
