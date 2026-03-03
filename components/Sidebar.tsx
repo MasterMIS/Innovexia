@@ -39,6 +39,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
         { label: 'CRM', icon: 'clipboard', href: '/crm', roles: ['Admin', 'Manager'] },
         { label: 'O2D', icon: 'clipboard', href: '/o2d', roles: ['Admin', 'Manager'] },
         { label: 'Collection', icon: 'clipboard', href: '/collection', roles: ['Admin', 'Manager'] },
+        { label: 'Client Complain', icon: 'clipboard', href: '/client-complain', roles: ['Admin', 'Manager'] },
       ]
     },
     {

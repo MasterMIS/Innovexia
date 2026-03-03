@@ -755,12 +755,12 @@ export default function FactoryRequirementFMS() {
                                                 return tiles;
                                             }, [] as any[])}
                                             {[
-                                                { step: 'all' as const, label: 'All Items', value: statusStats.Total, gradient: 'from-slate-50 to-slate-100', border: 'border-slate-200', text: 'text-slate-700', iconBg: 'from-slate-500 to-slate-600', icon: 'M4 6h16M4 10h16M4 14h16M4 18h16' },
-                                                { step: 1 as const, label: `1. ${STAGES[0]?.name || 'Step 1'}`, value: statusStats.Step1, gradient: 'from-indigo-50 to-indigo-100', border: 'border-indigo-200', text: 'text-indigo-700', iconBg: 'from-indigo-500 to-indigo-600', icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' },
-                                                { step: 2 as const, label: `2. ${STAGES[1]?.name || 'Step 2'}`, value: statusStats.Step2, gradient: 'from-yellow-50 to-yellow-100', border: 'border-yellow-200', text: 'text-yellow-700', iconBg: 'from-yellow-500 to-yellow-600', icon: 'M12 19l9 2-9-18-9 18 9-2zm0 0v-8' },
-                                                { step: 3 as const, label: `3. ${STAGES[2]?.name || 'Step 3'}`, value: statusStats.Step3, gradient: 'from-orange-50 to-orange-100', border: 'border-orange-200', text: 'text-orange-700', iconBg: 'from-orange-500 to-orange-600', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
-                                                { step: 4 as const, label: `4. ${STAGES[3]?.name || 'Step 4'}`, value: statusStats.Step4, gradient: 'from-pink-50 to-pink-100', border: 'border-pink-200', text: 'text-pink-700', iconBg: 'from-pink-500 to-pink-600', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' },
-                                                { step: 5 as const, label: `5. ${STAGES[4]?.name || 'Step 5'}`, value: statusStats.Step5, gradient: 'from-purple-50 to-purple-100', border: 'border-purple-200', text: 'text-purple-700', iconBg: 'from-purple-500 to-purple-600', icon: 'M5 13l4 4L19 7' },
+                                                { step: 'all' as const, label: 'All Items', value: statusStats.Total, gradient: 'from-slate-50 to-slate-100', border: 'border-slate-200', iconBg: 'from-slate-500 to-slate-600', icon: 'M4 6h16M4 10h16M4 14h16M4 18h16' },
+                                                { step: 1 as const, label: `1. ${STAGES[0]?.name || 'Step 1'}`, value: statusStats.Step1, gradient: 'from-indigo-50 to-indigo-100', border: 'border-indigo-200', iconBg: 'from-indigo-500 to-indigo-600', icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' },
+                                                { step: 2 as const, label: `2. ${STAGES[1]?.name || 'Step 2'}`, value: statusStats.Step2, gradient: 'from-yellow-50 to-yellow-100', border: 'border-yellow-200', iconBg: 'from-yellow-500 to-yellow-600', icon: 'M12 19l9 2-9-18-9 18 9-2zm0 0v-8' },
+                                                { step: 3 as const, label: `3. ${STAGES[2]?.name || 'Step 3'}`, value: statusStats.Step3, gradient: 'from-orange-50 to-orange-100', border: 'border-orange-200', iconBg: 'from-orange-500 to-orange-600', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
+                                                { step: 4 as const, label: `4. ${STAGES[3]?.name || 'Step 4'}`, value: statusStats.Step4, gradient: 'from-pink-50 to-pink-100', border: 'border-pink-200', iconBg: 'from-pink-500 to-pink-600', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' },
+                                                { step: 5 as const, label: `5. ${STAGES[4]?.name || 'Step 5'}`, value: statusStats.Step5, gradient: 'from-purple-50 to-purple-100', border: 'border-purple-200', iconBg: 'from-purple-500 to-purple-600', icon: 'M5 13l4 4L19 7' },
                                             ].map((stat, i) => (
                                                 <motion.div
                                                     key={i}
@@ -782,8 +782,8 @@ export default function FactoryRequirementFMS() {
                                                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={stat.icon} /></svg>
                                                     </div>
                                                     <div className="min-w-0 flex-1">
-                                                        <p className={`text-[8px] font-bold ${stat.text} uppercase tracking-wider truncate`}>{stat.label}</p>
-                                                        <p className="text-base font-bold text-gray-900 dark:text-white leading-none mt-0.5">{stat.value}</p>
+                                                        <p className="text-[8px] font-bold text-black uppercase tracking-wider truncate opacity-80">{stat.label}</p>
+                                                        <p className="text-base font-bold text-black leading-none mt-0.5">{stat.value}</p>
                                                     </div>
                                                 </motion.div>
                                             ))}
