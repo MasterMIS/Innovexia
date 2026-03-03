@@ -63,6 +63,23 @@ const formatDateTime = (dateStr?: string) => {
     });
 };
 
+const getDelayInfo = (planned?: string, actual?: string) => {
+    if (!planned) return null;
+    const pDate = new Date(planned);
+    const refDate = actual ? new Date(actual) : new Date();
+    if (isNaN(pDate.getTime()) || isNaN(refDate.getTime())) return null;
+
+    const diffMs = refDate.getTime() - pDate.getTime();
+    const diffMin = Math.floor(diffMs / (1000 * 60));
+
+    if (diffMin > 0) {
+        return { text: `${Math.floor(diffMin / 60)}h ${diffMin % 60}m Delay`, color: 'text-red-500 font-bold' };
+    } else {
+        const absMin = Math.abs(diffMin);
+        return { text: `${Math.floor(absMin / 60)}h ${absMin % 60}m ${actual ? 'Ahead' : 'Left'}`, color: 'text-emerald-500 font-bold' };
+    }
+};
+
 export default function RMDefectsPage() {
     const [data, setData] = useState<RMDefect[]>([]);
     const [loading, setLoading] = useState(true);
@@ -514,39 +531,68 @@ export default function RMDefectsPage() {
                                     <thead className={`text-[10px] font-bold text-gray-900 uppercase tracking-wider ${viewMode === 'cancelled' ? 'bg-red-400' : 'bg-[var(--theme-primary)]'}`}>
                                         <tr>
                                             <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest w-12 text-center">#</th>
-                                            <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest">Material Name</th>
-                                            <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest">Vendor</th>
+                                            <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest">Material & Vendor</th>
                                             <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest">Remark</th>
-                                            <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest">Status</th>
+                                            {DEFECT_STAGES.map(s => (
+                                                <th key={s.step} className="px-3 py-2 text-left border-l border-white/10 min-w-[120px]">
+                                                    <div className="flex flex-col leading-tight">
+                                                        <span className="text-[9px] opacity-70 font-black">STEP {s.step}</span>
+                                                        <span className="text-[10px] font-black uppercase whitespace-nowrap">{s.name.length > 15 ? s.name.substring(0, 15) + '...' : s.name}</span>
+                                                    </div>
+                                                </th>
+                                            ))}
                                             <th className="px-6 py-3 text-[10px] font-black uppercase tracking-widest w-24 text-center">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-50 dark:divide-slate-800 text-xs">
                                         {loading ? (
-                                            <tr><td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-bold">Loading records...</td></tr>
+                                            <tr><td colSpan={13} className="px-6 py-12 text-center text-slate-400 font-bold">Loading records...</td></tr>
                                         ) : paginatedData.length === 0 ? (
-                                            <tr><td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-bold">No records found</td></tr>
+                                            <tr><td colSpan={13} className="px-6 py-12 text-center text-slate-400 font-bold">No records found</td></tr>
                                         ) : paginatedData.map((item, idx) => (
                                             <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 group transition-colors">
                                                 <td className="px-6 py-4 text-[10px] font-black text-slate-300 text-center">{(currentPage - 1) * ITEMS_PER_PAGE + idx + 1}</td>
                                                 <td className="px-6 py-4">
                                                     <div className="font-bold text-gray-900 dark:text-white uppercase tracking-tight leading-none text-sm">{item['Material Name']}</div>
-                                                    <div className="text-[10px] text-slate-400 font-bold mt-1.5 uppercase tracking-tighter">ID: {item.id}</div>
+                                                    <div className="flex items-center gap-1.5 mt-1.5">
+                                                        <span className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-[9px] font-black text-slate-500 uppercase">{item['Vendor Name'] || 'No Vendor'}</span>
+                                                        <span className="text-[9px] text-slate-300 font-bold uppercase tracking-tighter">ID: {item.id}</span>
+                                                    </div>
                                                 </td>
-                                                <td className="px-6 py-4">
-                                                    <span className="px-3 py-1 bg-slate-100 dark:bg-slate-700 rounded-lg text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase">{item['Vendor Name'] || '-'}</span>
-                                                </td>
-                                                <td className="px-6 py-4 max-w-xs truncate text-xs text-slate-500 font-medium">{item['Remark'] || '-'}</td>
-                                                <td className="px-6 py-4">
-                                                    {(() => {
-                                                        let step = 1;
-                                                        for (let s = 1; s <= 9; s++) {
-                                                            if ((item as any)[`Actual_${s}`]) step = s + 1; else break;
-                                                        }
-                                                        if (step > 9) return <span className="bg-emerald-500/10 text-emerald-500 px-3 py-1 rounded-lg text-[10px] font-black uppercase">Completed</span>;
-                                                        return <span className="bg-indigo-500/10 text-indigo-500 px-3 py-1 rounded-lg text-[10px] font-black uppercase">Step {step}: {DEFECT_STAGES[step - 1].name}</span>;
-                                                    })()}
-                                                </td>
+                                                <td className="px-6 py-4 max-w-xs truncate text-[11px] text-slate-500 font-medium">{item['Remark'] || '-'}</td>
+                                                {DEFECT_STAGES.map(s => {
+                                                    const planned = item[`Planned_${s.step}` as keyof RMDefect] as string;
+                                                    const actual = item[`Actual_${s.step}` as keyof RMDefect] as string;
+                                                    const delay = getDelayInfo(planned, actual);
+
+                                                    return (
+                                                        <td key={s.step} className="px-3 py-2 border-l border-slate-50 dark:border-slate-800/50">
+                                                            <div className="flex flex-col gap-1">
+                                                                <div className="flex items-center justify-between gap-2">
+                                                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">P:</span>
+                                                                    <span className="text-[10px] font-medium text-slate-600 dark:text-slate-400 tabular-nums">
+                                                                        {planned ? formatDateTime(planned) : '-'}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="flex items-center justify-between gap-2">
+                                                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">A:</span>
+                                                                    {actual ? (
+                                                                        <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 tabular-nums">
+                                                                            {formatDateTime(actual)}
+                                                                        </span>
+                                                                    ) : (
+                                                                        <span className="text-[10px] text-slate-200 dark:text-slate-700">-</span>
+                                                                    )}
+                                                                </div>
+                                                                {delay && (
+                                                                    <div className={`text-[9px] text-right italic ${delay.color}`}>
+                                                                        {delay.text}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                    );
+                                                })}
                                                 <td className="px-6 py-4">
                                                     <div className="flex items-center justify-center gap-2">
                                                         <button onClick={() => { setEditingItem(item); setRows([{ materialName: item['Material Name'], vendorName: item['Vendor Name'], remark: item['Remark'] }]); setIsModalOpen(true); }} className="p-2 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all"><Pencil size={16} /></button>
