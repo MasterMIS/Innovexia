@@ -78,8 +78,34 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
         <Header isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
 
         {/* Page Content */}
-        <main className="flex-1 overflow-auto">
-          {children}
+        <main className="flex-1 overflow-auto flex flex-col">
+          <div className="flex-1">
+            {children}
+          </div>
+
+          {/* Footer Banner */}
+          <footer className="w-full bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700 py-3 px-6 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] mt-auto">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4 max-w-[1600px] mx-auto">
+              <div className="flex items-center gap-3">
+                <div className="w-7 h-7 bg-[var(--theme-primary)] rounded-lg flex items-center justify-center shadow-lg shadow-[var(--theme-primary)]/20">
+                  <span className="text-gray-900 font-black text-xs">E</span>
+                </div>
+                <p className="text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-[0.15em] whitespace-nowrap">
+                  © 2026 Sohan ERP Solutions Pvt. Ltd. <span className="hidden sm:inline">| All Rights Reserved.</span>
+                </p>
+              </div>
+
+              <div className="flex items-center gap-4 bg-gray-50 dark:bg-gray-750 px-4 py-1.5 rounded-full border border-gray-100 dark:border-gray-700">
+                <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold whitespace-nowrap">
+                  ERP Developed & Maintained by <span className="text-[var(--theme-primary)] font-black">Sohan</span>
+                </p>
+                <div className="h-3 w-[1px] bg-gray-200 dark:bg-gray-600" />
+                <p className="text-[9px] text-gray-400 dark:text-gray-500 font-black tracking-widest uppercase">
+                  v1.0
+                </p>
+              </div>
+            </div>
+          </footer>
         </main>
       </div>
     </div>

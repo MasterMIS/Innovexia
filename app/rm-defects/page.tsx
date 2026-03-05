@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, Fragment } from 'react';
 import LayoutWrapper from '@/components/LayoutWrapper';
 import { useToast } from '@/components/ToastProvider';
 import { useLoader } from '@/components/LoaderProvider';
@@ -119,7 +119,14 @@ export default function RMDefectsPage() {
             const res = await fetch('/api/rm-defects');
             const json = await res.json();
             if (json.data) {
-                setData(json.data.filter((d: RMDefect) => d['Material Name']?.trim()));
+                // Sanitize data: ensure all items have a valid string id
+                const sanitized = json.data
+                    .filter((d: RMDefect) => d['Material Name']?.trim())
+                    .map((d: RMDefect, idx: number) => ({
+                        ...d,
+                        id: d.id ? String(d.id) : `temp-${idx}`
+                    }));
+                setData(sanitized);
             }
         } catch (e) {
             console.error(e);
@@ -825,7 +832,7 @@ export default function RMDefectsPage() {
                                         ) : paginatedData.length === 0 ? (
                                             <tr><td colSpan={13} className="px-6 py-12 text-center text-slate-400 font-bold">No records found</td></tr>
                                         ) : paginatedData.map((item, idx) => (
-                                            <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 group transition-colors">
+                                            <tr key={item.id || `row-${idx}`} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 group transition-colors">
                                                 <td className="px-3 py-2 text-center border-r border-gray-100 dark:border-gray-700/50">
                                                     <input
                                                         type="checkbox"
@@ -934,7 +941,7 @@ export default function RMDefectsPage() {
             <AnimatePresence>
                 {/* Add/Edit Modal */}
                 {isModalOpen && (
-                    <>
+                    <Fragment key="modal-add-edit">
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                             onClick={() => setIsModalOpen(false)} className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-[9998]" />
                         <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -1050,12 +1057,12 @@ export default function RMDefectsPage() {
                                 </div>
                             </div>
                         </motion.div>
-                    </>
+                    </Fragment>
                 )}
 
                 {/* Confirm Delete Modal */}
                 {isDeleteModalOpen && (
-                    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <div key="modal-delete" className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
                         <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="bg-white dark:bg-gray-800 rounded-[2.5rem] shadow-2xl w-full max-w-md p-10 text-center">
                             <div className="w-20 h-20 bg-red-50 dark:bg-red-900/20 text-red-500 rounded-3xl flex items-center justify-center mx-auto mb-6"><Trash2 size={40} /></div>
                             <h3 className="text-2xl font-black text-slate-800 dark:text-white uppercase tracking-tight mb-2">Are you sure?</h3>
@@ -1070,7 +1077,7 @@ export default function RMDefectsPage() {
 
                 {/* Confirm Cancel Modal */}
                 {isCancelModalOpen && (
-                    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <div key="modal-cancel" className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
                         <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="bg-white dark:bg-gray-800 rounded-[2.5rem] shadow-2xl w-full max-w-md p-10 text-center">
                             <div className="w-20 h-20 bg-orange-50 dark:bg-orange-900/20 text-orange-500 rounded-3xl flex items-center justify-center mx-auto mb-6"><AlertTriangle size={40} /></div>
                             <h3 className="text-2xl font-black text-slate-800 dark:text-white uppercase tracking-tight mb-2">Toggle Status?</h3>
@@ -1084,7 +1091,7 @@ export default function RMDefectsPage() {
                 )}
                 {/* Bulk Update Modal */}
                 {isBulkUpdateModalOpen && (
-                    <>
+                    <Fragment key="modal-bulk">
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                             onClick={() => setIsBulkUpdateModalOpen(false)} className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-[9998]" />
                         <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -1180,73 +1187,71 @@ export default function RMDefectsPage() {
                                 </div>
                             </div>
                         </motion.div>
-                    </>
+                    </Fragment>
                 )}
 
                 {/* Remove Follow Up Modal */}
-                <AnimatePresence>
-                    {showRemoveModal && removeTarget && (
-                        <>
-                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                                onClick={() => setShowRemoveModal(false)} className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-[9998]" />
-                            <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
-                                exit={{ opacity: 0, scale: 0.95, y: 20 }} transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                                className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-                                <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md border border-gray-100 dark:border-gray-800 p-6 space-y-5">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-600">
-                                            <RotateCcw size={20} />
-                                        </div>
-                                        <div>
-                                            <h3 className="font-black text-gray-900 dark:text-white text-sm uppercase tracking-tight">Remove Follow Up</h3>
-                                            <p className="text-[10px] font-bold text-gray-400 mt-0.5 uppercase tracking-widest leading-tight">{removeTarget.name}</p>
-                                        </div>
+                {showRemoveModal && removeTarget && (
+                    <Fragment key="modal-remove-followup">
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                            onClick={() => setShowRemoveModal(false)} className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-[9998]" />
+                        <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }} transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                            className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+                            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md border border-gray-100 dark:border-gray-800 p-6 space-y-5">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-600">
+                                        <RotateCcw size={20} />
                                     </div>
+                                    <div>
+                                        <h3 className="font-black text-gray-900 dark:text-white text-sm uppercase tracking-tight">Remove Follow Up</h3>
+                                        <p className="text-[10px] font-bold text-gray-400 mt-0.5 uppercase tracking-widest leading-tight">{removeTarget.name}</p>
+                                    </div>
+                                </div>
 
-                                    <div className="space-y-3">
-                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Select range to clear:</p>
-                                        <div className="grid grid-cols-1 gap-2 max-h-[40vh] overflow-y-auto custom-scrollbar pr-1">
+                                <div className="space-y-3">
+                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Select range to clear:</p>
+                                    <div className="grid grid-cols-1 gap-2 max-h-[40vh] overflow-y-auto custom-scrollbar pr-1">
+                                        <button
+                                            onClick={() => setRemoveStep('all')}
+                                            className={`p-3 rounded-xl border-2 text-left transition-all ${removeStep === 'all'
+                                                ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400'
+                                                : 'border-gray-100 dark:border-gray-800 text-gray-500 hover:border-indigo-200'
+                                                }`}
+                                        >
+                                            <div className="font-black text-[10px] uppercase tracking-widest">Remove All</div>
+                                            <p className="text-[9px] opacity-70 font-medium mt-0.5">Clears all 9 steps for this defect</p>
+                                        </button>
+                                        {DEFECT_STAGES.map(s => (
                                             <button
-                                                onClick={() => setRemoveStep('all')}
-                                                className={`p-3 rounded-xl border-2 text-left transition-all ${removeStep === 'all'
+                                                key={s.step}
+                                                onClick={() => setRemoveStep(s.step)}
+                                                className={`p-3 rounded-xl border-2 text-left transition-all ${removeStep === s.step
                                                     ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400'
                                                     : 'border-gray-100 dark:border-gray-800 text-gray-500 hover:border-indigo-200'
                                                     }`}
                                             >
-                                                <div className="font-black text-[10px] uppercase tracking-widest">Remove All</div>
-                                                <p className="text-[9px] opacity-70 font-medium mt-0.5">Clears all 9 steps for this defect</p>
+                                                <div className="font-black text-[10px] uppercase tracking-widest">From Step {s.step} ({s.name})</div>
+                                                <p className="text-[9px] opacity-70 font-medium mt-0.5">Clears data from step {s.step} onwards</p>
                                             </button>
-                                            {DEFECT_STAGES.map(s => (
-                                                <button
-                                                    key={s.step}
-                                                    onClick={() => setRemoveStep(s.step)}
-                                                    className={`p-3 rounded-xl border-2 text-left transition-all ${removeStep === s.step
-                                                        ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400'
-                                                        : 'border-gray-100 dark:border-gray-800 text-gray-500 hover:border-indigo-200'
-                                                        }`}
-                                                >
-                                                    <div className="font-black text-[10px] uppercase tracking-widest">From Step {s.step} ({s.name})</div>
-                                                    <p className="text-[9px] opacity-70 font-medium mt-0.5">Clears data from step {s.step} onwards</p>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    <div className="flex gap-3 pt-2">
-                                        <button onClick={() => setShowRemoveModal(false)}
-                                            className="flex-1 py-2.5 rounded-xl border border-gray-100 dark:border-gray-800 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">
-                                            Cancel
-                                        </button>
-                                        <button onClick={handleRemoveFollowUp}
-                                            className="flex-1 py-2.5 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20">
-                                            Confirm Clear
-                                        </button>
+                                        ))}
                                     </div>
                                 </div>
-                            </motion.div>
-                        </>
-                    )}
-                </AnimatePresence>
+
+                                <div className="flex gap-3 pt-2">
+                                    <button onClick={() => setShowRemoveModal(false)}
+                                        className="flex-1 py-2.5 rounded-xl border border-gray-100 dark:border-gray-800 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">
+                                        Cancel
+                                    </button>
+                                    <button onClick={handleRemoveFollowUp}
+                                        className="flex-1 py-2.5 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20">
+                                        Confirm Clear
+                                    </button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </Fragment>
+                )}
             </AnimatePresence>
         </LayoutWrapper >
     );

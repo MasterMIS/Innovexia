@@ -28,6 +28,7 @@ export const SPREADSHEET_IDS = {
   CRM: '1oJZWpxo1cgNc20lr8aPIZMMp_W1MaPchPYajRIexnT0',
   CLIENT_COMPLAIN: '1NbmOkuvfCDIdeK-UGKzWvPtWMf1Io1Yo9TH-lz-_uNs',
   RM_DEFECTS: '1a0pnGbY_tSk5y9_VN02KHcqiJWHUKQSLAav9_9aIDpE',
+  JOB_WORK: '1V326z9jzR8bBaLy5J5eae4jKsyg3px7E87LZ9TOue90',
 };
 
 // Backward compatibility
@@ -61,6 +62,8 @@ const SHEETS = {
   CLIENT_COMPLAIN_CONFIG: 'Step Configuration',
   RM_DEFECTS: 'Raw Material Defect Problem',
   RM_DEFECTS_CONFIG: 'Step Configuration',
+  JOB_WORK: 'Job Work',
+  JOB_WORK_CONFIG: 'Step Configuration',
 };
 
 // Initialize Google Sheets API client with OAuth
@@ -5861,6 +5864,359 @@ export async function deleteRMDefectsData(id: string) {
     return { success: true };
   } catch (error) {
     console.error('Error deleting RM Defects data:', error);
+    throw error;
+  }
+}
+
+// JOB WORK CRUD OPERATIONS
+
+export async function getJobWorkData() {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const spreadsheetId = SPREADSHEET_IDS.JOB_WORK;
+    const sheetName = SHEETS.JOB_WORK;
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `${sheetName}!A:AZ`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) return [];
+
+    const headers = rows[0].map((h: string) => h.trim());
+    return rows.slice(1).map((row, idx) => ({
+      ...rowToObject(headers, row),
+      _rowIndex: idx + 2,
+    }));
+  } catch (error) {
+    console.error('Error fetching Job Work data:', error);
+    throw error;
+  }
+}
+
+function getNextPlannedTimeJobWork(current: Date, value: number, unit: string) {
+  const next = new Date(current);
+  if (unit === 'days') {
+    let daysAdded = 0;
+    while (daysAdded < value) {
+      next.setDate(next.getDate() + 1);
+      if (next.getDay() !== 0) { // Skip Sunday
+        daysAdded++;
+      }
+    }
+  } else {
+    next.setHours(next.getHours() + value);
+  }
+
+  if (next.getDay() === 0) {
+    next.setDate(next.getDate() + 1);
+  }
+  return next;
+}
+
+export const JOB_WORK_STAGES = [
+  { step: 1, name: 'Talk Vendor' },
+  { step: 2, name: 'Inform Govind' },
+  { step: 3, name: 'Accounts' },
+  { step: 4, name: 'Follow Up 1' },
+  { step: 5, name: 'Follow Up 2' },
+  { step: 6, name: 'Receive Stock' },
+  { step: 7, name: 'Account Process' },
+  { step: 8, name: 'Receive Stock 2' },
+  { step: 9, name: 'Account Process 2' },
+  { step: 10, name: 'Receive Stock 3' },
+  { step: 11, name: 'Account Process 3' },
+];
+
+export async function getJobWorkConfig() {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const spreadsheetId = SPREADSHEET_IDS.JOB_WORK;
+    const sheetName = SHEETS.JOB_WORK_CONFIG;
+
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `${sheetName}!A:E`,
+    });
+
+    const rows = res.data.values;
+    if (!rows || rows.length < 2) return [];
+
+    const headers = rows[0];
+    return rows.slice(1).map(row => rowToObject(headers, row));
+  } catch (error) {
+    console.error('Error fetching job work config:', error);
+    return [];
+  }
+}
+
+export async function updateJobWorkConfig(config: any[]) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const spreadsheetId = SPREADSHEET_IDS.JOB_WORK;
+    const sheetName = SHEETS.JOB_WORK_CONFIG;
+
+    const headers = ['step', 'stepName', 'doerName', 'tatValue', 'tatUnit'];
+    const rows = config.map(c => objectToRow(headers, c));
+
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: `${sheetName}!A1`,
+      valueInputOption: 'RAW',
+      requestBody: { values: [headers, ...rows] }
+    });
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating job work config:', error);
+    throw error;
+  }
+}
+
+export async function createJobWorkData(items: any[]) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const spreadsheetId = SPREADSHEET_IDS.JOB_WORK;
+    const sheetName = SHEETS.JOB_WORK;
+    const timestamp = new Date().toISOString();
+
+    const existingRes = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `${sheetName}!A:BZ`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+    const existingRows = existingRes.data.values || [];
+    let headers: string[] = existingRows[0]?.map((h: string) => h.trim()) || [];
+
+    if (headers.length === 0) {
+      const defaultHeaders = [
+        'id', 'group-id', 'Job Work Name', 'Vendor Name', 'Item Name',
+        'Qty Of Material To Be Sent In Kg', 'Qty Material To Be Sent In Pcs',
+        'Timestamp', 'Cancelled'
+      ];
+      // Add step columns
+      for (let i = 1; i <= 11; i++) {
+        defaultHeaders.push(`Planned_${i}`, `Actual_${i}`, `Status_${i}`);
+        if (i === 1) {
+          defaultHeaders.push('lead_time_1', 'remark_1');
+        }
+      }
+
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `${sheetName}!A1`,
+        valueInputOption: 'RAW',
+        requestBody: { values: [defaultHeaders] }
+      });
+      headers = defaultHeaders;
+    }
+
+    // Ensure all headers exist (if sheet was created partially)
+    const requiredStepHeaders: string[] = [];
+    for (let i = 1; i <= 11; i++) {
+      requiredStepHeaders.push(`Planned_${i}`, `Actual_${i}`, `Status_${i}`);
+      if (i === 1) {
+        requiredStepHeaders.push('lead_time_1', 'remark_1');
+      }
+    }
+    const missingHeaders = requiredStepHeaders.filter(h => !headers.includes(h));
+    if (missingHeaders.length > 0) {
+      const newHeaders = [...headers, ...missingHeaders];
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `${sheetName}!A1`,
+        valueInputOption: 'RAW',
+        requestBody: { values: [newHeaders] }
+      });
+      headers = newHeaders;
+    }
+
+    const configs = await getJobWorkConfig();
+    const step1Config = configs.find(c => parseInt(c.step) === 1);
+    const planned1 = getNextPlannedTimeJobWork(new Date(), step1Config?.tatValue || 24, step1Config?.tatUnit || 'hours').toISOString();
+
+    const idColIdx = headers.indexOf('id');
+    const groupColIdx = headers.indexOf('group-id');
+    let maxId = 0;
+    let maxGroupId = 0;
+
+    if (existingRows.length > 1) {
+      existingRows.slice(1).forEach(row => {
+        if (idColIdx !== -1) {
+          const val = parseInt(row[idColIdx] || '0', 10);
+          if (!isNaN(val) && val > maxId) maxId = val;
+        }
+        if (groupColIdx !== -1) {
+          const gVal = String(row[groupColIdx] || '');
+          const gNum = parseInt(gVal, 10);
+          if (!isNaN(gNum) && gNum > maxGroupId) maxGroupId = gNum;
+        }
+      });
+    }
+
+    const nextGroupId = (maxGroupId + 1).toString();
+
+    const rowsData = items.map((item, index) => {
+      const newId = (maxId + index + 1).toString();
+      const rowMap: Record<string, any> = {
+        id: newId,
+        'group-id': item['group-id'] || item.groupId || nextGroupId,
+        'Job Work Name': item.jobWorkName || item['Job Work Name'],
+        'Vendor Name': item.vendorName || item['Vendor Name'],
+        'Item Name': item.itemName || item['Item Name'] || item.name,
+        'Qty Of Material To Be Sent In Kg': item.qtyKg || item['Qty Of Material To Be Sent In Kg'],
+        'Qty Material To Be Sent In Pcs': item.qtyPcs || item['Qty Material To Be Sent In Pcs'],
+        Timestamp: timestamp,
+        Planned_1: planned1
+      };
+      return headers.map(h => rowMap[h] ?? '');
+    });
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId,
+      range: `${sheetName}!A:BZ`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: rowsData },
+    });
+
+    return { success: true, count: items.length };
+  } catch (error) {
+    console.error('Error creating Job Work data:', error);
+    throw error;
+  }
+}
+
+export async function updateJobWorkData(id: string, updates: any) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const spreadsheetId = SPREADSHEET_IDS.JOB_WORK;
+    const sheetName = SHEETS.JOB_WORK;
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `${sheetName}!A:BZ`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) throw new Error('Sheet is empty');
+
+    const headers: string[] = rows[0].map((h: string) => h.trim());
+    const idColIdx = headers.indexOf('id');
+    if (idColIdx === -1) throw new Error('id column not found');
+
+    const rowIdx = rows.findIndex((row, i) => i > 0 && (row[idColIdx] || '').toString().trim() === id.toString().trim());
+    if (rowIdx === -1) throw new Error('Record not found');
+
+    const sheetRowNumber = rowIdx + 1;
+    const existingRow = rows[rowIdx];
+    const updatedRowMap: Record<string, string> = {};
+    headers.forEach((h, i) => { updatedRowMap[h] = existingRow[i] || ''; });
+
+    const keyMap: Record<string, string> = {
+      jobWorkName: 'Job Work Name',
+      vendorName: 'Vendor Name',
+      itemName: 'Item Name',
+      name: 'Item Name',
+      qtyKg: 'Qty Of Material To Be Sent In Kg',
+      qtyPcs: 'Qty Material To Be Sent In Pcs',
+      groupId: 'group-id',
+      'group-id': 'group-id'
+    };
+
+    // Handle step-wise updates
+    const configs = await getJobWorkConfig();
+    for (let i = 1; i <= 11; i++) {
+      if (updates[`Actual_${i}`] && !existingRow[headers.indexOf(`Actual_${i}`)]) {
+        // Step completed now
+        updates[`Status_${i}`] = 'Completed';
+        if (i < 11) {
+          const nextStep = i + 1;
+          const nextConfig = configs.find(c => parseInt(c.step) === nextStep);
+          const nextPlanned = getNextPlannedTimeJobWork(new Date(updates[`Actual_${i}`]), nextConfig?.tatValue || 24, nextConfig?.tatUnit || 'hours').toISOString();
+          updates[`Planned_${nextStep}`] = nextPlanned;
+        }
+      }
+    }
+
+    Object.keys(updates).forEach(key => {
+      if (key === 'id') return;
+      const headerName = keyMap[key] || key;
+      if (headers.includes(headerName)) {
+        updatedRowMap[headerName] = updates[key] === null ? '' : String(updates[key]);
+      }
+    });
+
+    const updatedRow = headers.map(h => updatedRowMap[h] ?? '');
+    const getColLetterInternal = (index: number) => {
+      let letter = '';
+      while (index >= 0) {
+        letter = String.fromCharCode((index % 26) + 65) + letter;
+        index = Math.floor(index / 26) - 1;
+      }
+      return letter;
+    };
+    const colLetter = getColLetterInternal(headers.length - 1);
+
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: `${sheetName}!A${sheetRowNumber}:${colLetter}${sheetRowNumber}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [updatedRow] },
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating Job Work data:', error);
+    throw error;
+  }
+}
+
+export async function deleteJobWorkData(id: string) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const spreadsheetId = SPREADSHEET_IDS.JOB_WORK;
+    const sheetName = SHEETS.JOB_WORK;
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `${sheetName}!A:AZ`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) throw new Error('Sheet is empty');
+
+    const headers: string[] = rows[0].map((h: string) => h.trim());
+    const idColIdx = headers.indexOf('id');
+    if (idColIdx === -1) throw new Error('id column not found');
+
+    const rowIdx = rows.findIndex((row, i) => i > 0 && (row[idColIdx] || '').toString().trim() === id.toString().trim());
+    if (rowIdx === -1) throw new Error('Record not found');
+
+    const spreadsheetMeta = await sheets.spreadsheets.get({ spreadsheetId });
+    const sheet = spreadsheetMeta.data.sheets?.find((s: any) => s.properties?.title === sheetName);
+    if (!sheet) throw new Error('Sheet not found');
+    const sheetId = sheet.properties?.sheetId;
+
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: [{
+          deleteDimension: {
+            range: {
+              sheetId,
+              dimension: 'ROWS',
+              startIndex: rowIdx,
+              endIndex: rowIdx + 1
+            }
+          }
+        }]
+      }
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting Job Work data:', error);
     throw error;
   }
 }

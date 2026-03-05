@@ -1927,6 +1927,7 @@ export default function O2DPage() {
                                                         label="PARTY NAME"
                                                         options={partyOptions}
                                                         value={formData.party_name || ''}
+                                                        allowCustomValue={true}
                                                         onChange={(val) => {
                                                             const partyName = val as string;
                                                             const existingOrder = orders.find(o => o.party_name === partyName);

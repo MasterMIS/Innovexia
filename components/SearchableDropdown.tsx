@@ -14,6 +14,7 @@ interface SearchableDropdownProps {
     onChange: (value: string | number) => void;
     placeholder?: string;
     label?: string;
+    allowCustomValue?: boolean;
 }
 
 export default function SearchableDropdown({
@@ -21,7 +22,8 @@ export default function SearchableDropdown({
     value,
     onChange,
     placeholder = 'Search...',
-    label
+    label,
+    allowCustomValue = false
 }: SearchableDropdownProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
@@ -49,11 +51,11 @@ export default function SearchableDropdown({
             <div className="relative">
                 <input
                     type="text"
-                    value={isOpen ? searchTerm : (selectedOption?.name || '')}
+                    value={isOpen ? searchTerm : (selectedOption?.name || (allowCustomValue ? value : '') || '')}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     onFocus={() => {
                         setIsOpen(true);
-                        setSearchTerm('');
+                        setSearchTerm(isOpen ? searchTerm : (selectedOption?.name || (allowCustomValue ? value?.toString() : '') || ''));
                     }}
                     placeholder={placeholder}
                     className="w-full px-4 py-2.5 bg-[var(--theme-lighter)] dark:bg-gray-700/50 rounded-xl font-semibold text-gray-900 dark:text-white placeholder:text-gray-400 focus:ring-2 focus:ring-[var(--theme-primary)] transition-all text-sm border-0"
@@ -74,24 +76,55 @@ export default function SearchableDropdown({
                         className="absolute z-20 w-full mt-1 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 max-h-60 overflow-y-auto"
                     >
                         {filteredOptions.length > 0 ? (
-                            filteredOptions.map((opt) => (
-                                <button
-                                    key={opt.id}
-                                    type="button"
-                                    onClick={() => {
-                                        onChange(opt.id);
-                                        setIsOpen(false);
-                                        setSearchTerm('');
-                                    }}
-                                    className={`w-full px-4 py-3 text-left hover:bg-[var(--theme-primary)]/10 dark:hover:bg-gray-700 transition text-sm ${value?.toString() === opt.id.toString() ? 'bg-[var(--theme-primary)]/20 font-semibold' : ''
-                                        }`}
-                                >
-                                    {opt.name}
-                                </button>
-                            ))
+                            <>
+                                {filteredOptions.map((opt) => (
+                                    <button
+                                        key={opt.id}
+                                        type="button"
+                                        onClick={() => {
+                                            onChange(opt.id);
+                                            setIsOpen(false);
+                                            setSearchTerm('');
+                                        }}
+                                        className={`w-full px-4 py-3 text-left hover:bg-[var(--theme-primary)]/10 dark:hover:bg-gray-700 transition text-sm ${value?.toString() === opt.id.toString() ? 'bg-[var(--theme-primary)]/20 font-semibold' : ''
+                                            }`}
+                                    >
+                                        {opt.name}
+                                    </button>
+                                ))}
+                                {allowCustomValue && searchTerm && !options.some(opt => opt.name.toLowerCase() === searchTerm.toLowerCase()) && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            onChange(searchTerm);
+                                            setIsOpen(false);
+                                            setSearchTerm('');
+                                        }}
+                                        className="w-full px-4 py-3 text-left hover:bg-[var(--theme-primary)]/10 dark:hover:bg-gray-700 transition text-sm border-t border-gray-100 dark:border-gray-700 italic text-indigo-600 dark:text-indigo-400 font-medium"
+                                    >
+                                        Keep "{searchTerm}"
+                                    </button>
+                                )}
+                            </>
                         ) : (
-                            <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 italic">
-                                No results found
+                            <div className="flex flex-col">
+                                {allowCustomValue && searchTerm ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            onChange(searchTerm);
+                                            setIsOpen(false);
+                                            setSearchTerm('');
+                                        }}
+                                        className="w-full px-4 py-3 text-left hover:bg-[var(--theme-primary)]/10 dark:hover:bg-gray-700 transition text-sm italic text-indigo-600 dark:text-indigo-400 font-medium"
+                                    >
+                                        Keep "{searchTerm}"
+                                    </button>
+                                ) : (
+                                    <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 italic">
+                                        No results found
+                                    </div>
+                                )}
                             </div>
                         )}
                     </motion.div>
