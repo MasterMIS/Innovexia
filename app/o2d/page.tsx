@@ -136,6 +136,10 @@ export default function O2DPage() {
     const [activeFollowUpStep, setActiveFollowUpStep] = useState(0);
     const [currentTime, setCurrentTime] = useState(new Date());
     const [costingItems, setCostingItems] = useState<string[]>([]);
+    const [dropdownParties, setDropdownParties] = useState<string[]>([]);
+    const [isAddingParty, setIsAddingParty] = useState(false);
+    const [isSubmittingParty, setIsSubmittingParty] = useState(false);
+    const [newPartyName, setNewPartyName] = useState('');
 
     const [formData, setFormData] = useState<Partial<O2DOrder>>({
         party_name: '',
@@ -192,6 +196,7 @@ export default function O2DPage() {
         fetchOrders();
         fetchUsers();
         fetchCostingItems();
+        fetchDropdownParties();
         fetchStepConfig();
 
         const timer = setInterval(() => {
@@ -232,6 +237,45 @@ export default function O2DPage() {
         }
     };
 
+    const fetchDropdownParties = async () => {
+        try {
+            const res = await fetch('/api/o2d-dropdown');
+            if (res.ok) {
+                const data = await res.json();
+                setDropdownParties(data.parties || []);
+            }
+        } catch (error) {
+            console.error('Error fetching dropdown parties:', error);
+        }
+    };
+
+    const handleAddParty = async () => {
+        if (!newPartyName.trim() || isSubmittingParty) return;
+        setIsSubmittingParty(true);
+        try {
+            const res = await fetch('/api/o2d-dropdown', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: newPartyName.trim() })
+            });
+
+            if (res.ok) {
+                toast.success('Party added successfully');
+                await fetchDropdownParties();
+                setFormData({ ...formData, party_name: newPartyName.trim(), party_id: undefined });
+                setNewPartyName('');
+                setIsAddingParty(false);
+            } else {
+                toast.error('Failed to add party');
+            }
+        } catch (error) {
+            console.error('Error adding party:', error);
+            toast.error('Error adding party');
+        } finally {
+            setIsSubmittingParty(false);
+        }
+    };
+
     const fetchStepConfig = async () => {
         try {
             const res = await fetch('/api/o2d-config');
@@ -264,9 +308,12 @@ export default function O2DPage() {
     };
 
     const partyOptions = useMemo(() => {
-        const unique = Array.from(new Set(orders.map(o => o.party_name))).filter(Boolean);
+        const unique = Array.from(new Set([
+            ...orders.map(o => o.party_name),
+            ...dropdownParties
+        ])).filter(Boolean);
         return unique.map(name => ({ id: name, name }));
-    }, [orders]);
+    }, [orders, dropdownParties]);
 
     const locationOptions = useMemo(() => {
         const unique = Array.from(new Set(orders.map(o => o.location))).filter(Boolean);
@@ -1923,34 +1970,47 @@ export default function O2DPage() {
                                             </div>
                                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                                 <div className="space-y-0">
-                                                    <SearchableDropdown
-                                                        label="PARTY NAME"
-                                                        options={partyOptions}
-                                                        value={formData.party_name || ''}
-                                                        allowCustomValue={true}
-                                                        onChange={(val) => {
-                                                            const partyName = val as string;
-                                                            const existingOrder = orders.find(o => o.party_name === partyName);
-                                                            if (existingOrder) {
-                                                                setFormData({
-                                                                    ...formData,
-                                                                    party_id: existingOrder.party_id,
-                                                                    party_name: partyName,
-                                                                    type: existingOrder.type || formData.type,
-                                                                    contact_person: existingOrder.contact_person || formData.contact_person,
-                                                                    email: existingOrder.email || formData.email,
-                                                                    contact_no_1: existingOrder.contact_no_1 || formData.contact_no_1,
-                                                                    contact_no_2: existingOrder.contact_no_2 || formData.contact_no_2,
-                                                                    location: existingOrder.location || formData.location,
-                                                                    state: existingOrder.state || formData.state,
-                                                                    field_person_name: existingOrder.field_person_name || formData.field_person_name
-                                                                });
-                                                            } else {
-                                                                setFormData({ ...formData, party_name: partyName, party_id: undefined });
-                                                            }
-                                                        }}
-                                                        placeholder="Select or enter party name"
-                                                    />
+                                                    <div className="flex items-end gap-2">
+                                                        <div className="flex-1">
+                                                            <SearchableDropdown
+                                                                label="PARTY NAME"
+                                                                options={partyOptions}
+                                                                value={formData.party_name || ''}
+                                                                allowCustomValue={true}
+                                                                onChange={(val) => {
+                                                                    const partyName = val as string;
+                                                                    const existingOrder = orders.find(o => o.party_name === partyName);
+                                                                    if (existingOrder) {
+                                                                        setFormData({
+                                                                            ...formData,
+                                                                            party_id: existingOrder.party_id,
+                                                                            party_name: partyName,
+                                                                            type: existingOrder.type || formData.type,
+                                                                            contact_person: existingOrder.contact_person || formData.contact_person,
+                                                                            email: existingOrder.email || formData.email,
+                                                                            contact_no_1: existingOrder.contact_no_1 || formData.contact_no_1,
+                                                                            contact_no_2: existingOrder.contact_no_2 || formData.contact_no_2,
+                                                                            location: existingOrder.location || formData.location,
+                                                                            state: existingOrder.state || formData.state,
+                                                                            field_person_name: existingOrder.field_person_name || formData.field_person_name
+                                                                        });
+                                                                    } else {
+                                                                        setFormData({ ...formData, party_name: partyName, party_id: undefined });
+                                                                    }
+                                                                }}
+                                                                placeholder="Select or enter party name"
+                                                            />
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setIsAddingParty(true)}
+                                                            className="mb-1 p-2.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl hover:bg-indigo-600 hover:text-white transition-all active:scale-95"
+                                                            title="Add New Party"
+                                                        >
+                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
+                                                        </button>
+                                                    </div>
+
                                                 </div>
                                                 <div className="space-y-1.5">
                                                     <label className="text-[10px] font-medium text-gray-500 uppercase tracking-widest px-1">Customer Type</label>
@@ -2550,6 +2610,88 @@ export default function O2DPage() {
                     )}
                 </div>
             </div>
-        </LayoutWrapper >
+            {/* Add Party Modal Overlay */}
+            <AnimatePresence>
+                {isAddingParty && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setIsAddingParty(false)}
+                            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            className="relative bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-700 w-full max-w-md space-y-4"
+                        >
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Add New Party</h3>
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Register new party name in dropdown</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsAddingParty(false)}
+                                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-all"
+                                >
+                                    <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+                            <div className="space-y-4">
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-1">Party Name</label>
+                                    <input
+                                        autoFocus
+                                        type="text"
+                                        value={newPartyName}
+                                        onChange={(e) => setNewPartyName(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                handleAddParty();
+                                            }
+                                        }}
+                                        placeholder="Enter full company/party name..."
+                                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700/50 rounded-2xl text-sm font-medium border-0 focus:ring-2 focus:ring-indigo-500 transition-all text-gray-900 dark:text-white"
+                                    />
+                                </div>
+                                <div className="flex gap-3 pt-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsAddingParty(false)}
+                                        className="flex-1 px-4 py-3 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 rounded-2xl text-xs font-bold uppercase tracking-wider hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="button"
+                                        disabled={isSubmittingParty}
+                                        onClick={handleAddParty}
+                                        className="flex-1 px-4 py-3 bg-indigo-600 text-white rounded-2xl text-xs font-bold uppercase tracking-wider shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                                    >
+                                        {isSubmittingParty ? (
+                                            <>
+                                                <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                </svg>
+                                                Adding...
+                                            </>
+                                        ) : (
+                                            'Add Party'
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+        </LayoutWrapper>
     );
 }

@@ -3982,6 +3982,50 @@ export async function getCostingItems() {
   }
 }
 
+// Get party names from Dropdown sheet in O2D spreadsheet
+export async function getO2DDropdowns() {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = 'Dropdown';
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: O2D_SPREADSHEET_ID,
+      range: `${sheetName}!A2:A`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) return [];
+
+    return rows.map(row => row[0]).filter(item => item && item.trim() !== '');
+  } catch (error) {
+    console.error('Error fetching O2D dropdowns:', error);
+    return [];
+  }
+}
+
+// Add a new party name to Dropdown sheet in O2D spreadsheet
+export async function addO2DDropdown(name: string) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = 'Dropdown';
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: O2D_SPREADSHEET_ID,
+      range: `${sheetName}!A:A`,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [[name]],
+      },
+    });
+
+    return { name };
+  } catch (error) {
+    console.error('Error adding O2D dropdown:', error);
+    throw error;
+  }
+}
+
 // NBD INCOMING CRUD OPERATIONS
 
 export async function getNBDIncomings() {
