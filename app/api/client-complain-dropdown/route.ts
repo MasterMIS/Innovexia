@@ -1,30 +1,26 @@
 import { NextResponse } from 'next/server';
-import { getGoogleSheetsClient } from '@/lib/sheets';
+import { getGoogleSheetsClient, getO2DDropdowns, SPREADSHEET_IDS } from '@/lib/sheets';
 
-const SPREADSHEET_ID = '1NbmOkuvfCDIdeK-UGKzWvPtWMf1Io1Yo9TH-lz-_uNs';
+const SPREADSHEET_ID = SPREADSHEET_IDS.CLIENT_COMPLAIN;
 const DROPDOWN_SHEET = 'Dropdown';
 
 export async function GET() {
     try {
-        const sheets = await getGoogleSheetsClient();
+        const [clientNames, sheets] = await Promise.all([
+            getO2DDropdowns(),
+            getGoogleSheetsClient()
+        ]);
 
-        // Fetch A2:B from Dropdown sheet — A = Client Names, B = Product Names
+        // Fetch B2:B from Dropdown sheet of CLIENT_COMPLAIN spreadsheet — B = Product Names
         const response = await sheets.spreadsheets.values.get({
             spreadsheetId: SPREADSHEET_ID,
-            range: `${DROPDOWN_SHEET}!A2:B`,
+            range: `${DROPDOWN_SHEET}!B2:B`,
         });
 
         const rows = response.data.values || [];
-
-        const clientNames: string[] = [];
-        const productNames: string[] = [];
-
-        rows.forEach((row) => {
-            const clientName = (row[0] || '').toString().trim();
-            const productName = (row[1] || '').toString().trim();
-            if (clientName) clientNames.push(clientName);
-            if (productName) productNames.push(productName);
-        });
+        const productNames: string[] = rows
+            .map((row) => (row[0] || '').toString().trim())
+            .filter(Boolean);
 
         return NextResponse.json({ clientNames, productNames });
     } catch (error: any) {

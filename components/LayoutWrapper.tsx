@@ -11,12 +11,10 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
-  // Open sidebar by default on desktop
+  // Handle mobile resize only
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth >= 1024) {
-        setSidebarOpen(true);
-      } else {
+      if (window.innerWidth < 1024) {
         setSidebarOpen(false);
       }
     };

@@ -159,6 +159,12 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
 
       {/* Sidebar */}
       <div
+        onMouseEnter={() => {
+          if (window.innerWidth >= 1024) setIsOpen(true);
+        }}
+        onMouseLeave={() => {
+          if (window.innerWidth >= 1024) setIsOpen(false);
+        }}
         className={`fixed left-0 top-0 h-screen bg-[var(--theme-light)] dark:bg-gray-800 text-gray-900 dark:text-white transition-all duration-300 z-[80] ${isOpen ? 'w-64' : '-translate-x-full lg:translate-x-0 lg:w-20'
           } lg:relative lg:z-auto shadow-lg`}
       >
@@ -259,8 +265,8 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
           })}
         </nav>
 
-        {/* Settings - Bottom */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 bg-[var(--theme-light)] dark:bg-gray-800">
+        {/* Settings - Bottom (Hidden on Desktop hover mode) */}
+        <div className="absolute bottom-0 left-0 right-0 p-4 bg-[var(--theme-light)] dark:bg-gray-800 lg:hidden">
           <button
             onClick={() => setIsOpen(!isOpen)}
             className="w-full flex items-center gap-4 px-4 py-2 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-[var(--theme-primary)]/20 dark:hover:bg-gray-700 transition-all"

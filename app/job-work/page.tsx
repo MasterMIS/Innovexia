@@ -7,7 +7,7 @@ import { useLoader } from '@/components/LoaderProvider';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Loader2, Save, X, Plus, Trash2, Pencil, Search, History, AlertTriangle, ClipboardCheck, ArrowRight,
-    Filter, LayoutGrid, List, CheckCircle2, Clock, Calendar, Download, Trash, ChevronLeft, ChevronRight, Ban, RotateCcw,
+    Filter, LayoutGrid, List, CheckCircle2, Download, Trash, ChevronLeft, ChevronRight, Ban, RotateCcw,
     Users, Package, MessageSquareWarning
 } from 'lucide-react';
 
@@ -111,6 +111,7 @@ export default function JobWorkPage() {
 
     const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
     const [itemsToMarkDone, setItemsToMarkDone] = useState<Set<string>>(new Set());
+    const [bulkUpdates, setBulkUpdates] = useState<Record<string, { lead_time_1?: string; remark_1?: string }>>({});
     const [stepConfigs, setStepConfigs] = useState<StepConfig[]>([]);
     const [systemUsers, setSystemUsers] = useState<any[]>([]);
 
@@ -295,18 +296,19 @@ export default function JobWorkPage() {
         return step;
     };
 
-    const getNextPlannedTime = (current: Date, value: number, unit: string) => {
+    const getNextPlannedTime = (current: Date, value: number | string, unit: string) => {
         const next = new Date(current);
+        const numericValue = Number(value);
         if (unit === 'days') {
             let daysAdded = 0;
-            while (daysAdded < value) {
+            while (daysAdded < numericValue) {
                 next.setDate(next.getDate() + 1);
                 if (next.getDay() !== 0) { // Skip Sunday
                     daysAdded++;
                 }
             }
         } else {
-            next.setHours(next.getHours() + value);
+            next.setHours(next.getHours() + numericValue);
         }
 
         if (next.getDay() === 0) {
@@ -390,24 +392,64 @@ export default function JobWorkPage() {
         if (selectedItems.size === 0) return;
         setIsSaving(true);
         try {
-            const now = new Date().toISOString();
-            const promises = Array.from(selectedItems).map(id => {
+            const currentTime = new Date();
+            const updatePromises = Array.from(selectedItems).map(id => {
                 const item = data.find(d => d.id === id);
                 if (!item) return Promise.resolve();
-                const step = getCurrentStep(item);
-                if (step > 11) return Promise.resolve();
+                const currentStep = getCurrentStep(item);
+                if (currentStep > 11) return Promise.resolve();
 
-                const updates: any = { [`Actual_${step}`]: now };
+                const updatedData: any = { id };
+
+                // Only mark done if this item was toggled
+                if (itemsToMarkDone.has(id) && currentStep <= 11) {
+                    updatedData[`Actual_${currentStep}`] = currentTime.toISOString();
+                    updatedData[`Status_${currentStep}`] = 'Done';
+
+                    // Add lead_time_1 and remark_1 if it's step 1
+                    if (currentStep === 1) {
+                        if (bulkUpdates[id]?.lead_time_1) {
+                            updatedData.lead_time_1 = bulkUpdates[id].lead_time_1;
+                        }
+                        if (bulkUpdates[id]?.remark_1) {
+                            updatedData.remark_1 = bulkUpdates[id].remark_1;
+                        }
+                    }
+
+                    // Auto-plan next step using TAT config
+                    if (currentStep < 11) {
+                        const nextStep = currentStep + 1;
+                        let duration = 0;
+                        let unit: 'hours' | 'days' = 'hours';
+
+                        if (currentStep === 1) {
+                            // Specifically for Step 1 -> Step 2, use lead_time_1 in days
+                            const lt1 = bulkUpdates[id]?.lead_time_1 || (item as any).lead_time_1 || 0;
+                            duration = Number(lt1);
+                            unit = 'days';
+                        } else {
+                            const nextConfig = stepConfigs.find(c => c.step === nextStep);
+                            duration = nextConfig?.tatValue || 24;
+                            unit = nextConfig?.tatUnit || 'hours';
+                        }
+
+                        const nextPlanned = getNextPlannedTime(currentTime, duration, unit);
+                        updatedData[`Planned_${nextStep}`] = nextPlanned.toISOString();
+                    }
+                }
+
                 return fetch('/api/job-work', {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id, ...updates })
+                    body: JSON.stringify(updatedData)
                 });
             });
 
-            await Promise.all(promises);
-            toast.success(`Updated ${selectedItems.size} items`);
+            await Promise.all(updatePromises);
+            toast.success(`Bulk update applied to ${itemsToMarkDone.size} items`);
+            setItemsToMarkDone(new Set());
             setSelectedItems(new Set());
+            setBulkUpdates({});
             setIsBulkUpdateModalOpen(false);
             fetchData();
         } catch (e) {
@@ -549,31 +591,7 @@ export default function JobWorkPage() {
 
 
 
-                {/* Bulk Update Active Bar */}
-                {selectedItems.size > 0 && viewMode === 'data' && (
-                    <motion.div
-                        initial={{ y: 20, opacity: 0 }}
-                        animate={{ y: 0, opacity: 1 }}
-                        className="bg-emerald-500 text-white p-4 rounded-[2rem] shadow-xl flex items-center justify-between px-8 mb-4"
-                    >
-                        <div className="flex items-center gap-4">
-                            <span className="text-[10px] font-black uppercase tracking-widest">{selectedItems.size} Items Selected</span>
-                            <div className="w-px h-4 bg-white/20" />
-                            <button
-                                onClick={() => setSelectedItems(new Set())}
-                                className="text-[10px] font-bold uppercase tracking-widest hover:underline"
-                            >
-                                Clear Selection
-                            </button>
-                        </div>
-                        <button
-                            onClick={() => setIsBulkUpdateModalOpen(true)}
-                            className="bg-white text-emerald-500 px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm hover:bg-slate-50 transition-all"
-                        >
-                            Mark All Done
-                        </button>
-                    </motion.div>
-                )}
+
 
                 {/* Search and Table Section — Search Removed */}
                 {viewMode !== 'setup' ? (
@@ -658,6 +676,31 @@ export default function JobWorkPage() {
                                             </button>
                                         ))}
                                     </div>
+
+                                    {selectedItems.size > 0 && (
+                                        <>
+                                            <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 mx-1" />
+                                            <div className="flex items-center gap-2">
+                                                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/30">
+                                                    <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">{selectedItems.size} Selected</span>
+                                                    <button
+                                                        onClick={() => setSelectedItems(new Set())}
+                                                        className="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-800/50 rounded-md text-emerald-500 transition-colors"
+                                                        title="Clear Selection"
+                                                    >
+                                                        <X size={12} />
+                                                    </button>
+                                                </div>
+                                                <button
+                                                    onClick={() => setIsBulkUpdateModalOpen(true)}
+                                                    className="px-4 py-1.5 rounded-lg bg-emerald-500 text-white text-[9px] font-black uppercase tracking-wider shadow-lg shadow-emerald-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2"
+                                                >
+                                                    <CheckCircle2 size={13} />
+                                                    Update Details
+                                                </button>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
 
                                 <div className="flex items-center gap-1.5">
@@ -716,6 +759,9 @@ export default function JobWorkPage() {
                                         <th className="px-6 py-3 w-20 text-center">ID</th>
                                         <th className="px-6 py-3 w-24 text-center">Group</th>
                                         <th className="px-6 py-3 min-w-[200px]">Job Details</th>
+                                        <th className="px-6 py-3 text-center">Qty (Kg)</th>
+                                        <th className="px-6 py-3 text-center">Qty (Pcs)</th>
+                                        <th className="px-6 py-3">Date</th>
                                         {JOB_STAGES.map(s => (
                                             <th key={s.step} className="px-3 py-2 text-left border-l border-white/10 min-w-[160px]">
                                                 <div className="flex flex-col leading-tight">
@@ -724,9 +770,6 @@ export default function JobWorkPage() {
                                                 </div>
                                             </th>
                                         ))}
-                                        <th className="px-6 py-3 text-center">Qty (Kg)</th>
-                                        <th className="px-6 py-3 text-center">Qty (Pcs)</th>
-                                        <th className="px-6 py-3">Date</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50 dark:divide-slate-700/50">
@@ -839,6 +882,9 @@ export default function JobWorkPage() {
                                                         </div>
                                                     </div>
                                                 </td>
+                                                <td className="px-6 py-4 text-center font-black text-slate-900 dark:text-white text-xs">{item['Qty Of Material To Be Sent In Kg'] || '0'}</td>
+                                                <td className="px-6 py-4 text-center font-black text-slate-900 dark:text-white text-xs">{item['Qty Material To Be Sent In Pcs'] || '0'}</td>
+                                                <td className="px-6 py-4 text-[10px] font-bold text-slate-400">{formatDateTime(item.Timestamp)}</td>
                                                 {JOB_STAGES.map(s => {
                                                     const planned = (item as any)[`Planned_${s.step}`];
                                                     const actual = (item as any)[`Actual_${s.step}`];
@@ -848,59 +894,45 @@ export default function JobWorkPage() {
                                                     const isLastCompleted = currentPendingStep - 1 === s.step;
 
                                                     return (
-                                                        <td key={s.step} className={`px-3 py-4 border-l border-slate-50 dark:border-slate-700/50 transition-colors ${isCurrent ? `bg-gradient-to-br ${s.color} opacity-80 dark:opacity-20` : ''}`}>
-                                                            <div className="flex flex-col gap-1">
-                                                                {actual ? (
-                                                                    <div className="flex flex-col gap-1">
-                                                                        <div className="flex items-center gap-1 text-emerald-500">
-                                                                            <CheckCircle2 size={12} />
-                                                                            <span className="text-[10px] font-black uppercase tracking-tighter">Done</span>
+                                                        <td key={s.step} className={`px-3 py-3 border-l border-slate-50 dark:border-slate-700/50 transition-colors ${isCurrent ? `bg-gradient-to-br ${s.color} dark:opacity-30` : ''}`}>
+                                                            <div className="flex flex-col gap-0.5 text-[10px]">
+                                                                <div className="flex justify-between gap-2">
+                                                                    <span className="text-gray-400">P:</span>
+                                                                    <span className="text-gray-600 dark:text-gray-300">
+                                                                        {planned ? new Date(planned).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : '-'}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="flex justify-between gap-2">
+                                                                    <span className="text-gray-400">A:</span>
+                                                                    <span className="font-medium text-indigo-600 dark:text-indigo-400">
+                                                                        {actual ? new Date(actual).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : '-'}
+                                                                    </span>
+                                                                </div>
+                                                                {(() => {
+                                                                    return delay ? (
+                                                                        <div className={`text-[8px] text-right font-black uppercase tracking-tighter ${delay.color}`}>
+                                                                            {delay.text}
                                                                         </div>
-                                                                        {isLastCompleted && s.step > 1 && (
-                                                                            <button
-                                                                                onClick={() => {
-                                                                                    setRemoveStepTarget(item);
-                                                                                    setIsRemoveStepModalOpen(true);
-                                                                                }}
-                                                                                className="mt-0.5 text-[8px] font-black text-indigo-500 uppercase tracking-widest hover:underline text-left pointer-events-auto relative z-10"
-                                                                            >
-                                                                                Remove Follow Up
-                                                                            </button>
-                                                                        )}
-                                                                    </div>
-                                                                ) : planned ? (
-                                                                    <div className="space-y-0.5">
-                                                                        <div className="flex items-center gap-1 text-slate-400">
-                                                                            <Clock size={10} />
-                                                                            <span className="text-[9px] font-bold uppercase tracking-tighter">{formatDateTime(planned)}</span>
-                                                                        </div>
-                                                                        {delay && (
-                                                                            <span className={`text-[9px] font-black uppercase tracking-tighter ${delay.color}`}>{delay.text}</span>
-                                                                        )}
-                                                                        {isCurrent && (
-                                                                            <button
-                                                                                onClick={() => {
-                                                                                    const next = new Set(selectedItems);
-                                                                                    next.add(item.id);
-                                                                                    setSelectedItems(next);
-                                                                                    setIsBulkUpdateModalOpen(true);
-                                                                                }}
-                                                                                className="mt-1 w-full py-1 bg-emerald-500 text-white rounded-md text-[8px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-colors shadow-sm"
-                                                                            >
-                                                                                Mark Done
-                                                                            </button>
-                                                                        )}
-                                                                    </div>
-                                                                ) : (
+                                                                    ) : null;
+                                                                })()}
+                                                                {isLastCompleted && s.step > 1 && (
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setRemoveStepTarget(item);
+                                                                            setIsRemoveStepModalOpen(true);
+                                                                        }}
+                                                                        className="mt-0.5 pt-0.5 border-t border-gray-100 dark:border-gray-700 text-[8px] font-black text-indigo-500 uppercase tracking-widest hover:underline text-left pointer-events-auto relative z-10"
+                                                                    >
+                                                                        Remove Follow Up
+                                                                    </button>
+                                                                )}
+                                                                {!planned && !actual && (
                                                                     <span className="text-[9px] font-bold text-slate-300 uppercase italic">Waiting</span>
                                                                 )}
                                                             </div>
                                                         </td>
                                                     );
                                                 })}
-                                                <td className="px-6 py-4 text-center font-black text-slate-900 dark:text-white text-xs">{item['Qty Of Material To Be Sent In Kg'] || '0'}</td>
-                                                <td className="px-6 py-4 text-center font-black text-slate-900 dark:text-white text-xs">{item['Qty Material To Be Sent In Pcs'] || '0'}</td>
-                                                <td className="px-6 py-4 text-[10px] font-bold text-slate-400">{formatDateTime(item.Timestamp)}</td>
 
                                             </motion.tr>
                                         ))
@@ -1209,23 +1241,176 @@ export default function JobWorkPage() {
                 )}
             </AnimatePresence>
             <AnimatePresence>
-                {isBulkUpdateModalOpen && (
-                    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsBulkUpdateModalOpen(false)} className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" />
-                        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="relative bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-2xl w-full max-w-sm text-center">
-                            <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4 text-emerald-600">
-                                <CheckCircle2 size={32} />
+                {isBulkUpdateModalOpen && selectedItems.size > 0 && (
+                    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            className="relative bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col border border-slate-200 dark:border-slate-800"
+                        >
+                            {/* Header */}
+                            <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
+                                <div>
+                                    <h2 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-tight">Bulk Status Update</h2>
+                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Toggle each item to mark as done for its current step</p>
+                                </div>
+                                <button
+                                    onClick={() => { setIsBulkUpdateModalOpen(false); setItemsToMarkDone(new Set()); }}
+                                    className="p-1.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-700 transition-all text-slate-400 hover:text-slate-600"
+                                >
+                                    <X size={18} />
+                                </button>
                             </div>
-                            <h3 className="text-xl font-black text-gray-900 dark:text-white uppercase tracking-tight mb-2">Bulk Complete?</h3>
-                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-8">Mark {selectedItems.size} selected items as DONE for their current step?</p>
-                            <div className="flex gap-3">
-                                <button onClick={() => setIsBulkUpdateModalOpen(false)} className="flex-1 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-slate-700 text-slate-500">Cancel</button>
+
+                            {/* Body */}
+                            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-white dark:bg-slate-900">
+                                <div className="p-2.5 px-4 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-2xl border border-indigo-100 dark:border-indigo-800/30 flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-xl bg-indigo-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
+                                        <ClipboardCheck size={15} />
+                                    </div>
+                                    <p className="text-[10px] font-black text-indigo-900 dark:text-indigo-100">{selectedItems.size} records ready to be processed. Toggle items to mark done.</p>
+                                </div>
+
+                                <div className="space-y-4">
+                                    {Array.from(new Set(
+                                        Array.from(selectedItems)
+                                            .map(id => { const item = data.find(d => d.id === id); return item ? getCurrentStep(item) : null; })
+                                            .filter((s): s is number => s !== null && s <= 11)
+                                    )).sort((a, b) => a - b).map(stepNum => {
+                                        const stage = JOB_STAGES.find(s => s.step === stepNum);
+                                        const config = stepConfigs.find(c => c.step === stepNum);
+                                        const stepItems = data.filter(d => selectedItems.has(d.id) && getCurrentStep(d) === stepNum);
+                                        const allMarked = stepItems.every(i => itemsToMarkDone.has(i.id));
+
+                                        return (
+                                            <div key={stepNum} className="space-y-2">
+                                                <div className="flex items-center justify-between px-1">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-0.5 h-6 rounded-full bg-[var(--theme-primary)]" />
+                                                        <div>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[8px] font-black text-[var(--theme-primary)] uppercase tracking-widest">Step {stepNum}</span>
+                                                                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-full">{config?.doerName || 'Unassigned'}</span>
+                                                            </div>
+                                                            <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">{stage?.name || `Step ${stepNum}`}</h3>
+                                                        </div>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => {
+                                                            const next = new Set(itemsToMarkDone);
+                                                            if (allMarked) { stepItems.forEach(i => next.delete(i.id)); }
+                                                            else { stepItems.forEach(i => next.add(i.id)); }
+                                                            setItemsToMarkDone(next);
+                                                        }}
+                                                        className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border ${allMarked
+                                                            ? 'border-slate-200 text-slate-400 dark:border-slate-700'
+                                                            : 'border-[var(--theme-primary)] text-[var(--theme-primary)] hover:bg-[var(--theme-primary)] hover:text-white'
+                                                            }`}
+                                                    >
+                                                        {allMarked ? 'Unmark All' : 'Mark Stage Done'}
+                                                    </button>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-1">
+                                                    {stepItems.map((item, idx) => (
+                                                        <div key={item.id} className={`p-2 px-3 rounded-xl border transition-all group ${itemsToMarkDone.has(item.id)
+                                                            ? 'bg-green-50/20 dark:bg-green-900/10 border-green-200 dark:border-green-800/30'
+                                                            : 'bg-slate-50 dark:bg-slate-800/30 border-slate-100 dark:border-slate-800'
+                                                            }`}>
+                                                            <div className="flex items-center justify-between gap-3">
+                                                                <div className="flex-1 min-w-0">
+                                                                    <div className="flex items-center gap-2 mb-0.5">
+                                                                        <span className="text-[8px] font-black w-5 h-5 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 shadow-sm">{idx + 1}</span>
+                                                                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">ID #{item.id}</span>
+                                                                    </div>
+                                                                    <h4 className="text-[11px] font-black text-slate-900 dark:text-white uppercase tracking-tight truncate">{item['Job Work Name']}</h4>
+                                                                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1 truncate">
+                                                                        {item['Item Name']}
+                                                                        {item['Vendor Name'] && <><span className="w-0.5 h-0.5 rounded-full bg-slate-300 inline-block" />{item['Vendor Name']}</>}
+                                                                    </p>
+                                                                </div>
+
+                                                                <div className="flex items-center gap-2 shrink-0 bg-white dark:bg-slate-900 p-1 px-2 rounded-lg border border-slate-100 dark:border-slate-800 shadow-sm">
+                                                                    <label className="relative inline-flex items-center cursor-pointer scale-75">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            className="sr-only peer"
+                                                                            checked={itemsToMarkDone.has(item.id)}
+                                                                            onChange={() => {
+                                                                                const next = new Set(itemsToMarkDone);
+                                                                                if (next.has(item.id)) next.delete(item.id);
+                                                                                else next.add(item.id);
+                                                                                setItemsToMarkDone(next);
+                                                                            }}
+                                                                        />
+                                                                        <div className="w-10 h-5 bg-slate-200 dark:bg-slate-700 peer-checked:bg-green-500 rounded-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:border-gray-300 after:rounded-full after:h-[16px] after:w-[16px] after:transition-all peer-checked:after:translate-x-full peer-checked:after:border-white" />
+                                                                    </label>
+                                                                    <span className={`text-[7px] font-black uppercase tracking-widest ${itemsToMarkDone.has(item.id) ? 'text-green-500' : 'text-slate-400'}`}>
+                                                                        {itemsToMarkDone.has(item.id) ? 'DONE' : 'NEXT'}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+
+                                                            {stepNum === 1 && (
+                                                                <div className="grid grid-cols-2 gap-2 pt-2 mt-2 border-t border-slate-100 dark:border-slate-800/50">
+                                                                    <div className="space-y-1">
+                                                                        <label className="text-[7px] font-black text-slate-400 uppercase tracking-widest ml-1">Lead Time</label>
+                                                                        <input
+                                                                            type="number"
+                                                                            value={bulkUpdates[item.id]?.lead_time_1 || ''}
+                                                                            onChange={(e) => setBulkUpdates(prev => ({
+                                                                                ...prev,
+                                                                                [item.id]: { ...prev[item.id], lead_time_1: e.target.value }
+                                                                            }))}
+                                                                            className="w-full h-7 px-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[9px] font-bold focus:border-[var(--theme-primary)] outline-none"
+                                                                            placeholder="Lead Time..."
+                                                                        />
+                                                                    </div>
+                                                                    <div className="space-y-1">
+                                                                        <label className="text-[7px] font-black text-slate-400 uppercase tracking-widest ml-1">Remark</label>
+                                                                        <input
+                                                                            type="text"
+                                                                            value={bulkUpdates[item.id]?.remark_1 || ''}
+                                                                            onChange={(e) => setBulkUpdates(prev => ({
+                                                                                ...prev,
+                                                                                [item.id]: { ...prev[item.id], remark_1: e.target.value }
+                                                                            }))}
+                                                                            className="w-full h-7 px-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[9px] font-bold focus:border-[var(--theme-primary)] outline-none"
+                                                                            placeholder="Remark..."
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Footer */}
+                            <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-700 flex items-center gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => { setIsBulkUpdateModalOpen(false); setItemsToMarkDone(new Set()); }}
+                                    className="px-6 h-10 rounded-xl border border-slate-200 dark:border-slate-700 text-[10px] font-black text-slate-500 uppercase tracking-widest hover:bg-white dark:hover:bg-slate-800 transition-all"
+                                >
+                                    Cancel
+                                </button>
                                 <button
                                     onClick={handleBulkUpdate}
-                                    disabled={isSaving}
-                                    className="flex-1 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest bg-emerald-500 text-white shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2"
+                                    disabled={isSaving || itemsToMarkDone.size === 0}
+                                    className="flex-1 h-10 rounded-xl bg-[var(--theme-primary)] text-gray-900 text-[10px] font-black uppercase tracking-widest shadow-xl shadow-[var(--theme-primary)]/20 hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                                 >
-                                    {isSaving ? <Loader2 className="animate-spin" size={16} /> : 'Complete All'}
+                                    {isSaving ? <Loader2 className="animate-spin" size={16} /> : (
+                                        <>
+                                            <CheckCircle2 size={15} />
+                                            Apply Updates to {itemsToMarkDone.size} Records
+                                        </>
+                                    )}
                                 </button>
                             </div>
                         </motion.div>

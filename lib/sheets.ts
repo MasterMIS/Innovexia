@@ -5940,18 +5940,19 @@ export async function getJobWorkData() {
   }
 }
 
-function getNextPlannedTimeJobWork(current: Date, value: number, unit: string) {
+function getNextPlannedTimeJobWork(current: Date, value: number | string, unit: string) {
   const next = new Date(current);
+  const numericValue = Number(value);
   if (unit === 'days') {
     let daysAdded = 0;
-    while (daysAdded < value) {
+    while (daysAdded < numericValue) {
       next.setDate(next.getDate() + 1);
       if (next.getDay() !== 0) { // Skip Sunday
         daysAdded++;
       }
     }
   } else {
-    next.setHours(next.getHours() + value);
+    next.setHours(next.getHours() + numericValue);
   }
 
   if (next.getDay() === 0) {
@@ -6176,9 +6177,14 @@ export async function updateJobWorkData(id: string, updates: any) {
         updates[`Status_${i}`] = 'Completed';
         if (i < 11) {
           const nextStep = i + 1;
-          const nextConfig = configs.find(c => parseInt(c.step) === nextStep);
-          const nextPlanned = getNextPlannedTimeJobWork(new Date(updates[`Actual_${i}`]), nextConfig?.tatValue || 24, nextConfig?.tatUnit || 'hours').toISOString();
-          updates[`Planned_${nextStep}`] = nextPlanned;
+          const nextPlannedKey = `Planned_${nextStep}`;
+
+          // Only auto-plan if the frontend hasn't already sent a specialized planned date
+          if (!updates[nextPlannedKey]) {
+            const nextConfig = configs.find(c => parseInt(c.step) === nextStep);
+            const nextPlanned = getNextPlannedTimeJobWork(new Date(updates[`Actual_${i}`]), nextConfig?.tatValue || 24, nextConfig?.tatUnit || 'hours').toISOString();
+            updates[nextPlannedKey] = nextPlanned;
+          }
         }
       }
     }

@@ -47,6 +47,7 @@ interface UserScore {
     onTimeTasks: number;
     scorePercentage: number;
     onTimePercentage: number;
+    finalScorePercentage: number;
     delegationStats: {
         total: number;
         completed: number;
@@ -72,6 +73,7 @@ interface ChartDataPoint {
     label: string;
     score: number;
     onTime: number;
+    finalScore: number;
 }
 
 interface O2DTaskData {
@@ -177,7 +179,9 @@ export default function ScorePage() {
             const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0);
             setDateRange({ from: formatDateLocal(firstDay), to: formatDateLocal(lastDay) });
         } else if (filterType === 'tillDate') {
-            setDateRange({ from: '2000-01-01', to: formatDateLocal(new Date()) });
+            const now = new Date();
+            const startOfYear = new Date(now.getFullYear(), 0, 1);
+            setDateRange({ from: formatDateLocal(startOfYear), to: formatDateLocal(now) });
         }
     }, [filterType]);
 
@@ -236,7 +240,7 @@ export default function ScorePage() {
                 periods.push({
                     from: start,
                     to: end,
-                    label: `W${weekNum}`
+                    label: `W${weekNum} - ${start.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`
                 });
                 current.setDate(current.getDate() + 7);
                 weekNum++;
@@ -249,7 +253,7 @@ export default function ScorePage() {
                     const start = new Date(current);
                     const end = new Date(current.getFullYear(), current.getMonth() + 1, 0);
                     end.setHours(23, 59, 59, 999);
-                    periods.push({ from: start, to: end, label: start.toLocaleDateString('en-US', { month: 'short' }) });
+                    periods.push({ from: start, to: end, label: start.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) });
                     current.setMonth(current.getMonth() + 1);
                 }
             } else {
@@ -395,12 +399,16 @@ export default function ScorePage() {
 
                 const pTotal = pDelTotal + pCheckTotal + pO2DTotal;
                 const pCompleted = pDels.filter(d => d.status.toLowerCase() === 'completed').length + pChecks.filter(c => c.status.toLowerCase() === 'completed').length + pO2D.length;
-                const pOnTime = pDelOnTime + pCheckOnTime + pO2DOnTime;
+                const pOnTimeCount = pDelOnTime + pCheckOnTime + pO2DOnTime;
+
+                const pScore = pTotal > 0 ? Math.round((pCompleted / pTotal) * 100) : 0;
+                const pOnTimeRate = pCompleted > 0 ? Math.round((pOnTimeCount / pCompleted) * 100) : 0;
 
                 return {
                     label: p.label,
-                    score: pTotal > 0 ? Math.round((pCompleted / pTotal) * 100) : 0,
-                    onTime: pCompleted > 0 ? Math.round((pOnTime / pCompleted) * 100) : 0
+                    score: pScore,
+                    onTime: pOnTimeRate,
+                    finalScore: pTotal > 0 ? Math.round(((pScore + pOnTimeRate) / 2)) : 0
                 };
             });
 
@@ -411,6 +419,7 @@ export default function ScorePage() {
                 onTimeTasks: onTimeTotal,
                 scorePercentage: totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0,
                 onTimePercentage: completedTasks > 0 ? Math.round((onTimeTotal / completedTasks) * 100) : 0,
+                finalScorePercentage: totalTasks > 0 ? Math.round(((totalTasks > 0 ? (completedTasks / totalTasks) : 0) + (completedTasks > 0 ? (onTimeTotal / completedTasks) : 0)) / 2 * 100) : 0,
                 delegationStats: {
                     total: userDelegations.length,
                     completed: completedDelegations.length,
@@ -519,7 +528,25 @@ export default function ScorePage() {
                     <div>
                         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Performance Score</h1>
                     </div>
-                    <div className="flex flex-col sm:flex-row gap-4 w-full xl:w-auto">
+                    <div className="flex flex-col sm:flex-row gap-4 w-full xl:w-auto items-center">
+                        {activeTab === 'appraisal' && (
+                            <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+                                <button
+                                    onClick={() => setFilterType('month')}
+                                    className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${filterType === 'month' ? 'bg-white dark:bg-gray-700 text-[var(--theme-primary)] shadow-sm' : 'text-gray-400'}`}
+                                >
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+                                    Week
+                                </button>
+                                <button
+                                    onClick={() => setFilterType('tillDate')}
+                                    className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${filterType === 'tillDate' ? 'bg-white dark:bg-gray-700 text-[var(--theme-primary)] shadow-sm' : 'text-gray-400'}`}
+                                >
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                    Month
+                                </button>
+                            </div>
+                        )}
                         {activeTab === 'scoring' && (
                             <div className="flex flex-col sm:flex-row gap-2 bg-white dark:bg-gray-800 p-2 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
                                 <div className="relative">
@@ -770,6 +797,7 @@ export default function ScorePage() {
                                                             <th className="px-6 py-4 text-center">Score %</th>
                                                             <th className="px-6 py-4">On Time / Completed</th>
                                                             <th className="px-6 py-4 text-center">On Time %</th>
+                                                            <th className="px-6 py-4 text-center">Final Score %</th>
                                                             <th className="px-6 py-4 text-right">Details</th>
                                                         </tr>
                                                     </thead>
@@ -811,6 +839,9 @@ export default function ScorePage() {
                                                                         </td>
                                                                         <td className="px-6 py-3 text-center">
                                                                             <span className={`text-sm font-bold ${getColorForScore(score.onTimePercentage)}`}>{score.onTimePercentage}%</span>
+                                                                        </td>
+                                                                        <td className="px-6 py-3 text-center">
+                                                                            <span className={`text-sm font-bold ${getColorForScore(score.finalScorePercentage)}`}>{score.finalScorePercentage}%</span>
                                                                         </td>
                                                                         <td className="px-6 py-3 text-right">
                                                                             <button
@@ -855,6 +886,9 @@ export default function ScorePage() {
                                                                                         </td>
                                                                                         <td className="px-6 py-3 text-center bg-gray-50 dark:bg-gray-800/60">
                                                                                             <span className={`text-xs font-bold ${getColorForScore(delOnTimePercentage)}`}>{delOnTimePercentage}%</span>
+                                                                                        </td>
+                                                                                        <td className="px-6 py-3 text-center bg-gray-50 dark:bg-gray-800/60">
+                                                                                            <span className={`text-xs font-bold ${getColorForScore(Math.round((delPercentage + delOnTimePercentage) / 2))}`}>{Math.round((delPercentage + delOnTimePercentage) / 2)}%</span>
                                                                                         </td>
                                                                                         <td className="px-6 py-3 text-right bg-gray-50 dark:bg-gray-800/60 rounded-r-xl">
                                                                                             <div className="flex items-center justify-end">
@@ -907,6 +941,9 @@ export default function ScorePage() {
                                                                                         <td className="px-6 py-3 text-center bg-gray-50 dark:bg-gray-800/60">
                                                                                             <span className={`text-xs font-bold ${getColorForScore(chklOnTimePercentage)}`}>{chklOnTimePercentage}%</span>
                                                                                         </td>
+                                                                                        <td className="px-6 py-3 text-center bg-gray-50 dark:bg-gray-800/60">
+                                                                                            <span className={`text-xs font-bold ${getColorForScore(Math.round((chklPercentage + chklOnTimePercentage) / 2))}`}>{Math.round((chklPercentage + chklOnTimePercentage) / 2)}%</span>
+                                                                                        </td>
                                                                                         <td className="px-6 py-3 text-right bg-gray-50 dark:bg-gray-800/60 rounded-r-xl">
                                                                                             <div className="flex items-center justify-end">
                                                                                                 <button
@@ -958,6 +995,9 @@ export default function ScorePage() {
                                                                                         <td className="px-6 py-3 text-center bg-gray-50 dark:bg-gray-800/60">
                                                                                             <span className={`text-xs font-bold ${getColorForScore(o2dOnTimePercentage)}`}>{o2dOnTimePercentage}%</span>
                                                                                         </td>
+                                                                                        <td className="px-6 py-3 text-center bg-gray-50 dark:bg-gray-800/60">
+                                                                                            <span className={`text-xs font-bold ${getColorForScore(Math.round((o2dPercentage + o2dOnTimePercentage) / 2))}`}>{Math.round((o2dPercentage + o2dOnTimePercentage) / 2)}%</span>
+                                                                                        </td>
                                                                                         <td className="px-6 py-3 text-right bg-gray-50 dark:bg-gray-800/60 rounded-r-xl">
                                                                                             <div className="flex items-center justify-end">
                                                                                                 <button
@@ -992,12 +1032,68 @@ export default function ScorePage() {
                             )}
                         </>
                     ) : (
-                        <motion.div key="appraisal" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-sm border border-gray-100 dark:border-gray-700 text-center">
-                            <div className="max-w-md mx-auto">
-                                <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">📈</div>
-                                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Appraisal System</h2>
-                                <p className="text-gray-500 dark:text-gray-400 mb-6">This module is currently under development.</p>
-                                <button className="px-6 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl font-medium">Coming Soon</button>
+                        <motion.div key="appraisal" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-4">
+                            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left">
+                                        <thead className="bg-gray-50/50 dark:bg-gray-700/50 text-[10px] uppercase tracking-wider font-bold text-gray-500 dark:text-gray-400">
+                                            <tr>
+                                                <th className="px-6 py-4 sticky left-0 bg-gray-50 dark:bg-gray-800 z-10">User</th>
+                                                {userScores[0]?.trendData.map((point, i) => (
+                                                    <th key={i} className="px-4 py-4 text-center whitespace-nowrap min-w-[100px]">
+                                                        {point.label}
+                                                    </th>
+                                                ))}
+                                                <th className="px-6 py-4 text-center sticky right-0 bg-gray-50 dark:bg-gray-800 z-10 shadow-[-1px_0_0_0_rgba(0,0,0,0.1)]">Overall</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
+                                            {[...userScores].sort((a, b) => b.finalScorePercentage - a.finalScorePercentage).map((score, index) => (
+                                                <tr key={score.user.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors">
+                                                    <td className="px-6 py-4 sticky left-0 bg-white dark:bg-gray-800 z-10 shadow-[1px_0_0_0_rgba(0,0,0,0.1)]">
+                                                        <div className="flex items-center gap-3">
+                                                            {score.user.image_url || score.user.imageUrl ? (
+                                                                <img src={score.user.image_url || score.user.imageUrl} alt={score.user.username} className="w-8 h-8 rounded-full object-cover border border-gray-100 shadow-sm" />
+                                                            ) : (
+                                                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[var(--theme-primary)] to-yellow-500 flex items-center justify-center text-gray-900 font-bold text-xs border border-gray-100 shadow-sm">{score.user.username.charAt(0).toUpperCase()}</div>
+                                                            )}
+                                                            <div className="min-w-[100px]">
+                                                                <div className="flex items-center gap-2">
+                                                                    <h3 className="font-bold text-gray-900 dark:text-white text-xs truncate">{score.user.username}</h3>
+                                                                    {index < 3 && (
+                                                                        <span className="text-xl shrink-0" title={index === 0 ? 'Gold Medal' : index === 1 ? 'Silver Medal' : 'Bronze Medal'}>
+                                                                            {index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    {score.trendData.map((point, i) => (
+                                                        <td key={i} className="px-4 py-4 text-center">
+                                                            <span className={`text-xs font-bold ${getColorForScore(point.finalScore)}`}>
+                                                                {point.finalScore}%
+                                                            </span>
+                                                        </td>
+                                                    ))}
+                                                    <td className="px-6 py-4 text-center sticky right-0 bg-white dark:bg-gray-800 z-10 shadow-[-1px_0_0_0_rgba(0,0,0,0.1)]">
+                                                        <span className={`text-sm font-black ${getColorForScore(score.finalScorePercentage)}`}>
+                                                            {score.finalScorePercentage}%
+                                                        </span>
+                                                        <div className="w-16 h-1 bg-gray-100 dark:bg-gray-700 rounded-full mt-1.5 mx-auto overflow-hidden">
+                                                            <div
+                                                                style={{ width: `${score.finalScorePercentage}%` }}
+                                                                className={`h-full transition-all ${score.finalScorePercentage < 34 ? 'bg-red-500' :
+                                                                    score.finalScorePercentage < 76 ? 'bg-yellow-500' : 'bg-green-500'
+                                                                    }`}
+                                                            />
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         </motion.div>
                     )}
