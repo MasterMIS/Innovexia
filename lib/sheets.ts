@@ -29,6 +29,7 @@ export const SPREADSHEET_IDS = {
   CLIENT_COMPLAIN: '1NbmOkuvfCDIdeK-UGKzWvPtWMf1Io1Yo9TH-lz-_uNs',
   RM_DEFECTS: '1a0pnGbY_tSk5y9_VN02KHcqiJWHUKQSLAav9_9aIDpE',
   JOB_WORK: '1V326z9jzR8bBaLy5J5eae4jKsyg3px7E87LZ9TOue90',
+  IMS_FG: '1Jc8ITgif_JE3DkhZDewrc3k1ew5vZpYhobPhWS1eXTI',
 };
 
 // Backward compatibility
@@ -39,6 +40,7 @@ const NBD_SPREADSHEET_ID = SPREADSHEET_IDS.NBD;
 const O2D_SPREADSHEET_ID = SPREADSHEET_IDS.O2D;
 const ATTENDANCE_SPREADSHEET_ID = SPREADSHEET_IDS.ATTENDANCE;
 const IMS_RM_SPREADSHEET_ID = SPREADSHEET_IDS.IMS_RM;
+const IMS_FG_SPREADSHEET_ID = SPREADSHEET_IDS.IMS_FG;
 
 // Local wrapper removed in favor of shared formatToSheetDate
 
@@ -3163,6 +3165,34 @@ export async function getIMSRMData(sheetName: string) {
   }
 }
 
+export async function getIMSFGData() {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    const sheetName = 'FG';
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: IMS_FG_SPREADSHEET_ID,
+      range: `${sheetName}!A:AZ`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) return [];
+
+    const headers = rows[0];
+    const dataRows = rows.slice(1);
+
+    const data = dataRows
+      .map(row => rowToObject(headers, row))
+      .filter(item => Object.values(item).some(val => val !== null && val !== ''));
+
+    return data;
+  } catch (error) {
+    console.error('Error fetching IMS FG data:', error);
+    throw error;
+  }
+}
+
 // Cache for headers to speed up submissions
 const imsHeadersCache = new Map<string, string[]>();
 
@@ -5425,7 +5455,8 @@ export async function createClientComplainData(complaints: any[]) {
     const sheets = await getGoogleSheetsClient();
     const spreadsheetId = SPREADSHEET_IDS.CLIENT_COMPLAIN;
     const sheetName = SHEETS.CLIENT_COMPLAIN;
-    const timestamp = new Date().toISOString();
+    const now = new Date();
+    const timestamp = now.toISOString();
 
     const existingRes = await sheets.spreadsheets.values.get({
       spreadsheetId,
@@ -5433,7 +5464,7 @@ export async function createClientComplainData(complaints: any[]) {
       valueRenderOption: 'UNFORMATTED_VALUE',
     });
     const existingRows = existingRes.data.values || [];
-    const headers: string[] = existingRows[0]?.map((h: string) => h.trim()) || [];
+    const headers: string[] = existingRes.data.values?.[0]?.map((h: string) => h.trim()) || [];
 
     if (headers.length === 0) {
       const defaultHeaders = [
@@ -5457,6 +5488,11 @@ export async function createClientComplainData(complaints: any[]) {
       headers.push(...defaultHeaders);
     }
 
+    // Fetch Step 1 TAT from config to compute Planned_1 correctly
+    const config = await getClientComplainConfig();
+    const step1Config = config.find((c: any) => c.step === 1);
+    const planned1 = getNextPlannedTime(now, step1Config?.tatValue || 24, step1Config?.tatUnit || 'hours').toISOString();
+
     const idColIdx = headers.indexOf('id');
     let maxId = 0;
     if (idColIdx !== -1 && existingRows.length > 1) {
@@ -5474,7 +5510,7 @@ export async function createClientComplainData(complaints: any[]) {
         'Complain Product': c.complainProduct || '',
         Remark: c.remark || '',
         Timestamp: timestamp,
-        Planned_1: timestamp,
+        Planned_1: planned1,
       };
       return headers.map(h => rowMap[h] ?? '');
     });
@@ -5723,30 +5759,13 @@ export async function createRMDefectsData(defects: any[]) {
     const now = new Date();
     const timestamp = now.toISOString();
 
-    // Fetch Step 1 TAT from config to compute Planned_1 correctly
-    let planned1: string = timestamp; // fallback: same as created
-    try {
-      const config = await getRMDefectsConfig();
-      const step1Config = config.find((c: any) => c.step === 1);
-      if (step1Config && step1Config.tatValue > 0) {
-        const plannedDate = new Date(now);
-        const tatMs = step1Config.tatUnit === 'days'
-          ? step1Config.tatValue * 24 * 60 * 60 * 1000
-          : step1Config.tatValue * 60 * 60 * 1000;
-        plannedDate.setTime(plannedDate.getTime() + tatMs);
-        planned1 = plannedDate.toISOString();
-      }
-    } catch (_) {
-      // if config fetch fails, keep planned1 = timestamp
-    }
-
     const existingRes = await sheets.spreadsheets.values.get({
       spreadsheetId,
       range: `${sheetName}!A:AZ`,
       valueRenderOption: 'UNFORMATTED_VALUE',
     });
     const existingRows = existingRes.data.values || [];
-    const headers: string[] = existingRows[0]?.map((h: string) => h.trim()) || [];
+    let headers: string[] = existingRows[0]?.map((h: string) => h.trim()) || [];
 
     if (headers.length === 0) {
       const defaultHeaders = [
@@ -5767,8 +5786,32 @@ export async function createRMDefectsData(defects: any[]) {
         valueInputOption: 'RAW',
         requestBody: { values: [defaultHeaders] }
       });
-      headers.push(...defaultHeaders);
+      headers = defaultHeaders;
     }
+
+    // Ensure all headers exist (consistency check)
+    const requiredHeaders = [
+      'id', 'Material Name', 'Vendor Name', 'Remark', 'Timestamp', 'Cancelled'
+    ];
+    for (let i = 1; i <= 9; i++) {
+      requiredHeaders.push(`Planned_${i}`, `Actual_${i}`, `Status_${i}`);
+    }
+    const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
+    if (missingHeaders.length > 0) {
+      const newHeaders = [...headers, ...missingHeaders];
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `${sheetName}!A1`,
+        valueInputOption: 'RAW',
+        requestBody: { values: [newHeaders] }
+      });
+      headers = newHeaders;
+    }
+
+    // Fetch Step 1 TAT from config to compute Planned_1 correctly
+    const config = await getRMDefectsConfig();
+    const step1Config = config.find((c: any) => c.step === 1);
+    const planned1 = getNextPlannedTime(now, step1Config?.tatValue || 24, step1Config?.tatUnit || 'hours').toISOString();
 
     const idColIdx = headers.indexOf('id');
     let maxId = 0;
@@ -5940,7 +5983,7 @@ export async function getJobWorkData() {
   }
 }
 
-function getNextPlannedTimeJobWork(current: Date, value: number | string, unit: string) {
+export function getNextPlannedTime(current: Date, value: number | string, unit: string) {
   const next = new Date(current);
   const numericValue = Number(value);
   if (unit === 'days') {
@@ -6079,7 +6122,7 @@ export async function createJobWorkData(items: any[]) {
 
     const configs = await getJobWorkConfig();
     const step1Config = configs.find(c => parseInt(c.step) === 1);
-    const planned1 = getNextPlannedTimeJobWork(new Date(), step1Config?.tatValue || 24, step1Config?.tatUnit || 'hours').toISOString();
+    const planned1 = getNextPlannedTime(new Date(), step1Config?.tatValue || 24, step1Config?.tatUnit || 'hours').toISOString();
 
     const idColIdx = headers.indexOf('id');
     const groupColIdx = headers.indexOf('group-id');
@@ -6182,7 +6225,7 @@ export async function updateJobWorkData(id: string, updates: any) {
           // Only auto-plan if the frontend hasn't already sent a specialized planned date
           if (!updates[nextPlannedKey]) {
             const nextConfig = configs.find(c => parseInt(c.step) === nextStep);
-            const nextPlanned = getNextPlannedTimeJobWork(new Date(updates[`Actual_${i}`]), nextConfig?.tatValue || 24, nextConfig?.tatUnit || 'hours').toISOString();
+            const nextPlanned = getNextPlannedTime(new Date(updates[`Actual_${i}`]), nextConfig?.tatValue || 24, nextConfig?.tatUnit || 'hours').toISOString();
             updates[nextPlannedKey] = nextPlanned;
           }
         }

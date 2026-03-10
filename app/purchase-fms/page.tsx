@@ -772,7 +772,7 @@ export default function PurchaseFMSPage() {
                                     <p className="text-sm text-slate-500">Configure TAT (Turn Around Time) and assignees for each purchase step.</p>
                                 </div>
                                 <div className="space-y-4">
-                                    {stepConfigs.filter(c => c.step <= 4 && c.step !== 3).map((config, index) => (
+                                    {stepConfigs.filter(c => c.step <= 4).map((config, index) => (
                                         <div key={config.step} className="grid grid-cols-4 gap-6 p-5 bg-slate-50 dark:bg-slate-900/40 rounded-2xl border border-slate-200 dark:border-slate-700 items-center">
                                             <div className="col-span-1 border-r border-slate-200 dark:border-slate-700 pr-6">
                                                 <div className="text-[10px] font-bold text-[var(--theme-primary)] uppercase tracking-widest">Step {config.step}</div>

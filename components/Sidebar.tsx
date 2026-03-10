@@ -60,6 +60,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
     {
       label: 'IMS', icon: 'clipboard', roles: ['Admin', 'Manager'], children: [
         { label: 'IMS RM', icon: 'package', href: '/ims-rm', roles: ['Admin', 'Manager'] },
+        { label: 'IMS FG', icon: 'package', href: '/ims-fg', roles: ['Admin', 'Manager'] },
       ]
     },
     { label: 'HelpDesk', icon: 'headset', href: '/helpdesk', roles: ['Admin', 'Manager', 'Employee'] },

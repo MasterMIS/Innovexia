@@ -108,6 +108,7 @@ export default function JobWorkPage() {
     const [deletingItem, setDeletingItem] = useState<JobWork | null>(null);
     const [cancellingItem, setCancellingItem] = useState<JobWork | null>(null);
     const [removeStepTarget, setRemoveStepTarget] = useState<JobWork | null>(null);
+    const [removeStep, setRemoveStep] = useState<'all' | number>('all');
 
     const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
     const [itemsToMarkDone, setItemsToMarkDone] = useState<Set<string>>(new Set());
@@ -464,27 +465,50 @@ export default function JobWorkPage() {
         if (!removeStepTarget) return;
         setIsSaving(true);
         try {
-            const step = getCurrentStep(removeStepTarget);
-            if (step <= 1) return;
-            const prevStep = step - 1;
-            const updates = {
-                [`Actual_${prevStep}`]: '',
-                [`Status_${prevStep}`]: 'In Progress',
-                [`Planned_${step}`]: ''
-            };
+            const updates: any = {};
+            if (removeStep === 'all') {
+                for (let s = 1; s <= 11; s++) {
+                    updates[`Actual_${s}`] = '';
+                    updates[`Status_${s}`] = '';
+                    if (s > 1) updates[`Planned_${s}`] = '';
+                }
+                updates.lead_time_1 = '';
+                updates.remark_1 = '';
+            } else {
+                const stepNum = removeStep as number;
+                for (let s = 1; s <= 11; s++) {
+                    if (s === stepNum) {
+                        updates[`Actual_${s}`] = '';
+                        updates[`Status_${s}`] = '';
+                        if (s === 1) {
+                            updates.lead_time_1 = '';
+                            updates.remark_1 = '';
+                        }
+                    } else if (s > stepNum) {
+                        updates[`Actual_${s}`] = '';
+                        updates[`Status_${s}`] = '';
+                        updates[`Planned_${s}`] = '';
+                    }
+                }
+            }
+
             const res = await fetch('/api/job-work', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id: removeStepTarget.id, ...updates })
             });
             if (res.ok) {
-                toast.success('Follow up removed');
+                toast.success('Step data removed successfully');
                 setIsRemoveStepModalOpen(false);
+                setRemoveStepTarget(null);
+                setRemoveStep('all');
                 fetchData();
+            } else {
+                toast.error('Failed to remove step data');
             }
         } catch (e) {
             console.error(e);
-            toast.error('Failed to remove follow up');
+            toast.error('Error removing step data');
         } finally {
             setIsSaving(false);
         }
@@ -744,7 +768,7 @@ export default function JobWorkPage() {
                             <table className="w-full text-left">
                                 <thead className={`text-[10px] font-black uppercase tracking-widest text-gray-900 ${viewMode === 'cancelled' ? 'bg-red-400' : 'bg-[var(--theme-primary)]'}`}>
                                     <tr>
-                                        <th className="px-6 py-3 w-10">
+                                        <th className="px-6 py-3 w-10 border-r-2 border-white/20">
                                             <input
                                                 type="checkbox"
                                                 checked={selectedItems.size > 0 && selectedItems.size === activeData.length}
@@ -752,18 +776,18 @@ export default function JobWorkPage() {
                                                     if (e.target.checked) setSelectedItems(new Set(activeData.map(d => d.id)));
                                                     else setSelectedItems(new Set());
                                                 }}
-                                                className="rounded border-slate-300 text-[var(--theme-primary)] focus:ring-[var(--theme-primary)]"
+                                                className="w-5 h-5 rounded border-2 border-slate-400 checked:bg-[var(--theme-primary)] checked:border-[var(--theme-primary)] appearance-none cursor-pointer relative checked:after:content-['✓'] checked:after:absolute checked:after:inset-0 checked:after:flex checked:after:items-center checked:after:justify-center checked:after:text-black checked:after:font-black checked:after:text-sm transition-all"
                                             />
                                         </th>
-                                        <th className="px-6 py-3 w-28 text-center">Actions</th>
-                                        <th className="px-6 py-3 w-20 text-center">ID</th>
-                                        <th className="px-6 py-3 w-24 text-center">Group</th>
-                                        <th className="px-6 py-3 min-w-[200px]">Job Details</th>
-                                        <th className="px-6 py-3 text-center">Qty (Kg)</th>
-                                        <th className="px-6 py-3 text-center">Qty (Pcs)</th>
-                                        <th className="px-6 py-3">Date</th>
+                                        <th className="px-6 py-3 w-28 text-center border-r-2 border-white/20">Actions</th>
+                                        <th className="px-6 py-3 w-20 text-center border-r-2 border-white/20">ID</th>
+                                        <th className="px-6 py-3 w-24 text-center border-r-2 border-white/20">Group</th>
+                                        <th className="px-6 py-3 min-w-[200px] border-r-2 border-white/20">Job Details</th>
+                                        <th className="px-6 py-3 text-center border-r-2 border-white/20">Qty (Kg)</th>
+                                        <th className="px-6 py-3 text-center border-r-2 border-white/20">Qty (Pcs)</th>
+                                        <th className="px-6 py-3 border-r-2 border-white/20">Date</th>
                                         {JOB_STAGES.map(s => (
-                                            <th key={s.step} className="px-3 py-2 text-left border-l border-white/10 min-w-[160px]">
+                                            <th key={s.step} className="px-3 py-2 text-left border-r-2 border-white/20 min-w-[160px]">
                                                 <div className="flex flex-col leading-tight">
                                                     <span className="text-[9px] opacity-70 font-black">STEP {s.step}</span>
                                                     <span className="text-[10px] font-black uppercase whitespace-nowrap">{s.name}</span>
@@ -772,7 +796,7 @@ export default function JobWorkPage() {
                                         ))}
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-50 dark:divide-slate-700/50">
+                                <tbody className="divide-y-2 divide-slate-200 dark:divide-slate-700">
                                     {loading ? (
                                         <tr>
                                             <td colSpan={20} className="px-6 py-20 text-center">
@@ -795,7 +819,7 @@ export default function JobWorkPage() {
                                                 key={item.id}
                                                 className={`hover:bg-slate-50/50 dark:hover:bg-slate-700/20 transition-colors ${selectedItems.has(item.id) ? 'bg-[var(--theme-primary)]/5' : ''}`}
                                             >
-                                                <td className="px-6 py-4">
+                                                <td className="px-6 py-4 border-r-2 border-slate-200 dark:border-slate-700">
                                                     <input
                                                         type="checkbox"
                                                         checked={selectedItems.has(item.id)}
@@ -805,11 +829,11 @@ export default function JobWorkPage() {
                                                             else next.delete(item.id);
                                                             setSelectedItems(next);
                                                         }}
-                                                        className="rounded border-slate-300 text-[var(--theme-primary)] focus:ring-[var(--theme-primary)]"
+                                                        className="w-5 h-5 rounded border-2 border-slate-400 checked:bg-[var(--theme-primary)] checked:border-[var(--theme-primary)] appearance-none cursor-pointer relative checked:after:content-['✓'] checked:after:absolute checked:after:inset-0 checked:after:flex checked:after:items-center checked:after:justify-center checked:after:text-black checked:after:font-black checked:after:text-sm transition-all"
                                                     />
                                                 </td>
-                                                <td className="px-6 py-4">
-                                                    <div className="flex items-center justify-center gap-2">
+                                                <td className="px-6 py-4 border-r-2 border-slate-200 dark:border-slate-700">
+                                                    <div className={`grid ${viewMode === 'data' ? 'grid-cols-2' : 'grid-cols-1'} gap-1 items-center justify-items-center`}>
                                                         {viewMode === 'data' ? (
                                                             <>
                                                                 <button
@@ -837,6 +861,19 @@ export default function JobWorkPage() {
                                                                 >
                                                                     <Ban size={15} />
                                                                 </button>
+                                                                {getCurrentStep(item) > 1 && (
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setRemoveStepTarget(item);
+                                                                            setRemoveStep('all');
+                                                                            setIsRemoveStepModalOpen(true);
+                                                                        }}
+                                                                        className="p-2 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 rounded-xl transition-all"
+                                                                        title="Remove Follow Up"
+                                                                    >
+                                                                        <RotateCcw size={15} />
+                                                                    </button>
+                                                                )}
                                                                 <button
                                                                     onClick={() => { setDeletingItem(item); setIsDeleteModalOpen(true); }}
                                                                     className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl transition-all"
@@ -854,13 +891,13 @@ export default function JobWorkPage() {
                                                         )}
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-4 text-center font-bold text-slate-500 text-[10px]">#{item.id}</td>
-                                                <td className="px-6 py-4 text-center">
+                                                <td className="px-6 py-4 text-center font-bold text-slate-500 text-[10px] border-r-2 border-slate-200 dark:border-slate-700">#{item.id}</td>
+                                                <td className="px-6 py-4 text-center border-r-2 border-slate-200 dark:border-slate-700">
                                                     <div className="bg-slate-100 dark:bg-slate-700/50 px-2 py-0.5 rounded text-[10px] font-bold text-slate-500 font-mono inline-block">
                                                         {item['group-id'] || 'N/A'}
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-4">
+                                                <td className="px-6 py-4 border-r-2 border-slate-200 dark:border-slate-700">
                                                     <div className="space-y-1.5">
                                                         <div className="flex items-center gap-2 group">
                                                             <div className="p-1 rounded-md bg-indigo-50 dark:bg-indigo-500/10 text-indigo-500">
@@ -882,9 +919,9 @@ export default function JobWorkPage() {
                                                         </div>
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-4 text-center font-black text-slate-900 dark:text-white text-xs">{item['Qty Of Material To Be Sent In Kg'] || '0'}</td>
-                                                <td className="px-6 py-4 text-center font-black text-slate-900 dark:text-white text-xs">{item['Qty Material To Be Sent In Pcs'] || '0'}</td>
-                                                <td className="px-6 py-4 text-[10px] font-bold text-slate-400">{formatDateTime(item.Timestamp)}</td>
+                                                <td className="px-6 py-4 text-center font-black text-slate-900 dark:text-white text-xs border-r-2 border-slate-200 dark:border-slate-700">{item['Qty Of Material To Be Sent In Kg'] || '0'}</td>
+                                                <td className="px-6 py-4 text-center font-black text-slate-900 dark:text-white text-xs border-r-2 border-slate-200 dark:border-slate-700">{item['Qty Material To Be Sent In Pcs'] || '0'}</td>
+                                                <td className="px-6 py-4 text-[10px] font-bold text-slate-400 border-r-2 border-slate-200 dark:border-slate-700">{formatDateTime(item.Timestamp)}</td>
                                                 {JOB_STAGES.map(s => {
                                                     const planned = (item as any)[`Planned_${s.step}`];
                                                     const actual = (item as any)[`Actual_${s.step}`];
@@ -894,7 +931,7 @@ export default function JobWorkPage() {
                                                     const isLastCompleted = currentPendingStep - 1 === s.step;
 
                                                     return (
-                                                        <td key={s.step} className={`px-3 py-3 border-l border-slate-50 dark:border-slate-700/50 transition-colors ${isCurrent ? `bg-gradient-to-br ${s.color} dark:opacity-30` : ''}`}>
+                                                        <td key={s.step} className="px-3 py-3 border-r-2 border-slate-200 dark:border-slate-700 transition-colors">
                                                             <div className="flex flex-col gap-0.5 text-[10px]">
                                                                 <div className="flex justify-between gap-2">
                                                                     <span className="text-gray-400">P:</span>
@@ -908,6 +945,22 @@ export default function JobWorkPage() {
                                                                         {actual ? new Date(actual).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : '-'}
                                                                     </span>
                                                                 </div>
+                                                                {s.step === 1 && (
+                                                                    <>
+                                                                        {item.lead_time_1 && (
+                                                                            <div className="flex justify-between gap-2">
+                                                                                <span className="text-gray-400">LT:</span>
+                                                                                <span className="font-bold text-amber-600">{item.lead_time_1} Days</span>
+                                                                            </div>
+                                                                        )}
+                                                                        {item.remark_1 && (
+                                                                            <div className="flex flex-col gap-0.5 mt-0.5 pt-0.5 border-t border-slate-100 dark:border-slate-800">
+                                                                                <span className="text-gray-400 text-[8px] uppercase font-black">Remark:</span>
+                                                                                <span className="font-medium text-slate-600 dark:text-slate-400 italic break-words">{item.remark_1}</span>
+                                                                            </div>
+                                                                        )}
+                                                                    </>
+                                                                )}
                                                                 {(() => {
                                                                     return delay ? (
                                                                         <div className={`text-[8px] text-right font-black uppercase tracking-tighter ${delay.color}`}>
@@ -915,17 +968,6 @@ export default function JobWorkPage() {
                                                                         </div>
                                                                     ) : null;
                                                                 })()}
-                                                                {isLastCompleted && s.step > 1 && (
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            setRemoveStepTarget(item);
-                                                                            setIsRemoveStepModalOpen(true);
-                                                                        }}
-                                                                        className="mt-0.5 pt-0.5 border-t border-gray-100 dark:border-gray-700 text-[8px] font-black text-indigo-500 uppercase tracking-widest hover:underline text-left pointer-events-auto relative z-10"
-                                                                    >
-                                                                        Remove Follow Up
-                                                                    </button>
-                                                                )}
                                                                 {!planned && !actual && (
                                                                     <span className="text-[9px] font-bold text-slate-300 uppercase italic">Waiting</span>
                                                                 )}
@@ -1423,20 +1465,58 @@ export default function JobWorkPage() {
                 {isRemoveStepModalOpen && removeStepTarget && (
                     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsRemoveStepModalOpen(false)} className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" />
-                        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="relative bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-2xl w-full max-w-sm text-center">
-                            <div className="w-16 h-16 bg-red-100 dark:bg-red-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4 text-red-600">
-                                <AlertTriangle size={32} />
+                        <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="relative bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-2xl w-full max-w-md">
+                            <div className="flex items-center gap-4 mb-6">
+                                <div className="w-14 h-14 bg-red-100 dark:bg-red-500/10 rounded-2xl flex items-center justify-center text-red-600 shadow-inner">
+                                    <RotateCcw size={28} />
+                                </div>
+                                <div className="text-left">
+                                    <h3 className="text-xl font-black text-gray-900 dark:text-white uppercase tracking-tight leading-none">Remove Follow Up</h3>
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1.5">{removeStepTarget['Job Work Name']}</p>
+                                </div>
                             </div>
-                            <h3 className="text-xl font-black text-gray-900 dark:text-white uppercase tracking-tight mb-2">Remove Follow Up?</h3>
-                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-8">This will undo the last step completion and move the item back by one step.</p>
+
+                            <div className="space-y-4 mb-8">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-left px-1">Select range to clear:</p>
+                                <div className="grid grid-cols-1 gap-2 max-h-[40vh] overflow-y-auto custom-scrollbar pr-1">
+                                    <button
+                                        onClick={() => setRemoveStep('all')}
+                                        className={`p-4 rounded-xl border-2 text-left transition-all ${removeStep === 'all'
+                                            ? 'border-red-500 bg-red-50/50 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+                                            : 'border-slate-100 dark:border-slate-800 text-slate-500 hover:border-red-200'
+                                            }`}
+                                    >
+                                        <div className="font-black text-[10px] uppercase tracking-widest">Remove All</div>
+                                        <p className="text-[9px] opacity-70 font-medium mt-1">Clears all 11 steps for this job</p>
+                                    </button>
+                                    {JOB_STAGES.map(s => {
+                                        const isDone = !!(removeStepTarget as any)[`Actual_${s.step}`];
+                                        if (!isDone) return null;
+                                        return (
+                                            <button
+                                                key={s.step}
+                                                onClick={() => setRemoveStep(s.step)}
+                                                className={`p-4 rounded-xl border-2 text-left transition-all ${removeStep === s.step
+                                                    ? 'border-red-500 bg-red-50/50 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+                                                    : 'border-slate-100 dark:border-slate-800 text-slate-500 hover:border-red-200'
+                                                    }`}
+                                            >
+                                                <div className="font-black text-[10px] uppercase tracking-widest">From Step {s.step} ({s.name})</div>
+                                                <p className="text-[9px] opacity-70 font-medium mt-1">Clears data from step {s.step} onwards</p>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
                             <div className="flex gap-3">
-                                <button onClick={() => setIsRemoveStepModalOpen(false)} className="flex-1 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-slate-700 text-slate-500">No</button>
+                                <button onClick={() => setIsRemoveStepModalOpen(false)} className="flex-1 px-8 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest border-2 border-slate-100 dark:border-slate-800 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">Cancel</button>
                                 <button
                                     onClick={handleRemoveStep}
                                     disabled={isSaving}
-                                    className="flex-1 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest bg-red-600 text-white shadow-lg shadow-red-600/30 flex items-center justify-center gap-2"
+                                    className="flex-[1.5] px-8 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest bg-red-600 text-white shadow-xl shadow-red-600/30 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                                 >
-                                    {isSaving ? <Loader2 className="animate-spin" size={16} /> : 'Yes, Remove'}
+                                    {isSaving ? <Loader2 className="animate-spin" size={16} /> : 'Confirm Clear'}
                                 </button>
                             </div>
                         </motion.div>

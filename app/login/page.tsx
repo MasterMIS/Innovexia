@@ -47,13 +47,10 @@ export default function LoginPage() {
     <div className="min-h-screen bg-[#F0F2FF] flex items-center justify-center p-4 font-sans">
       {/* Main Container */}
       <div className="w-full max-w-[1000px] h-full min-h-[600px] bg-white rounded-[40px] shadow-xl flex flex-col md:flex-row overflow-hidden">
-
         {/* Left Side - Welcome Section */}
-        <div className="w-full md:w-1/2 p-12 flex flex-col items-center justify-center text-center relative overflow-hidden"
+        <div className="w-full md:w-1/2 p-12 flex flex-col items-center justify-center text-center relative overflow-hidden rounded-b-[80px] md:rounded-b-none md:rounded-r-[150px]"
           style={{
             backgroundColor: 'var(--theme-primary)',
-            borderTopRightRadius: '150px',
-            borderBottomRightRadius: '150px'
           }}>
           <div className="relative z-10 space-y-8 px-6">
             <div className="space-y-2">
