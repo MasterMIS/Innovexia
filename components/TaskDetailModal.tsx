@@ -8,22 +8,27 @@ interface TaskDetailModalProps {
     onClose: () => void;
     title: string;
     tasks: any[]; // Using any[] for flexibility, can be typed strictly if needed
-    type: 'delegation' | 'checklist' | 'o2d';
+    type: 'delegation' | 'checklist' | 'o2d' | 'crm' | 'complain' | 'purchase' | 'factory' | 'jobwork' | 'rmdefect';
 }
 
 export default function TaskDetailModal({ isOpen, onClose, title, tasks, type }: TaskDetailModalProps) {
     if (!isOpen) return null;
 
-    // Helper to check if task is on time
+    // Helper to check if task is on time (exact datetime comparison)
     const isOnTime = (task: any) => {
-        // For O2D
-        if (type === 'o2d') {
+        const isFms = type !== 'delegation' && type !== 'checklist';
+        const status = (task.status)?.toLowerCase() || '';
+        const isCompleted = status === 'completed' || status === 'on time' || status === 'delayed' || !!(isFms && task.actual_date);
+
+        if (!isCompleted) return false;
+
+        // For O2D and other FMS types
+        if (isFms) {
             if (!task.planned_date || !task.actual_date) return false;
             const plannedD = parseDateString(task.planned_date);
             const actualD = parseDateString(task.actual_date);
             if (!plannedD || !actualD) return false;
-            // Compare date-only (ignore time) so "same day" counts as on time
-            plannedD.setHours(23, 59, 59, 999);
+            // Exact datetime comparison — completed after planned time = late
             return actualD.getTime() <= plannedD.getTime();
         }
         // For Delegation/Checklist
@@ -31,8 +36,7 @@ export default function TaskDetailModal({ isOpen, onClose, title, tasks, type }:
         const dDate = parseDateString(task.due_date);
         const uDate = parseDateString(task.updated_at);
         if (!dDate || !uDate) return false;
-        // Allow completion on the due date itself as on-time
-        dDate.setHours(23, 59, 59, 999);
+        // Exact datetime comparison
         return uDate.getTime() <= dDate.getTime();
     };
 
@@ -95,20 +99,21 @@ export default function TaskDetailModal({ isOpen, onClose, title, tasks, type }:
                                 ) : (
                                     tasks.map((task, index) => {
                                         const onTime = isOnTime(task);
-                                        const status = (type === 'o2d' ? task.status : task.status)?.toLowerCase() || '';
-                                        const isCompleted = status === 'completed' || status === 'on time' || status === 'delayed';
+                                        const isFms = type !== 'delegation' && type !== 'checklist';
+                                        const status = (task.status)?.toLowerCase() || '';
+                                        const isCompleted = status === 'completed' || status === 'on time' || status === 'delayed' || !!(isFms && task.actual_date);
 
                                         const title = type === 'delegation'
                                             ? (task.description || task.delegation_name || task.task_title || 'Untitled Delegation')
                                             : type === 'checklist'
                                                 ? (task.question || task.title || 'Untitled Checklist')
-                                                : `${task.party_name} - Step ${task.step_number}: ${task.step_name}`;
+                                                : `${task.material_name || task.party_name || task.client_name || task.vendor_name || 'Item'} - Step ${task.step_number}: ${task.step_name}`;
 
-                                        const dueDate = type === 'o2d' ? task.planned_date : task.due_date;
-                                        const completedDate = type === 'o2d' ? (task.actual_date || null) : (task.updated_at || null);
+                                        const dueDate = isFms ? task.planned_date : task.due_date;
+                                        const completedDate = isFms ? (task.actual_date || null) : (task.updated_at || null);
 
                                         return (
-                                            <tr key={task.id || index} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                                            <tr key={`${task.id ?? ''}-${index}`} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                                                 <td className="px-6 py-4">
                                                     <div className="font-medium text-gray-900 dark:text-white line-clamp-2">
                                                         {title}
@@ -124,14 +129,14 @@ export default function TaskDetailModal({ isOpen, onClose, title, tasks, type }:
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-300 font-mono">
-                                                    {dueDate ? (parseDateString(dueDate)?.toLocaleDateString('en-GB') ?? '-') : '-'}
+                                                    {dueDate ? (() => { const d = parseDateString(dueDate); return d ? d.toLocaleDateString('en-GB') + ', ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '-'; })() : '-'}
                                                 </td>
                                                 <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-300 font-mono">
-                                                    {completedDate ? (parseDateString(completedDate)?.toLocaleDateString('en-GB') ?? '-') : '-'}
+                                                    {isCompleted && completedDate ? (() => { const d = parseDateString(completedDate); return d ? d.toLocaleDateString('en-GB') + ', ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '-'; })() : '-'}
                                                 </td>
                                                 <td className="px-6 py-4 text-center">
-                                                    {(type === 'o2d' ? (task.planned_date && task.actual_date) : (task.due_date && task.updated_at)) ? (
-                                                        onTime || status === 'on time' ? (
+                                                    {isCompleted ? (
+                                                        onTime ? (
                                                             <span className="inline-flex items-center justify-center w-6 h-6 bg-green-100 dark:bg-green-900/30 text-green-600 rounded-full" title="On Time">
                                                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />

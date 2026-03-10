@@ -60,13 +60,21 @@ interface UserScore {
         onTime: number;
         items: ChecklistData[];
     };
-    o2dStats: {
-        total: number;
-        completed: number;
-        onTime: number;
-        items: O2DTaskData[];
-    };
+    o2dStats: CategoryStats;
+    crmStats: CategoryStats;
+    complainStats: CategoryStats;
+    purchaseStats: CategoryStats;
+    factoryStats: CategoryStats;
+    jobWorkStats: CategoryStats;
+    rmDefectStats: CategoryStats;
     trendData: ChartDataPoint[];
+}
+
+interface CategoryStats {
+    total: number;
+    completed: number;
+    onTime: number;
+    items: any[];
 }
 
 interface ChartDataPoint {
@@ -112,11 +120,29 @@ export default function ScorePage() {
     const [allO2DOrders, setAllO2DOrders] = useState<any[]>([]);
     const [o2dConfig, setO2dConfig] = useState<StepConfig[]>([]);
 
+    const [allCRMData, setAllCRMData] = useState<any[]>([]);
+    const [crmConfig, setCrmConfig] = useState<StepConfig[]>([]);
+
+    const [allComplainData, setAllComplainData] = useState<any[]>([]);
+    const [complainConfig, setComplainConfig] = useState<StepConfig[]>([]);
+
+    const [allPurchaseFMSData, setAllPurchaseFMSData] = useState<any[]>([]);
+    const [purchaseFMSConfig, setPurchaseFMSConfig] = useState<StepConfig[]>([]);
+
+    const [allFactoryReqData, setAllFactoryReqData] = useState<any[]>([]);
+    const [factoryReqConfig, setFactoryReqConfig] = useState<StepConfig[]>([]);
+
+    const [allJobWorkData, setAllJobWorkData] = useState<any[]>([]);
+    const [jobWorkConfig, setJobWorkConfig] = useState<StepConfig[]>([]);
+
+    const [allRMDefectData, setAllRMDefectData] = useState<any[]>([]);
+    const [rmDefectConfig, setRMDefectConfig] = useState<StepConfig[]>([]);
+
     const [modalConfig, setModalConfig] = useState<{
         isOpen: boolean;
         title: string;
         tasks: any[];
-        type: 'delegation' | 'checklist' | 'o2d';
+        type: 'delegation' | 'checklist' | 'o2d' | 'crm' | 'complain' | 'purchase' | 'factory' | 'jobwork' | 'rmdefect';
     }>({
         isOpen: false,
         title: '',
@@ -130,25 +156,75 @@ export default function ScorePage() {
             const sessionId = ensureSessionId();
             const headers = { 'x-session-id': sessionId };
 
-            const [usersRes, delRes, checkRes, o2dRes, configRes] = await Promise.all([
+            const [
+                usersRes, delRes, checkRes, o2dRes, o2dCfgRes,
+                crmRes, crmCfgRes,
+                complRes, complCfgRes,
+                purchRes, purchCfgRes,
+                factRes, factCfgRes,
+                jwRes, jwCfgRes,
+                rmdRes, rmdCfgRes
+            ] = await Promise.all([
                 fetch('/api/users', { headers }),
                 fetch('/api/delegations', { headers }),
                 fetch('/api/checklists', { headers }),
                 fetch('/api/o2d', { headers }),
-                fetch('/api/o2d-config', { headers })
+                fetch('/api/o2d-config', { headers }),
+                fetch('/api/crm', { headers }),
+                fetch('/api/crm-config', { headers }),
+                fetch('/api/client-complain', { headers }),
+                fetch('/api/client-complain-config', { headers }),
+                fetch('/api/purchase-fms', { headers }),
+                fetch('/api/purchase-fms-config', { headers }),
+                fetch('/api/factory-requirements', { headers }),
+                fetch('/api/factory-requirements-config', { headers }),
+                fetch('/api/job-work', { headers }),
+                fetch('/api/job-work-config', { headers }),
+                fetch('/api/rm-defects', { headers }),
+                fetch('/api/rm-defects-config', { headers })
             ]);
 
-            const usersData = await usersRes.json();
-            const delData = await delRes.json();
-            const checkData = await checkRes.json();
-            const o2dData = await o2dRes.json();
-            const configData = await configRes.json();
+            const [
+                usersData, delData, checkData, o2dData, o2dCfgData,
+                crmData, crmCfgData,
+                complData, complCfgData,
+                purchData, purchCfgData,
+                factData, factCfgData,
+                jwData, jwCfgData,
+                rmdData, rmdCfgData
+            ] = await Promise.all([
+                usersRes.json(), delRes.json(), checkRes.json(), o2dRes.json(), o2dCfgRes.json(),
+                crmRes.json(), crmCfgRes.json(),
+                complRes.json(), complCfgRes.json(),
+                purchRes.json(), purchCfgRes.json(),
+                factRes.json(), factCfgRes.json(),
+                jwRes.json(), jwCfgRes.json(),
+                rmdRes.json(), rmdCfgRes.json()
+            ]);
 
             setUsers(usersData.users || []);
             setAllDelegations(delData.delegations || []);
             setAllChecklists(checkData.checklists || []);
             setAllO2DOrders(Array.isArray(o2dData) ? o2dData : []);
-            setO2dConfig(configData.config && Array.isArray(configData.config) ? configData.config : []);
+            setO2dConfig(o2dCfgData.config && Array.isArray(o2dCfgData.config) ? o2dCfgData.config : []);
+
+            setAllCRMData(Array.isArray(crmData) ? crmData : []);
+            setCrmConfig(crmCfgData.config && Array.isArray(crmCfgData.config) ? crmCfgData.config : []);
+
+            setAllComplainData(Array.isArray(complData) ? complData : []);
+            setComplainConfig(complCfgData.config && Array.isArray(complCfgData.config) ? complCfgData.config : []);
+
+            setAllPurchaseFMSData(Array.isArray(purchData) ? purchData : []);
+            setPurchaseFMSConfig(purchCfgData.config && Array.isArray(purchCfgData.config) ? purchCfgData.config : []);
+
+            setAllFactoryReqData(Array.isArray(factData) ? factData : []);
+            setFactoryReqConfig(factCfgData.config && Array.isArray(factCfgData.config) ? factCfgData.config : []);
+
+            setAllJobWorkData(Array.isArray(jwData) ? jwData : []);
+            setJobWorkConfig(jwCfgData.config && Array.isArray(jwCfgData.config) ? jwCfgData.config : []);
+
+            setAllRMDefectData(Array.isArray(rmdData) ? rmdData : []);
+            setRMDefectConfig(rmdCfgData.config && Array.isArray(rmdCfgData.config) ? rmdCfgData.config : []);
             setLoading(false);
         } catch (error) {
             console.error('Error fetching score data:', error);
@@ -187,9 +263,28 @@ export default function ScorePage() {
 
     useEffect(() => {
         if (users.length > 0) {
-            calculateScores(users, allDelegations, allChecklists, allO2DOrders, o2dConfig);
+            calculateScores(
+                users, allDelegations, allChecklists,
+                allO2DOrders, o2dConfig,
+                allCRMData, crmConfig,
+                allComplainData, complainConfig,
+                allPurchaseFMSData, purchaseFMSConfig,
+                allFactoryReqData, factoryReqConfig,
+                allJobWorkData, jobWorkConfig,
+                allRMDefectData, rmDefectConfig
+            );
         }
-    }, [users, allDelegations, allChecklists, allO2DOrders, o2dConfig, dateRange, searchQuery]);
+    }, [
+        users, allDelegations, allChecklists,
+        allO2DOrders, o2dConfig,
+        allCRMData, crmConfig,
+        allComplainData, complainConfig,
+        allPurchaseFMSData, purchaseFMSConfig,
+        allFactoryReqData, factoryReqConfig,
+        allJobWorkData, jobWorkConfig,
+        allRMDefectData, rmDefectConfig,
+        dateRange, searchQuery
+    ]);
 
 
 
@@ -277,12 +372,21 @@ export default function ScorePage() {
         const dDate = parseDateString(due_date);
         const uDate = parseDateString(updated_at);
         if (!dDate || !uDate) return false;
-        // Allow completion on the due date itself as on-time (set due date to end of day)
-        dDate.setHours(23, 59, 59, 999);
         return uDate.getTime() <= dDate.getTime();
     };
 
-    const calculateScores = (usersList: UserData[], delegationsList: DelegationData[], checklistsList: ChecklistData[], o2dOrdersList: any[], configList: StepConfig[]) => {
+    const calculateScores = (
+        usersList: UserData[],
+        delegationsList: DelegationData[],
+        checklistsList: ChecklistData[],
+        o2dList: any[], o2dCfg: StepConfig[],
+        crmList: any[], crmCfg: StepConfig[],
+        complList: any[], complCfg: StepConfig[],
+        purchList: any[], purchCfg: StepConfig[],
+        factList: any[], factCfg: StepConfig[],
+        jwList: any[], jwCfg: StepConfig[],
+        rmdList: any[], rmdCfg: StepConfig[]
+    ) => {
         const filteredUsers = usersList.filter(user => user.username.toLowerCase().includes(searchQuery.toLowerCase()));
 
         // Helper to check if a date string is in range
@@ -295,6 +399,62 @@ export default function ScorePage() {
             from.setHours(0, 0, 0, 0);
             to.setHours(23, 59, 59, 999);
             return date >= from && date <= to;
+        };
+
+        const processFmsData = (user: UserData, dataList: any[], configList: StepConfig[], maxSteps: number = 11) => {
+            const items: any[] = [];
+            dataList.forEach(order => {
+                const itemsToProcess = Array.isArray(order.items) ? order.items : [order];
+                itemsToProcess.forEach((item: any) => {
+                    for (let i = 1; i <= maxSteps; i++) {
+                        const stepConfig = configList.find(c => c.step === i);
+                        if (stepConfig && stepConfig.doerName.trim().toLowerCase() === user.username.trim().toLowerCase()) {
+                            const itemKeys = Object.keys(item);
+                            const plannedKey = itemKeys.find(k => k.toLowerCase() === `planned_${i}`);
+                            const actualKey = itemKeys.find(k => k.toLowerCase() === `actual_${i}`);
+
+                            const plannedRaw = plannedKey ? item[plannedKey] : undefined;
+                            const actualRaw = actualKey ? item[actualKey] : undefined;
+
+                            const plannedDate = parseSheetDate(plannedRaw);
+                            const actualDate = parseSheetDate(actualRaw);
+
+                            if ((plannedDate && isDateInRange(plannedDate)) || (actualDate && isDateInRange(actualDate))) {
+                                let status: 'Pending' | 'On Time' | 'Delayed' = 'Pending';
+                                if (!actualDate) {
+                                    status = 'Pending';
+                                } else {
+                                    if (plannedDate) {
+                                        const plannedEnd = new Date(plannedDate);
+                                        // plannedEnd.setHours(23, 59, 59, 999); // Use exact time now as per user request
+                                        status = new Date(actualDate).getTime() <= plannedEnd.getTime() ? 'On Time' : 'Delayed';
+                                    } else {
+                                        status = 'On Time';
+                                    }
+                                }
+
+                                if (plannedDate || actualDate) {
+                                    items.push({
+                                        id: item.id || order.id,
+                                        party_name: order.party_name || item.party_name || order.client_name || item.clientName || order.vendor_name || item.vendorName || item.materialName || 'Item',
+                                        step_number: i,
+                                        step_name: stepConfig.stepName,
+                                        planned_date: plannedDate,
+                                        actual_date: actualDate,
+                                        status: status,
+                                        doer_name: stepConfig.doerName
+                                    });
+                                }
+                            }
+                        }
+                    }
+                });
+            });
+
+            const completed = items.filter(it => it.actual_date);
+            const onTime = items.filter(it => it.status === 'On Time');
+
+            return { total: items.length, completed: completed.length, onTime: onTime.length, items };
         };
 
         const scores: UserScore[] = filteredUsers.map(user => {
@@ -316,71 +476,25 @@ export default function ScorePage() {
             const completedChecklists = userChecklists.filter(c => c.status.toLowerCase() === 'completed');
             const onTimeChecklists = userChecklists.filter(c => isOnTime(c.due_date, c.updated_at, c.status));
 
-            // Calculate O2D Stats
-            const userO2DItems: O2DTaskData[] = [];
+            const o2dStats = processFmsData(user, o2dList, o2dCfg, 8);
+            const crmStats = processFmsData(user, crmList, crmCfg, 11);
+            const complainStats = processFmsData(user, complList, complCfg, 11);
+            const purchaseStats = processFmsData(user, purchList, purchCfg, 11);
+            const factoryStats = processFmsData(user, factList, factCfg, 11);
+            const jobWorkStats = processFmsData(user, jwList, jwCfg, 11);
+            const rmDefectStats = processFmsData(user, rmdList, rmdCfg, 11);
 
-            o2dOrdersList.forEach(order => {
-                // Iterate through items in the order
-                const itemsToProcess = Array.isArray(order.items) ? order.items : [];
+            const totalTasks = userDelegations.length + userChecklists.length +
+                o2dStats.total + crmStats.total + complainStats.total +
+                purchaseStats.total + factoryStats.total + jobWorkStats.total + rmDefectStats.total;
 
-                itemsToProcess.forEach((item: any) => {
-                    // Iterate steps 1 to 8
-                    for (let i = 1; i <= 8; i++) {
-                        const stepConfig = configList.find(c => c.step === i);
-                        // Check if this user is the doer for this step (case-insensitive, trimmed)
-                        if (stepConfig && stepConfig.doerName.trim().toLowerCase() === user.username.trim().toLowerCase()) {
+            const completedTasks = completedDelegations.length + completedChecklists.length +
+                o2dStats.completed + crmStats.completed + complainStats.completed +
+                purchaseStats.completed + factoryStats.completed + jobWorkStats.completed + rmDefectStats.completed;
 
-                            // Robust key lookup (case-insensitive)
-                            const itemKeys = Object.keys(item);
-                            const plannedKey = itemKeys.find(k => k.toLowerCase() === `planned_${i}`);
-                            const actualKey = itemKeys.find(k => k.toLowerCase() === `actual_${i}`);
-
-                            const plannedRaw = plannedKey ? item[plannedKey] : undefined;
-                            const actualRaw = actualKey ? item[actualKey] : undefined;
-
-                            // Parse dates using helper
-                            const plannedDate = parseSheetDate(plannedRaw);
-                            const actualDate = parseSheetDate(actualRaw);
-
-                            // Check if this task falls in date range
-                            if ((plannedDate && isDateInRange(plannedDate)) || (actualDate && isDateInRange(actualDate))) {
-                                let status: 'Pending' | 'On Time' | 'Delayed' = 'Pending';
-
-                                if (!actualDate) {
-                                    status = 'Pending';
-                                } else {
-                                    if (plannedDate) {
-                                        const plannedEnd = new Date(plannedDate); plannedEnd.setHours(23, 59, 59, 999);
-                                        status = new Date(actualDate).getTime() <= plannedEnd.getTime() ? 'On Time' : 'Delayed';
-                                    } else {
-                                        status = 'On Time';
-                                    }
-                                }
-
-                                if (plannedDate || actualDate) {
-                                    userO2DItems.push({
-                                        id: item.id || order.id,
-                                        party_name: order.party_name,
-                                        step_number: i,
-                                        step_name: stepConfig.stepName,
-                                        planned_date: plannedDate,
-                                        actual_date: actualDate,
-                                        status: status,
-                                        doer_name: stepConfig.doerName
-                                    });
-                                }
-                            }
-                        }
-                    }
-                });
-            });
-
-            const completedO2D = userO2DItems.filter(item => item.actual_date);
-            const onTimeO2D = userO2DItems.filter(item => item.status === 'On Time');
-
-            const totalTasks = userDelegations.length + userChecklists.length + userO2DItems.length;
-            const completedTasks = completedDelegations.length + completedChecklists.length + completedO2D.length;
-            const onTimeTotal = onTimeDelegations.length + onTimeChecklists.length + onTimeO2D.length;
+            const onTimeTotal = onTimeDelegations.length + onTimeChecklists.length +
+                o2dStats.onTime + crmStats.onTime + complainStats.onTime +
+                purchaseStats.onTime + factoryStats.onTime + jobWorkStats.onTime + rmDefectStats.onTime;
 
             // Trend calculation
             const periods = getChartPeriods(filterType, dateRange);
@@ -393,13 +507,23 @@ export default function ScorePage() {
                 const pCheckTotal = pChecks.length;
                 const pCheckOnTime = pChecks.filter(c => isOnTime(c.due_date, c.updated_at, c.status)).length;
 
-                const pO2D = completedO2D.filter(o => isTaskInRange(o.planned_date || '', o.actual_date || '', 'Completed', p.from, p.to));
-                const pO2DTotal = userO2DItems.filter(o => isTaskInRange(o.planned_date || '', o.actual_date || '', 'Completed', p.from, p.to)).length;
-                const pO2DOnTime = pO2D.filter(o => o.status === 'On Time').length;
+                // FMS Trends
+                const pO2D = o2dStats.items.filter(o => isTaskInRange(o.planned_date || '', o.actual_date || '', 'Completed', p.from, p.to));
+                const pCRM = crmStats.items.filter(o => isTaskInRange(o.planned_date || '', o.actual_date || '', 'Completed', p.from, p.to));
+                const pCompl = complainStats.items.filter(o => isTaskInRange(o.planned_date || '', o.actual_date || '', 'Completed', p.from, p.to));
+                const pPurch = purchaseStats.items.filter(o => isTaskInRange(o.planned_date || '', o.actual_date || '', 'Completed', p.from, p.to));
+                const pFact = factoryStats.items.filter(o => isTaskInRange(o.planned_date || '', o.actual_date || '', 'Completed', p.from, p.to));
+                const pJW = jobWorkStats.items.filter(o => isTaskInRange(o.planned_date || '', o.actual_date || '', 'Completed', p.from, p.to));
+                const pRMD = rmDefectStats.items.filter(o => isTaskInRange(o.planned_date || '', o.actual_date || '', 'Completed', p.from, p.to));
 
-                const pTotal = pDelTotal + pCheckTotal + pO2DTotal;
-                const pCompleted = pDels.filter(d => d.status.toLowerCase() === 'completed').length + pChecks.filter(c => c.status.toLowerCase() === 'completed').length + pO2D.length;
-                const pOnTimeCount = pDelOnTime + pCheckOnTime + pO2DOnTime;
+                const pFmsTotal = pO2D.length + pCRM.length + pCompl.length + pPurch.length + pFact.length + pJW.length + pRMD.length;
+                const pFmsOnTime = [pO2D, pCRM, pCompl, pPurch, pFact, pJW, pRMD].reduce((acc, list) => acc + list.filter(it => it.status === 'On Time').length, 0);
+
+                const pTotal = pDelTotal + pCheckTotal + pFmsTotal;
+                const pCompleted = (pDels.filter(d => d.status.toLowerCase() === 'completed').length +
+                    pChecks.filter(c => c.status.toLowerCase() === 'completed').length +
+                    pFmsTotal);
+                const pOnTimeCount = pDelOnTime + pCheckOnTime + pFmsOnTime;
 
                 const pScore = pTotal > 0 ? Math.round((pCompleted / pTotal) * 100) : 0;
                 const pOnTimeRate = pCompleted > 0 ? Math.round((pOnTimeCount / pCompleted) * 100) : 0;
@@ -432,12 +556,13 @@ export default function ScorePage() {
                     onTime: onTimeChecklists.length,
                     items: userChecklists
                 },
-                o2dStats: {
-                    total: userO2DItems.length,
-                    completed: completedO2D.length,
-                    onTime: onTimeO2D.length,
-                    items: userO2DItems
-                },
+                o2dStats,
+                crmStats,
+                complainStats,
+                purchaseStats,
+                factoryStats,
+                jobWorkStats,
+                rmDefectStats,
                 trendData
             };
         });
@@ -467,6 +592,60 @@ export default function ScorePage() {
             <CircularProgress percentage={percentage} size={36} strokeWidth={3.5} fontSize="0.55rem" />
         </div>
     );
+
+    const FmsTableBreakdownRow = ({ label, stats, colorClass, onClick }: { label: string; stats: any; colorClass: string; onClick: () => void }) => {
+        const percentage = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
+        const onTimePercentage = stats.completed > 0 ? Math.round((stats.onTime / stats.completed) * 100) : 0;
+
+        return (
+            <tr>
+                <td className={`px-6 py-3 pl-10 bg-gray-50 dark:bg-gray-800/60 rounded-l-xl border-l-[4px] ${colorClass}`}>
+                    <div className="flex items-center gap-2">
+                        <span className="text-gray-300 text-lg">↳</span>
+                        <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">{label}</span>
+                    </div>
+                </td>
+                <td className="px-6 py-3 bg-gray-50 dark:bg-gray-800/60">
+                    <div className="flex items-center gap-1.5 opacity-90">
+                        <span className="text-xs font-bold text-gray-600 dark:text-gray-300">{stats.completed}</span>
+                        <span className="text-gray-400">/</span>
+                        <span className="text-xs font-medium text-gray-500">{stats.total}</span>
+                    </div>
+                </td>
+                <td className="px-6 py-3 text-center bg-gray-50 dark:bg-gray-800/60">
+                    <span className={`text-xs font-bold ${getColorForScore(percentage)}`}>{percentage}%</span>
+                </td>
+                <td className="px-6 py-3 bg-gray-50 dark:bg-gray-800/60">
+                    <div className="flex items-center gap-1.5 opacity-90">
+                        <span className="text-xs font-bold text-gray-600 dark:text-gray-300">{stats.onTime}</span>
+                        <span className="text-gray-400">/</span>
+                        <span className="text-xs font-medium text-gray-500">{stats.completed}</span>
+                    </div>
+                </td>
+                <td className="px-6 py-3 text-center bg-gray-50 dark:bg-gray-800/60">
+                    <span className={`text-xs font-bold ${getColorForScore(onTimePercentage)}`}>{onTimePercentage}%</span>
+                </td>
+                <td className="px-6 py-3 text-center bg-gray-50 dark:bg-gray-800/60">
+                    <span className={`text-xs font-bold ${getColorForScore(Math.round((percentage + onTimePercentage) / 2))}`}>{Math.round((percentage + onTimePercentage) / 2)}%</span>
+                </td>
+                <td className="px-6 py-3 text-right bg-gray-50 dark:bg-gray-800/60 rounded-r-xl">
+                    <div className="flex items-center justify-end">
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onClick(); }}
+                            className="p-1 rounded-md hover:bg-white dark:hover:bg-gray-700 text-gray-400 hover:text-[var(--theme-primary)] transition-colors shadow-sm flex items-center gap-1 px-2"
+                            title="View Details"
+                        >
+                            <span className="text-[9px] font-bold uppercase">View</span>
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        );
+    };
 
     const VerticalBarChart = ({ data, color, valueKey }: { data: ChartDataPoint[], color: string, valueKey: 'score' | 'onTime' }) => {
         return (
@@ -512,10 +691,21 @@ export default function ScorePage() {
         });
     };
 
-    const handleOpenModal = (type: 'delegation' | 'checklist' | 'o2d', tasks: any[], userName: string) => {
+    const handleOpenModal = (type: 'delegation' | 'checklist' | 'o2d' | 'crm' | 'complain' | 'purchase' | 'factory' | 'jobwork' | 'rmdefect', tasks: any[], userName: string) => {
+        const typeLabels: Record<string, string> = {
+            delegation: 'Delegations',
+            checklist: 'Checklists',
+            o2d: 'O2D Tasks',
+            crm: 'CRM Tasks',
+            complain: 'Complain Tasks',
+            purchase: 'Purchase FMS',
+            factory: 'Factory Requirements',
+            jobwork: 'Job Work',
+            rmdefect: 'RM Defects'
+        };
         setModalConfig({
             isOpen: true,
-            title: `${userName}'s ${type === 'delegation' ? 'Delegations' : type === 'checklist' ? 'Checklists' : 'O2D Tasks'}`,
+            title: `${userName}'s ${typeLabels[type] || 'Tasks'}`,
             tasks,
             type
         });
@@ -777,6 +967,72 @@ export default function ScorePage() {
                                                                                 <ScoreRow formulaLabel="On Time / Completed" completed={score.o2dStats.onTime} total={score.o2dStats.completed} percentage={score.o2dStats.completed > 0 ? Math.round((score.o2dStats.onTime / score.o2dStats.completed) * 100) : 0} />
                                                                             </div>
                                                                         </section>
+
+                                                                        <section className="cursor-pointer group/sec hover:bg-gray-50 dark:hover:bg-gray-700/30 p-1.5 -mx-1.5 rounded-xl transition-colors" onClick={() => handleOpenModal('crm', score.crmStats.items, score.user.username)}>
+                                                                            <h4 className="text-[9px] font-bold text-gray-900 dark:text-white uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                                                                                <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+                                                                                CRM Tasks
+                                                                            </h4>
+                                                                            <div className="space-y-0.5">
+                                                                                <ScoreRow formulaLabel="Completed / Total" completed={score.crmStats.completed} total={score.crmStats.total} percentage={score.crmStats.total > 0 ? Math.round((score.crmStats.completed / score.crmStats.total) * 100) : 0} />
+                                                                                <ScoreRow formulaLabel="On Time / Completed" completed={score.crmStats.onTime} total={score.crmStats.completed} percentage={score.crmStats.completed > 0 ? Math.round((score.crmStats.onTime / score.crmStats.completed) * 100) : 0} />
+                                                                            </div>
+                                                                        </section>
+
+                                                                        <section className="cursor-pointer group/sec hover:bg-gray-50 dark:hover:bg-gray-700/30 p-1.5 -mx-1.5 rounded-xl transition-colors" onClick={() => handleOpenModal('complain', score.complainStats.items, score.user.username)}>
+                                                                            <h4 className="text-[9px] font-bold text-gray-900 dark:text-white uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                                                                                <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                                                                                Complain Tasks
+                                                                            </h4>
+                                                                            <div className="space-y-0.5">
+                                                                                <ScoreRow formulaLabel="Completed / Total" completed={score.complainStats.completed} total={score.complainStats.total} percentage={score.complainStats.total > 0 ? Math.round((score.complainStats.completed / score.complainStats.total) * 100) : 0} />
+                                                                                <ScoreRow formulaLabel="On Time / Completed" completed={score.complainStats.onTime} total={score.complainStats.completed} percentage={score.complainStats.completed > 0 ? Math.round((score.complainStats.onTime / score.complainStats.completed) * 100) : 0} />
+                                                                            </div>
+                                                                        </section>
+
+                                                                        <section className="cursor-pointer group/sec hover:bg-gray-50 dark:hover:bg-gray-700/30 p-1.5 -mx-1.5 rounded-xl transition-colors" onClick={() => handleOpenModal('purchase', score.purchaseStats.items, score.user.username)}>
+                                                                            <h4 className="text-[9px] font-bold text-gray-900 dark:text-white uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                                                                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+                                                                                Purchase FMS
+                                                                            </h4>
+                                                                            <div className="space-y-0.5">
+                                                                                <ScoreRow formulaLabel="Completed / Total" completed={score.purchaseStats.completed} total={score.purchaseStats.total} percentage={score.purchaseStats.total > 0 ? Math.round((score.purchaseStats.completed / score.purchaseStats.total) * 100) : 0} />
+                                                                                <ScoreRow formulaLabel="On Time / Completed" completed={score.purchaseStats.onTime} total={score.purchaseStats.completed} percentage={score.purchaseStats.completed > 0 ? Math.round((score.purchaseStats.onTime / score.purchaseStats.completed) * 100) : 0} />
+                                                                            </div>
+                                                                        </section>
+
+                                                                        <section className="cursor-pointer group/sec hover:bg-gray-50 dark:hover:bg-gray-700/30 p-1.5 -mx-1.5 rounded-xl transition-colors" onClick={() => handleOpenModal('factory', score.factoryStats.items, score.user.username)}>
+                                                                            <h4 className="text-[9px] font-bold text-gray-900 dark:text-white uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                                                                                <span className="w-1.5 h-1.5 rounded-full bg-pink-500"></span>
+                                                                                Factory Req.
+                                                                            </h4>
+                                                                            <div className="space-y-0.5">
+                                                                                <ScoreRow formulaLabel="Completed / Total" completed={score.factoryStats.completed} total={score.factoryStats.total} percentage={score.factoryStats.total > 0 ? Math.round((score.factoryStats.completed / score.factoryStats.total) * 100) : 0} />
+                                                                                <ScoreRow formulaLabel="On Time / Completed" completed={score.factoryStats.onTime} total={score.factoryStats.completed} percentage={score.factoryStats.completed > 0 ? Math.round((score.factoryStats.onTime / score.factoryStats.completed) * 100) : 0} />
+                                                                            </div>
+                                                                        </section>
+
+                                                                        <section className="cursor-pointer group/sec hover:bg-gray-50 dark:hover:bg-gray-700/30 p-1.5 -mx-1.5 rounded-xl transition-colors" onClick={() => handleOpenModal('jobwork', score.jobWorkStats.items, score.user.username)}>
+                                                                            <h4 className="text-[9px] font-bold text-gray-900 dark:text-white uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                                                                                <span className="w-1.5 h-1.5 rounded-full bg-teal-500"></span>
+                                                                                Job Work
+                                                                            </h4>
+                                                                            <div className="space-y-0.5">
+                                                                                <ScoreRow formulaLabel="Completed / Total" completed={score.jobWorkStats.completed} total={score.jobWorkStats.total} percentage={score.jobWorkStats.total > 0 ? Math.round((score.jobWorkStats.completed / score.jobWorkStats.total) * 100) : 0} />
+                                                                                <ScoreRow formulaLabel="On Time / Completed" completed={score.jobWorkStats.onTime} total={score.jobWorkStats.completed} percentage={score.jobWorkStats.completed > 0 ? Math.round((score.jobWorkStats.onTime / score.jobWorkStats.completed) * 100) : 0} />
+                                                                            </div>
+                                                                        </section>
+
+                                                                        <section className="cursor-pointer group/sec hover:bg-gray-50 dark:hover:bg-gray-700/30 p-1.5 -mx-1.5 rounded-xl transition-colors" onClick={() => handleOpenModal('rmdefect', score.rmDefectStats.items, score.user.username)}>
+                                                                            <h4 className="text-[9px] font-bold text-gray-900 dark:text-white uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                                                                                <span className="w-1.5 h-1.5 rounded-full bg-gray-500"></span>
+                                                                                RM Defect
+                                                                            </h4>
+                                                                            <div className="space-y-0.5">
+                                                                                <ScoreRow formulaLabel="Completed / Total" completed={score.rmDefectStats.completed} total={score.rmDefectStats.total} percentage={score.rmDefectStats.total > 0 ? Math.round((score.rmDefectStats.completed / score.rmDefectStats.total) * 100) : 0} />
+                                                                                <ScoreRow formulaLabel="On Time / Completed" completed={score.rmDefectStats.onTime} total={score.rmDefectStats.completed} percentage={score.rmDefectStats.completed > 0 ? Math.round((score.rmDefectStats.onTime / score.rmDefectStats.completed) * 100) : 0} />
+                                                                            </div>
+                                                                        </section>
                                                                     </motion.div>
                                                                 )}
                                                             </AnimatePresence>
@@ -855,169 +1111,16 @@ export default function ScorePage() {
                                                                     </tr>
                                                                     {isExpanded && (
                                                                         <>
-                                                                            {/* Delegations Breakdown Row */}
-                                                                            {(() => {
-                                                                                const delPercentage = score.delegationStats.total > 0 ? Math.round((score.delegationStats.completed / score.delegationStats.total) * 100) : 0;
-                                                                                const delOnTimePercentage = score.delegationStats.completed > 0 ? Math.round((score.delegationStats.onTime / score.delegationStats.completed) * 100) : 0;
-                                                                                return (
-                                                                                    <tr>
-                                                                                        <td className="px-6 py-3 pl-10 bg-gray-50 dark:bg-gray-800/60 rounded-l-xl border-l-[4px] border-l-orange-400">
-                                                                                            <div className="flex items-center gap-2">
-                                                                                                <span className="text-gray-300 text-lg">↳</span>
-                                                                                                <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">Delegations</span>
-                                                                                            </div>
-                                                                                        </td>
-                                                                                        <td className="px-6 py-3 bg-gray-50 dark:bg-gray-800/60">
-                                                                                            <div className="flex items-center gap-1.5 opacity-90">
-                                                                                                <span className="text-xs font-bold text-gray-600 dark:text-gray-300">{score.delegationStats.completed}</span>
-                                                                                                <span className="text-gray-400">/</span>
-                                                                                                <span className="text-xs font-medium text-gray-400">{score.delegationStats.total}</span>
-                                                                                            </div>
-                                                                                        </td>
-                                                                                        <td className="px-6 py-3 text-center bg-gray-50 dark:bg-gray-800/60">
-                                                                                            <span className={`text-xs font-bold ${getColorForScore(delPercentage)}`}>{delPercentage}%</span>
-                                                                                        </td>
-                                                                                        <td className="px-6 py-3 bg-gray-50 dark:bg-gray-800/60">
-                                                                                            <div className="flex items-center gap-1.5 opacity-90">
-                                                                                                <span className="text-xs font-bold text-gray-600 dark:text-gray-300">{score.delegationStats.onTime}</span>
-                                                                                                <span className="text-gray-400">/</span>
-                                                                                                <span className="text-xs font-medium text-gray-400">{score.delegationStats.completed}</span>
-                                                                                            </div>
-                                                                                        </td>
-                                                                                        <td className="px-6 py-3 text-center bg-gray-50 dark:bg-gray-800/60">
-                                                                                            <span className={`text-xs font-bold ${getColorForScore(delOnTimePercentage)}`}>{delOnTimePercentage}%</span>
-                                                                                        </td>
-                                                                                        <td className="px-6 py-3 text-center bg-gray-50 dark:bg-gray-800/60">
-                                                                                            <span className={`text-xs font-bold ${getColorForScore(Math.round((delPercentage + delOnTimePercentage) / 2))}`}>{Math.round((delPercentage + delOnTimePercentage) / 2)}%</span>
-                                                                                        </td>
-                                                                                        <td className="px-6 py-3 text-right bg-gray-50 dark:bg-gray-800/60 rounded-r-xl">
-                                                                                            <div className="flex items-center justify-end">
-                                                                                                <button
-                                                                                                    onClick={(e) => { e.stopPropagation(); handleOpenModal('delegation', score.delegationStats.items, score.user.username); }}
-                                                                                                    className="p-1.5 rounded-md hover:bg-white dark:hover:bg-gray-700 text-gray-400 hover:text-orange-500 transition-colors shadow-sm"
-                                                                                                    title="View Details"
-                                                                                                >
-                                                                                                    <span className="text-[10px] font-medium pr-1">View</span>
-                                                                                                    <svg className="w-3 h-3 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                                                                                    </svg>
-                                                                                                </button>
-                                                                                            </div>
-                                                                                        </td>
-                                                                                    </tr>
-                                                                                );
-                                                                            })()}
-
-                                                                            {/* Checklists Breakdown Row */}
-                                                                            {(() => {
-                                                                                const chklPercentage = score.checklistStats.total > 0 ? Math.round((score.checklistStats.completed / score.checklistStats.total) * 100) : 0;
-                                                                                const chklOnTimePercentage = score.checklistStats.completed > 0 ? Math.round((score.checklistStats.onTime / score.checklistStats.completed) * 100) : 0;
-                                                                                return (
-                                                                                    <tr>
-                                                                                        <td className="px-6 py-3 pl-10 bg-gray-50 dark:bg-gray-800/60 rounded-l-xl border-l-[4px] border-l-green-400">
-                                                                                            <div className="flex items-center gap-2">
-                                                                                                <span className="text-gray-300 text-lg">↳</span>
-                                                                                                <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">Checklists</span>
-                                                                                            </div>
-                                                                                        </td>
-                                                                                        <td className="px-6 py-3 bg-gray-50 dark:bg-gray-800/60">
-                                                                                            <div className="flex items-center gap-1.5 opacity-90">
-                                                                                                <span className="text-xs font-bold text-gray-600 dark:text-gray-300">{score.checklistStats.completed}</span>
-                                                                                                <span className="text-gray-400">/</span>
-                                                                                                <span className="text-xs font-medium text-gray-400">{score.checklistStats.total}</span>
-                                                                                            </div>
-                                                                                        </td>
-                                                                                        <td className="px-6 py-3 text-center bg-gray-50 dark:bg-gray-800/60">
-                                                                                            <span className={`text-xs font-bold ${getColorForScore(chklPercentage)}`}>{chklPercentage}%</span>
-                                                                                        </td>
-                                                                                        <td className="px-6 py-3 bg-gray-50 dark:bg-gray-800/60">
-                                                                                            <div className="flex items-center gap-1.5 opacity-90">
-                                                                                                <span className="text-xs font-bold text-gray-600 dark:text-gray-300">{score.checklistStats.onTime}</span>
-                                                                                                <span className="text-gray-400">/</span>
-                                                                                                <span className="text-xs font-medium text-gray-400">{score.checklistStats.completed}</span>
-                                                                                            </div>
-                                                                                        </td>
-                                                                                        <td className="px-6 py-3 text-center bg-gray-50 dark:bg-gray-800/60">
-                                                                                            <span className={`text-xs font-bold ${getColorForScore(chklOnTimePercentage)}`}>{chklOnTimePercentage}%</span>
-                                                                                        </td>
-                                                                                        <td className="px-6 py-3 text-center bg-gray-50 dark:bg-gray-800/60">
-                                                                                            <span className={`text-xs font-bold ${getColorForScore(Math.round((chklPercentage + chklOnTimePercentage) / 2))}`}>{Math.round((chklPercentage + chklOnTimePercentage) / 2)}%</span>
-                                                                                        </td>
-                                                                                        <td className="px-6 py-3 text-right bg-gray-50 dark:bg-gray-800/60 rounded-r-xl">
-                                                                                            <div className="flex items-center justify-end">
-                                                                                                <button
-                                                                                                    onClick={(e) => { e.stopPropagation(); handleOpenModal('checklist', score.checklistStats.items, score.user.username); }}
-                                                                                                    className="p-1.5 rounded-md hover:bg-white dark:hover:bg-gray-700 text-gray-400 hover:text-green-500 transition-colors shadow-sm"
-                                                                                                    title="View Details"
-                                                                                                >
-                                                                                                    <span className="text-[10px] font-medium pr-1">View</span>
-                                                                                                    <svg className="w-3 h-3 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                                                                                    </svg>
-                                                                                                </button>
-                                                                                            </div>
-                                                                                        </td>
-                                                                                    </tr>
-                                                                                );
-                                                                            })()}
-
-                                                                            {/* O2D Breakdown Row */}
-                                                                            {(() => {
-                                                                                const o2dPercentage = score.o2dStats.total > 0 ? Math.round((score.o2dStats.completed / score.o2dStats.total) * 100) : 0;
-                                                                                const o2dOnTimePercentage = score.o2dStats.completed > 0 ? Math.round((score.o2dStats.onTime / score.o2dStats.completed) * 100) : 0;
-                                                                                return (
-                                                                                    <tr>
-                                                                                        <td className="px-6 py-3 pl-10 bg-gray-50 dark:bg-gray-800/60 rounded-l-xl border-l-[4px] border-l-blue-400">
-                                                                                            <div className="flex items-center gap-2">
-                                                                                                <span className="text-gray-300 text-lg">↳</span>
-                                                                                                <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">O2D Tasks</span>
-                                                                                            </div>
-                                                                                        </td>
-                                                                                        <td className="px-6 py-3 bg-gray-50 dark:bg-gray-800/60">
-                                                                                            <div className="flex items-center gap-1.5 opacity-90">
-                                                                                                <span className="text-xs font-bold text-gray-600 dark:text-gray-300">{score.o2dStats.completed}</span>
-                                                                                                <span className="text-gray-400">/</span>
-                                                                                                <span className="text-xs font-medium text-gray-400">{score.o2dStats.total}</span>
-                                                                                            </div>
-                                                                                        </td>
-                                                                                        <td className="px-6 py-3 text-center bg-gray-50 dark:bg-gray-800/60">
-                                                                                            <span className={`text-xs font-bold ${getColorForScore(o2dPercentage)}`}>{o2dPercentage}%</span>
-                                                                                        </td>
-                                                                                        <td className="px-6 py-3 bg-gray-50 dark:bg-gray-800/60">
-                                                                                            <div className="flex items-center gap-1.5 opacity-90">
-                                                                                                <span className="text-xs font-bold text-gray-600 dark:text-gray-300">{score.o2dStats.onTime}</span>
-                                                                                                <span className="text-gray-400">/</span>
-                                                                                                <span className="text-xs font-medium text-gray-400">{score.o2dStats.completed}</span>
-                                                                                            </div>
-                                                                                        </td>
-                                                                                        <td className="px-6 py-3 text-center bg-gray-50 dark:bg-gray-800/60">
-                                                                                            <span className={`text-xs font-bold ${getColorForScore(o2dOnTimePercentage)}`}>{o2dOnTimePercentage}%</span>
-                                                                                        </td>
-                                                                                        <td className="px-6 py-3 text-center bg-gray-50 dark:bg-gray-800/60">
-                                                                                            <span className={`text-xs font-bold ${getColorForScore(Math.round((o2dPercentage + o2dOnTimePercentage) / 2))}`}>{Math.round((o2dPercentage + o2dOnTimePercentage) / 2)}%</span>
-                                                                                        </td>
-                                                                                        <td className="px-6 py-3 text-right bg-gray-50 dark:bg-gray-800/60 rounded-r-xl">
-                                                                                            <div className="flex items-center justify-end">
-                                                                                                <button
-                                                                                                    onClick={(e) => { e.stopPropagation(); handleOpenModal('o2d', score.o2dStats.items, score.user.username); }}
-                                                                                                    className="p-1.5 rounded-md hover:bg-white dark:hover:bg-gray-700 text-gray-400 hover:text-blue-500 transition-colors shadow-sm"
-                                                                                                    title="View Details"
-                                                                                                >
-                                                                                                    <span className="text-[10px] font-medium pr-1">View</span>
-                                                                                                    <svg className="w-3 h-3 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                                                                                    </svg>
-                                                                                                </button>
-                                                                                            </div>
-                                                                                        </td>
-                                                                                    </tr>
-                                                                                );
-                                                                            })()}
-                                                                            {/* Add a transparent spacer row for better separation */}
-                                                                            <tr className="h-1 bg-transparent"></tr>
+                                                                            <FmsTableBreakdownRow label="Delegations" stats={score.delegationStats} colorClass="border-l-orange-400" onClick={() => handleOpenModal('delegation', score.delegationStats.items, score.user.username)} />
+                                                                            <FmsTableBreakdownRow label="Checklists" stats={score.checklistStats} colorClass="border-l-green-400" onClick={() => handleOpenModal('checklist', score.checklistStats.items, score.user.username)} />
+                                                                            <FmsTableBreakdownRow label="O2D Tasks" stats={score.o2dStats} colorClass="border-l-blue-400" onClick={() => handleOpenModal('o2d', score.o2dStats.items, score.user.username)} />
+                                                                            <FmsTableBreakdownRow label="CRM Tasks" stats={score.crmStats} colorClass="border-l-purple-400" onClick={() => handleOpenModal('crm', score.crmStats.items, score.user.username)} />
+                                                                            <FmsTableBreakdownRow label="Complain Tasks" stats={score.complainStats} colorClass="border-l-red-400" onClick={() => handleOpenModal('complain', score.complainStats.items, score.user.username)} />
+                                                                            <FmsTableBreakdownRow label="Purchase FMS" stats={score.purchaseStats} colorClass="border-l-indigo-400" onClick={() => handleOpenModal('purchase', score.purchaseStats.items, score.user.username)} />
+                                                                            <FmsTableBreakdownRow label="Factory Req." stats={score.factoryStats} colorClass="border-l-pink-400" onClick={() => handleOpenModal('factory', score.factoryStats.items, score.user.username)} />
+                                                                            <FmsTableBreakdownRow label="Job Work" stats={score.jobWorkStats} colorClass="border-l-teal-400" onClick={() => handleOpenModal('jobwork', score.jobWorkStats.items, score.user.username)} />
+                                                                            <FmsTableBreakdownRow label="RM Defect" stats={score.rmDefectStats} colorClass="border-l-gray-400" onClick={() => handleOpenModal('rmdefect', score.rmDefectStats.items, score.user.username)} />
+                                                                            <tr className="h-2 bg-transparent"></tr>
                                                                         </>
                                                                     )}
                                                                 </Fragment>
@@ -1097,7 +1200,7 @@ export default function ScorePage() {
                             </div>
                         </motion.div>
                     )}
-                </AnimatePresence>
+                </AnimatePresence >
 
                 <TaskDetailModal
                     isOpen={modalConfig.isOpen}
@@ -1107,19 +1210,21 @@ export default function ScorePage() {
                     type={modalConfig.type}
                 />
 
-                {searchQuery.toLowerCase() === 'debug' && (
-                    <div className="mt-8 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg overflow-auto max-h-96 text-xs font-mono">
-                        <h3 className="font-bold mb-2">Debug Info</h3>
-                        <p>Total Users: {users.length}</p>
-                        <p>Total O2D Orders: {allO2DOrders.length}</p>
-                        <p>O2D Config Steps: {o2dConfig.length}</p>
-                        <pre>{JSON.stringify(o2dConfig, null, 2)}</pre>
-                        <hr className="my-2" />
-                        <p>First 1 Orders Sample:</p>
-                        <pre>{JSON.stringify(allO2DOrders.slice(0, 1), null, 2)}</pre>
-                    </div>
-                )}
-            </div>
-        </LayoutWrapper>
+                {
+                    searchQuery.toLowerCase() === 'debug' && (
+                        <div className="mt-8 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg overflow-auto max-h-96 text-xs font-mono">
+                            <h3 className="font-bold mb-2">Debug Info</h3>
+                            <p>Total Users: {users.length}</p>
+                            <p>Total O2D Orders: {allO2DOrders.length}</p>
+                            <p>O2D Config Steps: {o2dConfig.length}</p>
+                            <pre>{JSON.stringify(o2dConfig, null, 2)}</pre>
+                            <hr className="my-2" />
+                            <p>First 1 Orders Sample:</p>
+                            <pre>{JSON.stringify(allO2DOrders.slice(0, 1), null, 2)}</pre>
+                        </div>
+                    )
+                }
+            </div >
+        </LayoutWrapper >
     );
 }
