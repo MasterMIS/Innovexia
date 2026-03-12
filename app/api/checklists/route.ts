@@ -332,11 +332,9 @@ export async function POST(request: NextRequest) {
 
     // For each doer, create checklists for all dates with a unique group_id
     for (const doer of doersArray) {
-      // Generate unique group_id for each doer (timestamp + random string + doer identifier)
-      const groupId = `GRP-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-      console.log(`Generated group_id: ${groupId} for ${dates.length} checklists for doer: ${doer}`);
-
       const checklistsData = dates.map(dueDate => {
+        // Generate unique group_id for each row (doer + date combination)
+        const groupId = `GRP-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
         const status = calculateStatus(dueDate.toISOString());
 
         return {

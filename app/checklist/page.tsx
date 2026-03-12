@@ -3133,14 +3133,15 @@ function ChecklistContent() {
                                 const today = new Date();
                                 today.setHours(0, 0, 0, 0);
                                 const isPastDate = currentDate < today;
+                                const isSunday = currentDate.getDay() === 0;
 
                                 return (
                                   <button
                                     key={day}
                                     type="button"
-                                    disabled={isPastDate}
+                                    disabled={isPastDate || isSunday}
                                     onClick={() => {
-                                      if (isPastDate) return;
+                                      if (isPastDate || isSunday) return;
 
                                       if (isMultiSelect) {
                                         // Multi-date selection for monthly/quarterly/yearly
@@ -3158,7 +3159,7 @@ function ChecklistContent() {
                                         setSelectedDate(newDate);
                                       }
                                     }}
-                                    className={`p-2 text-sm rounded-lg transition ${isPastDate
+                                    className={`p-2 text-sm rounded-lg transition ${isPastDate || isSunday
                                       ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed opacity-40'
                                       : isSelected
                                         ? 'bg-[var(--theme-primary)] text-gray-900 font-bold'

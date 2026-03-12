@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect, useMemo, Fragment } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -373,7 +373,12 @@ export default function PurchaseFMSPage() {
                 if (step === 2 && order.Lead_Time_2) {
                     // Step 3 planned time is based on Lead_Time_2 from Step 2
                     const leadTimeDays = parseInt(String(order.Lead_Time_2)) || 0;
-                    nextPlanned = getNextPlannedTime(currentTime, leadTimeDays, "days");
+                    if (leadTimeDays > 0) {
+                        nextPlanned = getNextPlannedTime(currentTime, leadTimeDays, "days");
+                    } else {
+                        const nextConfig = stepConfigs.find(c => c.step === nextStep);
+                        nextPlanned = getNextPlannedTime(currentTime, nextConfig?.tatValue || 1, nextConfig?.tatUnit || "hours");
+                    }
                 } else {
                     const nextConfig = stepConfigs.find(c => c.step === nextStep);
                     nextPlanned = getNextPlannedTime(currentTime, nextConfig?.tatValue || 1, nextConfig?.tatUnit || "hours");
@@ -446,7 +451,12 @@ export default function PurchaseFMSPage() {
                         const leadTime = rowUpdate.Lead_Time_2 || editingOrder.Lead_Time_2;
                         if (currentStep === 2 && leadTime) {
                             const leadTimeDays = parseInt(String(leadTime)) || 0;
-                            nextPlanned = getNextPlannedTime(currentTime, leadTimeDays, "days");
+                            if (leadTimeDays > 0) {
+                                nextPlanned = getNextPlannedTime(currentTime, leadTimeDays, "days");
+                            } else {
+                                const nextConfig = stepConfigs.find(c => c.step === nextStep);
+                                nextPlanned = getNextPlannedTime(currentTime, nextConfig?.tatValue || 1, nextConfig?.tatUnit || "hours");
+                            }
                         } else {
                             const nextConfig = stepConfigs.find(c => c.step === nextStep);
                             nextPlanned = getNextPlannedTime(currentTime, nextConfig?.tatValue || 1, nextConfig?.tatUnit || "hours");
